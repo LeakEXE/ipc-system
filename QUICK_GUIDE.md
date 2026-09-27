@@ -1,4 +1,4 @@
-# 🎓 IPC School System - Quick Reference Guide
+# 🎓 Website IPC Bali Mandara - Quick Reference Guide
 
 ## 📋 Table of Contents
 1. [System Requirements](#system-requirements)
@@ -60,7 +60,9 @@ npm run db:setup
 cd backend
 npm install
 copy .env.example .env
-# Edit .env: Set DB_PASSWORD and JWT_SECRET
+# Edit .env: DB_PASSWORD, JWT_SECRET, dan SUPERADMIN_SETUP_PASSWORD
+# (lihat backend/.env.example untuk daftar lengkap)
+npm run db:setup   # bila database ipc_school belum ada
 npm start
 ```
 
@@ -73,7 +75,8 @@ npm start
 
 ### 5. Access Application
 - URL: http://localhost:3000
-- Login: ADMIN001 / admin123
+- Login pertama: ADMIN001 + nilai `SUPERADMIN_SETUP_PASSWORD` dari `.env`
+  (password otomatis di-hash; segera ganti lewat Profile lalu hapus variabel itu)
 
 ---
 
@@ -81,7 +84,7 @@ npm start
 
 ### 🔴 Superadmin (Full Access)
 ```
-Login: ADMIN001 / admin123
+Login: ADMIN001 / (setup password pertama, lalu password sendiri)
 ├── Kelola Akun (CRUD all users)
 ├── Wali Kelas Management
 ├── Approvals V2 (All approvals)
@@ -91,28 +94,30 @@ Login: ADMIN001 / admin123
 └── Profile Settings
 ```
 
-### 🔵 Guru/Pembina (Input & Approval)
+### 🔵 Guru (Input Data)
 ```
-Login: NIP / (set by superadmin)
-├── Kelola Siswa (Manage students)
+Login: NIP / (dibuat superadmin)
+├── Dashboard (Statistik & Peringkat)
 ├── Input Prestasi (Achievements)
 ├── Input Organisasi (Organizations)
-├── Input Event (Events)
-├── Input Pelanggaran (Violations)
-├── Input Perilaku (Behavior)
-├── Pembina Approvals
-├── Wali Kelas Panel
-└── Reports
+├── Input Kepanitiaan (Committee)
+├── Input Event (School events)
+├── Input Pelanggaran (Violations, bila diberi izin)
+├── Input Perilaku (Behavior, bila diberi izin)
+├── Notifikasi (Status pengajuan)
+├── Wali Kelas Panel (bila ditunjuk)
+├── Laporan & Cetak (bila wali kelas)
+└── Profile
 ```
 
 ### 🟢 Siswa (View Only)
 ```
-Login: NIS/NISN / (set by guru)
-├── View IPC Score
-├── Leaderboard
-├── History
+Login: NIS / (dibuat superadmin)
+├── Dashboard (Skor IPC sendiri)
+├── Peringkat (Top 20 per kategori)
+├── Riwayat IPC
 ├── Notifications
-└── Profile (request updates)
+└── Profile (biodata, foto, edit terbatas)
 ```
 
 ---
@@ -124,20 +129,22 @@ Login: NIS/NISN / (set by guru)
 | Create Users | ✅ | ❌ | ❌ |
 | Delete Users | ✅ | ❌ | ❌ |
 | Manage Permissions | ✅ | ❌ | ❌ |
-| Input Prestasi | ✅ | ✅ | ❌ |
-| Input Organisasi | ✅ | ✅ | ❌ |
-| Input Event | ✅ | ✅ | ❌ |
-| Input Pelanggaran | ✅ | ✅ | ❌ |
-| Input Perilaku | ✅ | ✅ | ❌ |
-| Approve Data | ✅ | ✅* | ❌ |
-| View All IPC | ✅ | ✅** | ❌ |
+| Input Prestasi | ✅ | ✅* | ❌ |
+| Input Organisasi | ✅ | ✅* | ❌ |
+| Input Kepanitiaan | ✅ | ✅* | ❌ |
+| Input Event | ✅ | ✅* | ❌ |
+| Input Pelanggaran | ✅ | ✅* | ❌ |
+| Input Perilaku | ✅ | ✅* | ❌ |
+| Approve Data | ✅ | ❌ | ❌ |
+| Lihat Peringkat | ✅ | ✅ | ✅ |
 | View Own IPC | ✅ | ✅ | ✅ |
-| Request Update | ✅ | ✅ | ✅ |
-| Export Reports | ✅ | ✅ | ❌ |
+| Edit Profil Terbatas | ✅ | ✅ | ✅ |
+| Export Reports | ✅ | ✅** | ❌ |
 | View Logs | ✅ | ❌ | ❌ |
 
-\* Guru: Pembina level only
-\*\* Guru: Own students only
+\* Guru: hanya bila diberi izin superadmin (menu Izin Akun)
+
+\*\* Guru: hanya bila menjadi wali kelas
 
 ---
 
@@ -270,44 +277,38 @@ Login: NIS/NISN / (set by guru)
 ```
                     ┌──────────────┐
                     │  Data Input  │
+                    │ (Guru/Siswa) │
                     └──────┬───────┘
                            │
                            ▼
                     ┌──────────────┐
                     │   PENDING    │
+                    │ (menunggu    │
+                    │  superadmin) │
                     └──────┬───────┘
                            │
-              ┌────────────┴────────────┐
-              │                         │
-              ▼                         ▼
-    ┌──────────────────┐    ┌──────────────────┐
-    │  Level 1:        │    │  Level 2:        │
-    │  Pembina/Guru    │    │  Superadmin      │
-    │  Review          │    │  Final Review    │
-    └────────┬─────────┘    └────────┬─────────┘
-             │                     │
-    ┌────────┴────────┐   ┌──────┴──────┐
-    ▼        ▼          ▼   ▼             ▼
-┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
-│ Approve│ │Reject│ │Review│ │Approve│ │Reject│
-└───┬───┘ └───┬──┘ └───┬──┘ └───┬──┘ └───┬──┘
-    │         │        │        │        │
-    ▼         ▼        │        ▼        ▼
-┌──────┐ ┌──────┐     │   ┌──────┐ ┌──────┐
-│Pembina│ │Notify│     │   │Apply │ │Notify│
-│Approved│ │User  │     │   │Change│ │User  │
-└───┬───┘ └──────┘     │   └───┬──┘ └──────┘
-    │                  │       │
-    │                  └───────┘
-    │                          │
-    └──────────────┬───────────┘
-                   │
-                   ▼
-            ┌──────────────┐
-            │   APPROVED   │
-            │   or         │
-            │   REJECTED   │
-            └──────────────┘
+                           ▼
+                 ┌──────────────────┐
+                 │   Superadmin     │
+                 │   (menu          │
+                 │   Approvals)     │
+                 └────────┬─────────┘
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+              ▼                       ▼
+     ┌────────────────┐    ┌────────────────┐
+     │  APPROVED      │    │  REJECTED      │
+     │  IPC terupdate │    │  (wajib alasan)│
+     └────────┬───────┘    └────────┬───────┘
+              │                     │
+              ▼                     ▼
+     ┌────────────────┐    ┌────────────────┐
+     │ Notifikasi     │    │ Notifikasi     │
+     │ sukses ke user │    │ + alasan       │
+     └────────────────┘    └────────────────┘
+
+Catatan: input langsung superadmin otomatis approved tanpa antrean.
 ```
 
 ---
@@ -383,9 +384,9 @@ Error: ERR_BLOCKED_BY_RESPONSE
 ### Default Credentials
 | Role | Username | Password |
 |------|----------|----------|
-| Superadmin | ADMIN001 | admin123 |
-| Guru | (NIP) | (set by superadmin) |
-| Siswa | (NIS) | (set by guru) |
+| Superadmin | ADMIN001 | `SUPERADMIN_SETUP_PASSWORD` (login pertama saja) |
+| Guru | (NIP) | (dibuat superadmin) |
+| Siswa | (NIS) | (dibuat superadmin) |
 
 ---
 
@@ -427,9 +428,9 @@ tail -f logs/activity.log
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: May 8, 2026  
-**System**: IPC School System v1.0
+**Version**: 2.0  
+**Last Updated**: September 27, 2026  
+**System**: Website IPC Bali Mandara v0.2
 
 ---
 

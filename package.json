@@ -1,6 +1,6 @@
 {
   "name": "ipc-system",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "Consolidated IPC School System - Single Node.js/Express instance serving React frontend and API",
   "license": "UNLICENSED",
   "private": true,

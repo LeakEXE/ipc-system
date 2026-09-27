@@ -1,9 +1,9 @@
 ================================================================================
-IPC SCHOOL SYSTEM - DOKUMENTASI & FLOWCHART
+WEBSITE IPC BALI MANDARA - DOKUMENTASI & FLOWCHART
 ================================================================================
 
-Dibuat: 8 Mei 2026
-Sistem: IPC School System v1.0
+Dibuat: 8 Mei 2026 — direvisi 27 September 2026
+Sistem: Website IPC Bali Mandara v0.2
 Deskripsi: Sistem Individual Point Card Siswa
 
 ================================================================================
@@ -140,11 +140,11 @@ Hardware Recommended:
 AKUN DEFAULT
 ================================================================================
 
-Role          Username      Password    Akses
-------------- ------------- ----------- ------------------------
-Superadmin    ADMIN001      admin123    Full system access
-Guru          (NIP)         (diatur)    Input data, approvals
-Siswa         (NIS/NISN)    (diatur)    View only
+Role          Username      Password                                      Akses
+------------- ------------- --------------------------------------------- ------------------------
+Superadmin    ADMIN001      SUPERADMIN_SETUP_PASSWORD (login pertama)     Full system access
+Guru          (NIP)         (dibuat superadmin)                           Input data sesuai izin
+Siswa         (NIS)         (dibuat superadmin)                           View only
 
 ================================================================================
 INSTALLASI CEPAT
@@ -169,7 +169,7 @@ npm install
 npm start
 
 Akses: http://localhost:3000
-Login: ADMIN001 / admin123
+Login pertama: ADMIN001 + SUPERADMIN_SETUP_PASSWORD (lihat backend/.env.example)
 
 ================================================================================
 MENU & FITUR PER ROLE
@@ -185,23 +185,20 @@ SUPERADMIN:
 ✓ Profile
 
 GURU:
-✓ Kelola Siswa (Manage students in class)
-✓ Input Prestasi (Student achievements)
-✓ Input Organisasi (Organizations)
-✓ Input Event (School events)
-✓ Input Pelanggaran (Violations)
-✓ Input Perilaku (Behavior points)
-✓ Pembina Approvals (Review submissions)
-✓ Wali Kelas Panel (If assigned)
-✓ Laporan Cetak
+✓ Dashboard (statistik & peringkat)
+✓ Input Prestasi/Organisasi/Kepanitiaan/Event
+✓ Input Pelanggaran/Perilaku (bila diberi izin superadmin)
+✓ Wali Kelas Panel (bila ditunjuk)
+✓ Laporan & Cetak (bila wali kelas)
+✓ Notifikasi
 ✓ Profile
 
 SISWA:
 ✓ Dashboard (View IPC score)
-✓ Leaderboard (Academic/Non-academic)
+✓ Peringkat (Top 20 per kategori + podium)
 ✓ History (IPC change history)
 ✓ Notifications
-✓ Profile (Request updates, pending approval)
+✓ Profile (biodata, foto, edit terbatas)
 
 ================================================================================
 SKEMA DATABASE
@@ -234,14 +231,16 @@ ALUR KERJA SISTEM
    Select input type -> Select student -> Fill form -> Upload bukti
    -> Submit -> Pending -> Approval -> IPC update
 
-3. APPROVAL FLOW:
-   Pending -> Pembina review -> (Approve/Reject/Review)
-   -> If approved -> Superadmin review -> (Final Approve/Reject)
+3. APPROVAL FLOW (satu tingkat — superadmin saja):
+   Pending -> Superadmin review (menu Approvals) -> (Approve/Reject + alasan)
    -> Apply changes -> Update IPC -> Log history -> Notify user
+   Input langsung superadmin otomatis approved tanpa antrean.
 
 4. IPC CALCULATION:
-   Base: 80 -> Add/subtract points -> Range check (0-100)
-   -> Save to DB -> Create history -> Update leaderboard
+   Base: 80 -> Add/subtract points -> Save to DB
+   -> Create history -> Update leaderboard
+   (Tidak ada batas 0-100; nilai boleh negatif. Batas minimum per
+   tingkat X/XI/XII diatur di Konfigurasi IPC.)
 
 ================================================================================
 SECURITY FEATURES
@@ -284,8 +283,8 @@ CATATAN
 KONTAK & SUPPORT
 ================================================================================
 
-System: IPC School System v1.0
-Created: May 8, 2026
+System: Website IPC Bali Mandara v0.2
+Created: May 8, 2026 — revised September 27, 2026
 
 Dokumentasi ini mencakup:
 - System architecture

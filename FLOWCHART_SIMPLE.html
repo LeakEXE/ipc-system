@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPC School System - Flowchart Sederhana</title>
+    <title>Website IPC Bali Mandara - Flowchart Sederhana</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
         * {
@@ -149,7 +149,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎓 IPC School System</h1>
+            <h1>🎓 Website IPC Bali Mandara</h1>
             <p>Flowchart Sederhana - Bahasa Indonesia</p>
         </div>
 
@@ -206,27 +206,28 @@ flowchart TD
 
         <!-- GURU -->
         <div class="role-section role-guru">
-            <h2>👨‍🏫 GURU / PEMBINA</h2>
+            <h2>👨‍🏫 GURU</h2>
             <div class="diagram-container">
                 <pre class="mermaid">
 flowchart TD
     A([Login Guru]) --> B[Dashboard]
     B --> C{Pilih Menu}
     
-    C -->|Kelola Siswa| D[Kelola Siswa]
+    C -->|Dashboard| D[Statistik & Peringkat]
     C -->|Input Prestasi| E[Input Prestasi]
     C -->|Input Organisasi| F[Input Organisasi]
     C -->|Input Event| G[Input Event]
     C -->|Input Pelanggaran| H[Input Pelanggaran]
     C -->|Input Perilaku| I[Input Perilaku]
-    C -->|Approvals| J[Pembina Approvals]
+    C -->|Kepanitiaan| KB[Input Kepanitiaan]
+    C -->|Notifikasi| J[Notifikasi Pengajuan]
     C -->|Wali Kelas| K[Wali Kelas Panel]
     C -->|Laporan| L[Laporan Cetak]
     C -->|Profile| M[Profile]
     
-    D --> D1[Buat Akun Siswa]
-    D --> D2[Edit Data Siswa]
-    D --> D3[Hapus Siswa]
+    D --> D1[Lihat Statistik]
+    D --> D2[Lihat Peringkat]
+    D --> D3[Notifikasi Pengajuan]
     
     E --> E1[Isi Form Prestasi]
     E --> E2[Upload Bukti]
@@ -248,23 +249,24 @@ flowchart TD
     I --> I2[Upload Bukti]
     I --> I3[Submit]
     
-    J --> J1[Review Request]
-    J --> J2[Approve/Reject]
+    J --> J1[Status Pengajuan]
+    J --> J2[Tandai Dibaca]
                 </pre>
             </div>
             
             <div class="features">
                 <h3>📋 Fitur yang Bisa Diakses:</h3>
                 <ul>
-                    <li>Kelola akun siswa (Buat, Edit, Hapus)</li>
+                    <li>Dashboard statistik & peringkat</li>
                     <li>Input data Prestasi (Lomba, Juara, dll)</li>
                     <li>Input data Organisasi (OSIS, Pramuka, dll)</li>
+                    <li>Input data Kepanitiaan</li>
                     <li>Input data Event (Kegiatan sekolah)</li>
-                    <li>Input data Pelanggaran (Poin pengurangan)</li>
-                    <li>Input data Perilaku (Poin penambahan)</li>
-                    <li>Approve/Reject request siswa</li>
+                    <li>Input data Pelanggaran (bila diberi izin)</li>
+                    <li>Input data Perilaku (bila diberi izin)</li>
+                    <li>Notifikasi status pengajuan</li>
                     <li>Panel Wali Kelas (jika di-assign)</li>
-                    <li>Cetak laporan</li>
+                    <li>Cetak laporan (bila wali kelas)</li>
                     <li>Edit profile sendiri</li>
                 </ul>
             </div>
@@ -288,9 +290,9 @@ flowchart TD
     D --> D1[Lihat Skor IPC]
     D --> D2[Lihat Perubahan Terbaru]
     
-    E --> E1[Ranking Akademik]
-    E --> E2[Ranking Non-Akademik]
-    E --> E3[Cari Siswa Lain]
+    E --> E1[Top 20 per Kategori]
+    E --> E2[Podium Top 3]
+    E --> E3[Detail Poin per Siswa]
     
     F --> F1[Lihat Semua Perubahan]
     F --> F2[Filter Berdasarkan Tipe]
@@ -299,13 +301,8 @@ flowchart TD
     G --> G2[Tandai Sudah Dibaca]
     
     H --> H1[Lihat Biodata]
-    H --> H2[Request Update Biodata]
-    H --> H3[Update Foto]
-    H --> H4[Ganti Password]
-    
-    H2 --> H2A[Isi Form Update]
-    H2A --> H2B[Submit ke Pembina]
-    H2B --> H2C[Tunggu Approval]
+    H --> H2[Update Foto]
+    H --> H3[Edit Terbatas]
                 </pre>
             </div>
             
@@ -315,10 +312,8 @@ flowchart TD
                     <li>Lihat skor IPC sendiri (Real-time)</li>
                     <li>Lihat Leaderboard (Ranking siswa)</li>
                     <li>Lihat histori perubahan IPC</li>
-                    <li>Lihat notifikasi (Perubahan IPC, Approval)</li>
-                    <li>Request update biodata (Pending approval)</li>
-                    <li>Update foto profile</li>
-                    <li>Ganti password</li>
+                    <li>Lihat notifikasi (Perubahan IPC, status pengajuan)</li>
+                    <li>Edit profil terbatas (foto, No HP)</li>
                     <li>TIDAK BISA input data (Hanya Guru/Superadmin)</li>
                 </ul>
             </div>
@@ -340,14 +335,10 @@ flowchart TD
     G --> H[Submit]
     
     H --> I[Status: Pending]
-    I --> J{Approval Pembina}
+    I --> J{Superadmin - menu Approvals}
     
-    J -->|Approve| K[Status: Pembina Approved]
-    J -->|Reject| L[Status: Rejected]
-    
-    K --> M{Approval Superadmin}
-    M -->|Approve| N[Status: Approved]
-    M -->|Reject| L
+    J -->|Approve| N[Status: Approved]
+    J -->|Reject + Alasan| L[Status: Rejected]
     
     N --> O[Update IPC Siswa]
     O --> P[Buat Histori]
@@ -363,9 +354,8 @@ flowchart TD
             <div class="features">
                 <h3>📋 Penjelasan Alur:</h3>
                 <ul>
-                    <li>Guru input data siswa → Status Pending</li>
-                    <li>Pembina review → Approve/Reject</li>
-                    <li>Superadmin review final → Approve/Reject</li>
+                    <li>Guru/Siswa input data → Status Pending</li>
+                    <li>Superadmin review (menu Approvals) → Approve/Reject + alasan</li>
                     <li>Jika Approved: IPC siswa di-update</li>
                     <li>Siswa menerima notifikasi perubahan</li>
                     <li>Siswa bisa lihat histori perubahan</li>
