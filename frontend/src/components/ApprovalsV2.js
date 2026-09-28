@@ -5,6 +5,7 @@ import { toTitleCase } from '../utils/perilaku';
 import { formatDisplayText } from '../utils/formatDisplayText';
 import { StatusIcon } from './icons';
 import { Camera, Inbox } from 'lucide-react';
+import { EvidenceViewer, EvidenceFileThumb, isPdfPath } from './EvidenceViewer';
 
 function ApprovalsV2() {
   const PAGE_BG = 'var(--bg-secondary)';
@@ -358,7 +359,7 @@ function ApprovalsV2() {
                   color: MUTED,
                   fontWeight: '700',
                   marginBottom: '2px'
-                }}>Foto</div>
+                }}>Foto / Dokumen</div>
                 <div style={{ fontSize: '13.5px' }}>
                   {getItemPhoto(item, type) ? (
                     <button
@@ -377,7 +378,7 @@ function ApprovalsV2() {
                         gap: '6px'
                       }}
                     >
-                      <Camera size={14} /> Foto Bukti
+                      <Camera size={14} /> Lihat Bukti
                     </button>
                   ) : (
                     <span style={{ color: MUTED }}>-</span>
@@ -760,17 +761,24 @@ function ApprovalsV2() {
                   }}>
                     {getItemPhoto(item, type) ? (
                       <div>
+                        {isPdfPath(getItemPhoto(item, type)) ? (
+                          <EvidenceFileThumb
+                            size={60}
+                            onOpen={() => { setPreviewError(false); setPreviewImage(getItemPhoto(item, type)); }}
+                          />
+                        ) : (
                         <img
                           src={getItemPhoto(item, type)}
-                          alt="Foto Bukti"
+                          alt="Bukti"
                           style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '5px', cursor: 'pointer' }}
                           onClick={() => { setPreviewError(false); setPreviewImage(getItemPhoto(item, type)); }}
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
-                            e.currentTarget.insertAdjacentHTML('afterend', '<span style="color:#6b7280;font-size:12.5px">Foto tidak ditemukan</span>');
+                            e.currentTarget.insertAdjacentHTML('afterend', '<span style="color:#6b7280;font-size:12.5px">Bukti tidak ditemukan</span>');
                           }}
                           title="Klik untuk memperbesar"
                         />
+                        )}
                       </div>
                     ) : (
                       <span style={{ color: MUTED }}>-</span>
@@ -1242,10 +1250,14 @@ function ApprovalsV2() {
               cursor: 'default'
             }}
           >
-            {!previewError ? (
+            {isPdfPath(previewImage) ? (
+              <div style={{ width: 'min(880px, 90vw)' }}>
+                <EvidenceViewer src={previewImage} alt="Bukti" pdfHeight="70vh" />
+              </div>
+            ) : !previewError ? (
               <img
                 src={previewImage}
-                alt="Foto Bukti"
+                alt="Bukti"
                 style={{
                   maxWidth: '100%',
                   maxHeight: '90vh',
@@ -1263,7 +1275,7 @@ function ApprovalsV2() {
                 fontSize: '14px',
                 fontWeight: '600'
               }}>
-                Foto tidak dapat dimuat
+                Bukti tidak dapat dimuat
               </div>
             )}
             <button

@@ -4,6 +4,7 @@ import API_BASE_URL from '../config';
 import { buildEvidenceMap } from '../utils/historyEvidence';
 import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import { formatDisplayText } from '../utils/formatDisplayText';
+import { EvidenceViewer } from './EvidenceViewer';
 import { GraduationCap, BarChart3, Users, User, Settings, Search, Pencil, Lightbulb, CircleCheck, Paperclip, X, History, FileText, TriangleAlert } from 'lucide-react';
 import { CATEGORY_ICONS } from './icons';
 
@@ -842,8 +843,8 @@ function WaliKelas() {
           </div>
           {evidenceImage && (
             <div className="app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1600 }} onClick={() => setEvidenceImage(null)}>
-              <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '85vh' }} onClick={(e) => e.stopPropagation()}>
-                <img src={getImageUrl(evidenceImage)} alt="Bukti" style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,.4)', display: 'block' }} />
+              <div style={{ position: 'relative', maxWidth: '90%', width: 'min(880px, 90vw)', maxHeight: '85vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <EvidenceViewer src={getImageUrl(evidenceImage)} alt="Bukti" pdfHeight="70vh" imgStyle={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,.4)', display: 'block' }} />
                 <button onClick={() => setEvidenceImage(null)} style={{ position: 'absolute', top: '-14px', right: '-14px', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={16} /></button>
               </div>
             </div>

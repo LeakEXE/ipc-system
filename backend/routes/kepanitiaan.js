@@ -3,6 +3,7 @@ const router = express.Router();
 const { auth, superAdminOnly } = require('../middleware/auth');
 const db = require('../config/database');
 const multer = require('multer');
+const { evidenceFileFilter, EVIDENCE_LIMITS } = require('../utils/evidenceUpload');
 const path = require('path');
 const fs = require('fs');
 const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
@@ -18,7 +19,7 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storage, fileFilter: evidenceFileFilter, limits: EVIDENCE_LIMITS });
 const { calculateKepanitiaanPoints } = require('../constants/points');
 const { buildKeterangan } = require('../utils/ipc');
 

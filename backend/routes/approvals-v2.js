@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const { evidenceFileFilter, EVIDENCE_LIMITS } = require('../utils/evidenceUpload');
 const path = require('path');
 const { auth, superAdminOnly, checkInputAccess } = require('../middleware/auth');
 const db = require('../config/database');
@@ -50,7 +51,7 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storage, fileFilter: evidenceFileFilter, limits: EVIDENCE_LIMITS });
 
 // Helper function to save file locally - extracts the DB-relative path from the absolute file path
 const saveFileLocally = (filePath) => {

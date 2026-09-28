@@ -59,6 +59,9 @@ function Leaderboard() {
   const currentData = dataByCategory[activeCategory] || [];
   const categoryLoading = !!loadingMap[activeCategory];
   const title = `Peringkat ${activeLabel}`;
+  // Pelanggaran memakai poin negatif (pengurangan), jadi peringkat 1
+  // adalah total terendah — bukan tertinggi seperti kategori lain.
+  const superlative = activeCategory === 'pelanggaran' ? 'terendah' : 'tertinggi';
   const top3 = currentData.filter((s) => s.rank <= 3).sort((a, b) => a.rank - b.rank);
   const totalPoints = currentData.reduce((sum, s) => sum + (s.total_point || 0), 0);
 
@@ -611,7 +614,7 @@ function Leaderboard() {
             <div className="card podium-card" style={{ marginBottom: '12px' }}>
               <div className="card-head">
                 <h2><Trophy size={16} /> Podium Top 3</h2>
-                <p>{title} — siswa dengan poin tertinggi</p>
+                <p>{title} — siswa dengan poin {superlative}</p>
               </div>
               <div className="podium">
                 {[
@@ -667,7 +670,7 @@ function Leaderboard() {
           <div className="card">
             <div className="card-head">
               <h2 id="cardTitle"><ClipboardList size={16} /> {title}</h2>
-              <p id="cardSub">Top 20 siswa dengan poin {activeLabel} tertinggi yang telah disetujui</p>
+              <p id="cardSub">Top 20 siswa dengan poin {activeLabel} {superlative} yang telah disetujui</p>
             </div>
 
             {/* Desktop table */}

@@ -164,9 +164,11 @@ const securityHeaders = helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       // Allow blob: so client-generated PDF previews (URL.createObjectURL)
-      // can render in <iframe>. frameAncestors stays 'none' (clickjacking).
+      // can render in <iframe>. frameAncestors is 'self' (not 'none') so our
+      // own EvidenceViewer iframes may embed /uploads PDFs — external sites
+      // still cannot frame this app (clickjacking protection intact).
       frameSrc: ["'self'", "blob:"],
-      frameAncestors: ["'none'"],
+      frameAncestors: ["'self'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
     },

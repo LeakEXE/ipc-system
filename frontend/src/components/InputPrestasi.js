@@ -3,6 +3,7 @@ import api from '../utils/api';
 import { formatDisplayText } from '../utils/formatDisplayText';
 import EditModal from './EditModal';
 import useEditModal from '../hooks/useEditModal';
+import { validateEvidenceFile } from '../utils/evidence';
 import API_BASE_URL from '../config';
 import Select from 'react-select';
 import { ClipboardList, ShieldAlert } from 'lucide-react';
@@ -333,7 +334,19 @@ function InputPrestasi() {
   };
 
   const handleFileChange = (e) => {
-    setFoto(e.target.files[0]);
+    const file = e.target.files[0];
+    if (!file) {
+      setFoto(null);
+      return;
+    }
+    const err = validateEvidenceFile(file);
+    if (err) {
+      setMessage(err);
+      setFoto(null);
+      e.target.value = '';
+      return;
+    }
+    setFoto(file);
   };
 
   const handleSubmit = async (e) => {
@@ -625,11 +638,11 @@ function InputPrestasi() {
         </div>
         
         <div className="form-group">
-          <label>Foto Bukti</label>
+          <label>Foto/Dokumen Bukti (JPG, PNG, GIF, WebP, PDF — maks 10MB)</label>
           <input
             type="file"
             onChange={handleFileChange}
-            accept="image/*"
+            accept="image/*,.pdf"
           />
         </div>
 
