@@ -5,6 +5,8 @@ import Select from 'react-select';
 import EditModal from './EditModal';
 import useEditModal from '../hooks/useEditModal';
 import API_BASE_URL from '../config';
+import { StatusIcon } from './icons';
+import { ClipboardList, ShieldAlert } from 'lucide-react';
 
 function InputEvent() {
   const [formData, setFormData] = useState({
@@ -339,24 +341,27 @@ function InputEvent() {
 
   const getStatusBadge = (status) => {
     const styles = {
-      pending: { background: '#ffc107', color: '#333' },
-      approved: { background: '#28a745', color: 'white' },
-      rejected: { background: '#dc3545', color: 'white' }
+      pending: { background: 'var(--warning-color)', color: 'white' },
+      approved: { background: 'var(--success-color)', color: 'white' },
+      rejected: { background: 'var(--danger-color)', color: 'white' }
     };
     const labels = {
-      pending: '⏳ Menunggu',
-      approved: '✅ Disetujui',
-      rejected: '❌ Ditolak'
+      pending: 'Menunggu',
+      approved: 'Disetujui',
+      rejected: 'Ditolak'
     };
     return (
       <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
         padding: '4px 12px',
         borderRadius: '12px',
         fontSize: '12px',
         fontWeight: '500',
         ...styles[status]
       }}>
-        {labels[status] || status}
+        <StatusIcon status={status} /> {labels[status] || status}
       </span>
     );
   };
@@ -368,7 +373,7 @@ function InputEvent() {
   if (!hasAccess) {
     return (
       <div className="card">
-        <h2>🚫 Akses Ditolak</h2>
+        <h2><ShieldAlert size={22} style={{ verticalAlign: '-4px', marginRight: '8px' }} />Akses Ditolak</h2>
         <div className="alert alert-danger" style={{ marginTop: '15px' }}>
           {accessMessage || 'Anda tidak memiliki izin untuk mengakses halaman ini. Silakan hubungi SuperAdmin.'}
         </div>
@@ -396,7 +401,7 @@ function InputEvent() {
       {/* Index Display for Superadmin */}
       {(userRole === 'superadmin' && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Index Event</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Event</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -540,7 +545,7 @@ function InputEvent() {
           <div className="form-group">
             <label>Grha</label>
             <select name="grha" value={formData.grha} disabled required onChange={handleChange}>
-              <option value="">Pilih Grha</option>
+              <option value="" disabled hidden>Pilih Grha</option>
               {grhaOptions.map(grha => (
                 <option key={grha} value={grha}>{grha}</option>
               ))}
@@ -658,7 +663,7 @@ function InputEvent() {
             disabled required
             onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, grha: e.target.value })}
           >
-            <option value="">Data diisi otomatis</option>
+            <option value="" disabled hidden>Data diisi otomatis</option>
             {grhaOptions.map(grha => (
               <option key={grha} value={grha}>{grha}</option>
             ))}
@@ -701,7 +706,7 @@ function InputEvent() {
       {/* Submission History */}
       {submissions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Riwayat Pengajuan Event</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Event</h3>
           <div style={{ display: 'grid', gap: '10px' }}>
             {submissions.map((sub, index) => (
               <div key={sub.id || index} style={{

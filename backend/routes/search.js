@@ -21,21 +21,14 @@ router.get('/students', auth, async (req, res) => {
                 u.kelas,
                 u.grha,
                 u.ipc_total,
-                COALESCE(akademik.count, 0) as total_prestasi_akademik,
-                COALESCE(nonakademik.count, 0) as total_prestasi_nonakademik
+                COALESCE(prestasi.count, 0) as total_prestasi
             FROM users u
             LEFT JOIN (
                 SELECT user_id, COUNT(*) as count
                 FROM prestasi
-                WHERE jenis = 'akademik' AND status = 'approved'
+                WHERE status = 'approved'
                 GROUP BY user_id
-            ) akademik ON u.id = akademik.user_id
-            LEFT JOIN (
-                SELECT user_id, COUNT(*) as count
-                FROM prestasi
-                WHERE jenis = 'nonakademik' AND status = 'approved'
-                GROUP BY user_id
-            ) nonakademik ON u.id = nonakademik.user_id
+            ) prestasi ON u.id = prestasi.user_id
             WHERE u.role = 'siswa'
             AND (u.nama LIKE ? OR u.nis LIKE ?)
             LIMIT 20
@@ -77,16 +70,12 @@ router.get('/student/:userId', auth, async (req, res) => {
             [userId, 'approved']
         );
 
-        const akademikCount = prestasi.filter(p => p.jenis === 'akademik').length;
-        const nonakademikCount = prestasi.filter(p => p.jenis === 'nonakademik').length;
-
         res.json({
             student: student[0],
             prestasi,
             organisasi,
             event,
-            total_prestasi_akademik: akademikCount,
-            total_prestasi_nonakademik: nonakademikCount
+            total_prestasi: prestasi.length
         });
     } catch (error) {
         console.error(error);
@@ -94,10 +83,27 @@ router.get('/student/:userId', auth, async (req, res) => {
     }
 });
 
-// Get leaderboard - Akademik (Top 20)
-router.get('/leaderboard/akademik', auth, async (req, res) => {
+// IPC category leaderboards (Top 20) — ranked by approved IPC points.
+// Pelanggaran stores deductions as negative points, so it ranks most-negative first.
+const LEADERBOARD_CATEGORIES = {
+    prestasi: { table: 'prestasi', pointCol: 'point' },
+    organisasi: { table: 'organisasi', pointCol: 'point' },
+    kepanitiaan: { table: 'kepanitiaan', pointCol: 'point' },
+    event: { table: 'event', pointCol: 'point' },
+    pelanggaran: { table: 'pelanggaran', pointCol: 'point_dikurangi', order: 'ASC' },
+    perilaku: { table: 'perilaku', pointCol: 'point' }
+};
+
+// Get leaderboard for one IPC category — GET /search/leaderboard/category/:category
+router.get('/leaderboard/category/:category', auth, async (req, res) => {
     try {
-        // Optimized single query instead of N+1 with subquery for details
+        // Whitelisted map only — no raw user input reaches the SQL
+        const config = LEADERBOARD_CATEGORIES[req.params.category];
+        if (!config) {
+            return res.status(400).json({ message: 'Kategori tidak valid' });
+        }
+        const order = config.order === 'ASC' ? 'ASC' : 'DESC';
+
         const [students] = await db.query(`
             SELECT
                 u.id,
@@ -106,104 +112,22 @@ router.get('/leaderboard/akademik', auth, async (req, res) => {
                 u.kelas,
                 u.grha,
                 u.foto,
-                COUNT(DISTINCT p.id) as total_prestasi,
-                COALESCE(SUM(p.point), 0) as total_point,
-                STRING_AGG(
-                    CONCAT(p.nama_lomba, '|', p.kategori, '|', p.juara),
-                    '|||' ORDER BY p.created_at DESC
-                ) as competition_details
+                COALESCE(SUM(t.${config.pointCol}), 0) as total_point
             FROM users u
-            LEFT JOIN prestasi p ON u.id = p.user_id
-                AND p.jenis = 'akademik'
-                AND p.status = 'approved'
+            JOIN ${config.table} t ON t.user_id = u.id AND t.status = 'approved'
             WHERE u.role = 'siswa'
             GROUP BY u.id, u.nama, u.nis, u.kelas, u.grha, u.foto
-            HAVING COUNT(DISTINCT p.id) > 0
-            ORDER BY total_prestasi DESC, total_point DESC, u.nama ASC
+            ORDER BY total_point ${order}, u.nama ASC
             LIMIT 20
         `);
 
-        // Parse competition details on the server (much faster than N+1 queries)
-        const studentsWithDetails = students.map((student, index) => {
-            let competitions = [];
-            if (student.competition_details) {
-                competitions = student.competition_details.split('|||').map(detail => {
-                    const [nama_lomba, kategori, juara] = detail.split('|');
-                    return { nama_lomba, kategori, juara };
-                });
-            }
-
-            const kategoriSet = new Set(competitions.map(c => c.kategori));
-            const kategoriList = Array.from(kategoriSet).join(', ');
-
-            return {
-                ...student,
-                rank: index + 1,
-                kategori: kategoriList,
-                detail_prestasi: competitions
-            };
-        });
-
-        res.json(studentsWithDetails);
+        res.json(students.map((student, index) => ({
+            ...student,
+            total_point: Number(student.total_point) || 0,
+            rank: index + 1
+        })));
     } catch (error) {
-        console.error('Error fetching akademik leaderboard:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Get leaderboard - Non-Akademik (Top 20)
-router.get('/leaderboard/nonakademik', auth, async (req, res) => {
-    try {
-        // Optimized single query instead of N+1 with subquery for details
-        const [students] = await db.query(`
-            SELECT
-                u.id,
-                u.nama,
-                u.nis,
-                u.kelas,
-                u.grha,
-                u.foto,
-                COUNT(DISTINCT p.id) as total_prestasi,
-                COALESCE(SUM(p.point), 0) as total_point,
-                STRING_AGG(
-                    CONCAT(p.nama_lomba, '|', p.kategori, '|', p.juara),
-                    '|||' ORDER BY p.created_at DESC
-                ) as competition_details
-            FROM users u
-            LEFT JOIN prestasi p ON u.id = p.user_id
-                AND p.jenis = 'nonakademik'
-                AND p.status = 'approved'
-            WHERE u.role = 'siswa'
-            GROUP BY u.id, u.nama, u.nis, u.kelas, u.grha, u.foto
-            HAVING COUNT(DISTINCT p.id) > 0
-            ORDER BY total_prestasi DESC, total_point DESC, u.nama ASC
-            LIMIT 20
-        `);
-
-        // Parse competition details on the server (much faster than N+1 queries)
-        const studentsWithDetails = students.map((student, index) => {
-            let competitions = [];
-            if (student.competition_details) {
-                competitions = student.competition_details.split('|||').map(detail => {
-                    const [nama_lomba, kategori, juara] = detail.split('|');
-                    return { nama_lomba, kategori, juara };
-                });
-            }
-
-            const kategoriSet = new Set(competitions.map(c => c.kategori));
-            const kategoriList = Array.from(kategoriSet).join(', ');
-
-            return {
-                ...student,
-                rank: index + 1,
-                tingkat: kategoriList,
-                detail_prestasi: competitions
-            };
-        });
-
-        res.json(studentsWithDetails);
-    } catch (error) {
-        console.error('Error fetching non-akademik leaderboard:', error);
+        console.error('Error fetching category leaderboard:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

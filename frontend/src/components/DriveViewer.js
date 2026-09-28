@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
+import { Folder, FileText } from 'lucide-react';
 
 function DriveViewer() {
   const [folders, setFolders] = useState([]);
@@ -169,7 +170,7 @@ function DriveViewer() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h2 style={{ marginBottom: '20px' }}>📁 File Manager (Local Storage)</h2>
+      <h2 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}><Folder size={24} /> File Manager (Local Storage)</h2>
       
       {!selectedFolder ? (
         <div>
@@ -200,7 +201,7 @@ function DriveViewer() {
                   onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'}
                   onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
                 >
-                  <span style={{ fontSize: '24px' }}>📁</span>
+                  <span style={{ display: 'inline-flex', color: 'var(--warning-color)' }}><Folder size={24} /></span>
                   <span style={{ fontWeight: '500' }}>{folder.name}</span>
                 </div>
               ))}
@@ -217,7 +218,7 @@ function DriveViewer() {
             style={{
               marginBottom: '15px',
               padding: '8px 16px',
-              backgroundColor: '#667eea',
+              backgroundColor: 'var(--blue)',
               color: 'white',
               border: 'none',
               borderRadius: '5px',
@@ -227,8 +228,8 @@ function DriveViewer() {
             ← Back to Folders
           </button>
           
-          <h3 style={{ marginBottom: '15px' }}>
-            📁 {selectedFolder} ({files.length} files)
+          <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Folder size={19} /> {selectedFolder} ({files.length} files)
           </h3>
 
           {/* Filters */}
@@ -271,7 +272,7 @@ function DriveViewer() {
             <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#667eea', color: 'white' }}>
+                  <tr style={{ backgroundColor: 'var(--blue)', color: 'white' }}>
                     <th style={{ padding: '12px', textAlign: 'left' }}>File Name</th>
                     <th style={{ padding: '12px', textAlign: 'left' }}>Size</th>
                     <th style={{ padding: '12px', textAlign: 'left' }}>Created</th>
@@ -290,7 +291,7 @@ function DriveViewer() {
                           style={{
                             background: 'none',
                             border: 'none',
-                            color: '#667eea',
+                            color: 'var(--blue)',
                             textDecoration: 'none',
                             fontWeight: '500',
                             cursor: 'pointer',
@@ -298,7 +299,7 @@ function DriveViewer() {
                             textAlign: 'left'
                           }}
                         >
-                          📄 {file.name}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FileText size={14} /> {file.name}</span>
                         </button>
                       </td>
                       <td style={{ padding: '12px', color: '#666' }}>{formatFileSize(file.size)}</td>
@@ -308,7 +309,7 @@ function DriveViewer() {
                           onClick={() => deleteFile(file.name)}
                           style={{
                             padding: '6px 12px',
-                            backgroundColor: '#dc3545',
+                            backgroundColor: 'var(--danger-color)',
                             color: 'white',
                             border: 'none',
                             borderRadius: '4px',
@@ -332,17 +333,17 @@ function DriveViewer() {
       {previewImage && (
         <div
           onClick={() => setPreviewImage(null)}
+          className="app-modal-overlay"
           style={{
             position: 'fixed',
             top: 0,
-            left: 0,
             right: 0,
             bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.9)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: 1500,
             cursor: 'pointer'
           }}
         >

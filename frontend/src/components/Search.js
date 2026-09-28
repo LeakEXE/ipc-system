@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
-import { useMinIpc, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import { formatDisplayText } from '../utils/formatDisplayText';
 
 function Search() {
-  const minIpc = useMinIpc();
+  const minIpc = useMinIpcPerGrade();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -79,8 +79,7 @@ function Search() {
                 <th>Kelas</th>
                 <th>Grha</th>
                 <th>IPC</th>
-                <th>Prestasi Akademik</th>
-                <th>Prestasi Non-Akademik</th>
+                <th>Prestasi</th>
                 <th>Aksi</th>
               </tr>
             </thead>
@@ -91,9 +90,8 @@ function Search() {
                   <td>{student.nis}</td>
                   <td>{student.kelas}</td>
                   <td>{student.grha}</td>
-                  <td style={isBelowMinIpc(student.ipc_total, minIpc) ? { color: '#dc2626', fontWeight: 'bold' } : undefined}>{student.ipc_total}</td>
-                  <td>{student.total_prestasi_akademik}</td>
-                  <td>{student.total_prestasi_nonakademik}</td>
+                  <td style={isBelowMinIpc(student.ipc_total, minIpcFor(minIpc, student.kelas)) ? { color: '#dc2626', fontWeight: 'bold' } : undefined}>{student.ipc_total}</td>
+                  <td>{student.total_prestasi}</td>
                   <td>
                     <button className="btn btn-info" onClick={() => handleViewDetails(student)} style={{ padding: '5px 10px' }}>
                       Lihat Detail
@@ -115,11 +113,11 @@ function Search() {
             <p><strong>NIS:</strong> {selectedStudent.student.nis}</p>
             <p><strong>Kelas:</strong> {selectedStudent.student.kelas}</p>
             <p><strong>Grha:</strong> {selectedStudent.student.grha}</p>
-            <p><strong>IPC Total:</strong> <span style={isBelowMinIpc(selectedStudent.student.ipc_total, minIpc) ? { color: '#dc2626', fontWeight: 'bold' } : undefined}>{selectedStudent.student.ipc_total}</span></p>
+            <p><strong>IPC Total:</strong> <span style={isBelowMinIpc(selectedStudent.student.ipc_total, minIpcFor(minIpc, selectedStudent.student.kelas)) ? { color: '#dc2626', fontWeight: 'bold' } : undefined}>{selectedStudent.student.ipc_total}</span></p>
           </div>
 
-          <h4>Prestasi Akademik: {selectedStudent.total_prestasi_akademik}</h4>
-          {selectedStudent.prestasi.filter(p => p.jenis === 'akademik').length > 0 ? (
+          <h4>Prestasi: {selectedStudent.total_prestasi}</h4>
+          {selectedStudent.prestasi.length > 0 ? (
             <table className="table" style={{ marginBottom: '20px' }}>
               <thead>
                 <tr>
@@ -130,7 +128,7 @@ function Search() {
                 </tr>
               </thead>
               <tbody>
-                {selectedStudent.prestasi.filter(p => p.jenis === 'akademik').map(p => (
+                {selectedStudent.prestasi.map(p => (
                   <tr key={p.id}>
                     <td>{p.nama_lomba}</td>
                     <td>{formatDisplayText(p.juara)}</td>
@@ -141,33 +139,7 @@ function Search() {
               </tbody>
             </table>
           ) : (
-            <p style={{ marginBottom: '20px' }}>Tidak ada prestasi akademik</p>
-          )}
-
-          <h4>Prestasi Non-Akademik: {selectedStudent.total_prestasi_nonakademik}</h4>
-          {selectedStudent.prestasi.filter(p => p.jenis === 'nonakademik').length > 0 ? (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nama Lomba</th>
-                  <th>Juara</th>
-                  <th>Kategori</th>
-                  <th>Point</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedStudent.prestasi.filter(p => p.jenis === 'nonakademik').map(p => (
-                  <tr key={p.id}>
-                    <td>{p.nama_lomba}</td>
-                    <td>{formatDisplayText(p.juara)}</td>
-                    <td>{formatDisplayText(p.kategori)}</td>
-                    <td>{p.point}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>Tidak ada prestasi non-akademik</p>
+            <p style={{ marginBottom: '20px' }}>Tidak ada prestasi</p>
           )}
         </div>
       )}

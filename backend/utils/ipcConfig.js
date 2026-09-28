@@ -101,6 +101,46 @@ function clearConfigCache() {
   cacheTimestamp = null;
 }
 
+// ---- IPC awal defaults per grade (X, XI, XII) ----
+// Stored in ipc_config (category='pengaturan', field1='ipc_awal_X' | ...).
+// Queried directly (uncached): values change rarely but must be fresh when
+// creating students. Missing rows fall back to IPC_AWAL_DEFAULT.
+const IPC_AWAL_DEFAULT = 80;
+const IPC_AWAL_GRADES = ['X', 'XI', 'XII'];
+const ipcAwalField = (grade) => `ipc_awal_${grade}`;
+
+function gradePrefixFromKelas(kelas) {
+  if (!kelas) return null;
+  const prefix = String(kelas).split(' ')[0].toUpperCase();
+  return IPC_AWAL_GRADES.includes(prefix) ? prefix : null;
+}
+
+async function getIpcAwalPerGrade() {
+  const result = { X: IPC_AWAL_DEFAULT, XI: IPC_AWAL_DEFAULT, XII: IPC_AWAL_DEFAULT };
+  try {
+    const [rows] = await db.query(
+      `SELECT field1, point_value FROM ipc_config
+       WHERE category = 'pengaturan' AND field1 IN ('ipc_awal_X', 'ipc_awal_XI', 'ipc_awal_XII')`
+    );
+    for (const row of rows) {
+      const grade = String(row.field1).replace('ipc_awal_', '');
+      const value = parseInt(row.point_value, 10);
+      if (IPC_AWAL_GRADES.includes(grade) && Number.isFinite(value) && value >= 0) {
+        result[grade] = value;
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching IPC awal per grade:', error.message);
+  }
+  return result;
+}
+
+async function getIpcAwalForGrade(gradePrefix) {
+  if (!IPC_AWAL_GRADES.includes(gradePrefix)) return IPC_AWAL_DEFAULT;
+  const all = await getIpcAwalPerGrade();
+  return all[gradePrefix];
+}
+
 /**
  * Get default configuration (fallback) — aligned with ipc_config_schema.sql
  */
@@ -172,5 +212,10 @@ function getDefaultConfig() {
 module.exports = {
   getIPCConfig,
   clearConfigCache,
-  getDefaultConfig
+  getDefaultConfig,
+  getIpcAwalPerGrade,
+  getIpcAwalForGrade,
+  gradePrefixFromKelas,
+  IPC_AWAL_DEFAULT,
+  IPC_AWAL_GRADES
 };

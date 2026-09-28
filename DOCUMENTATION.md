@@ -1,4 +1,4 @@
-# 📚 IPC School System - Dokumentasi Lengkap
+# 📚 Website IPC Bali Mandara - Dokumentasi Lengkap
 
 ## 📋 System Requirements
 
@@ -98,13 +98,15 @@ psql -U postgres -d ipc_school -f backend/database/skema.sql
 psql -U postgres -d ipc_school -c "\dt"
 ```
 
-Pastikan `backend/.env` berisi kredensial PostgreSQL yang benar:
+Pastikan `backend/.env` berisi kredensial PostgreSQL yang benar (lihat `backend/.env.example`):
 ```env
 DB_HOST=localhost
 DB_USER=postgres
 DB_PASSWORD=password_postgres_anda
 DB_PORT=5432
 DB_NAME=ipc_school
+JWT_SECRET=string_acak_minimal_32_karakter
+SUPERADMIN_SETUP_PASSWORD=password_awal_rahasia
 ```
 
 ---
@@ -113,9 +115,15 @@ DB_NAME=ipc_school
 
 | Role | Username | Password |
 |------|----------|----------|
-| Superadmin | ADMIN001 | admin123 |
-| Guru | (NIP guru) | (set by superadmin) |
-| Siswa | (NIS/NISN) | (set by guru) |
+| Superadmin | ADMIN001 | Nilai `SUPERADMIN_SETUP_PASSWORD` **(hanya login pertama)** |
+| Guru | (NIP guru) | (dibuat superadmin) |
+| Siswa | (NIS) | (dibuat superadmin) |
+
+> **Login pertama:** database baru berisi ADMIN001 dengan password placeholder.
+> Isi `SUPERADMIN_SETUP_PASSWORD` di `.env`, login dengan username `ADMIN001` dan
+> password tersebut — password otomatis di-hash saat login. Segera ganti password
+> lewat menu Profile, lalu hapus variabel itu dari `.env`. Tidak ada login
+> `ADMIN001/admin123` sebelum langkah ini dilakukan.
 
 ---
 
@@ -135,16 +143,16 @@ flowchart TD
     C --> C3[Approval Semua Data]
     C --> C4[Laporan & Cetak]
     C --> C5[Input Data]
-    C --> C6[Settings]
+    C --> C6[Konfigurasi IPC & Sekolah]
     
-    D --> D1[Kelola Siswa]
+    D --> D1[Lihat Siswa Kelas]
     D --> D2[Input Prestasi]
     D --> D3[Input Organisasi]
     D --> D4[Input Event]
-    D --> D5[Input Pelanggaran]
-    D --> D6[Input Perilaku]
-    D --> D7[Approval Pembina]
-    D --> D8[Wali Kelas Panel]
+    D --> D5[Input Pelanggaran - bila diizinkan]
+    D --> D6[Input Perilaku - bila diizinkan]
+    D --> D7[Notifikasi]
+    D --> D8[Wali Kelas Panel - bila ditunjuk]
     
     E --> E1[Lihat IPC]
     E --> E2[Histori Perubahan]
@@ -218,10 +226,10 @@ flowchart TD
     PR --> PR2[Update Avatar]
     PR --> PR3[Change Password]
     
-    Menu -->|Drive| DR[Google Drive]
-    DR --> DR1[View Files]
-    DR --> DR2[Manage Links]
-    DR --> DR3[Auth Settings]
+    Menu -->|File Manager| DR[File Manager - Penyimpanan Lokal]
+    DR --> DR1[Lihat File Bukti]
+    DR --> DR2[Kelola Upload Server]
+    DR --> DR3[Lihat Foto Profil]
 ```
 
 ### 2. Guru (Teacher) Flow
@@ -230,12 +238,6 @@ flowchart TD
 flowchart TD
     Start([Login]) --> Dashboard
     Dashboard --> Menu{Menu Selection}
-    
-    Menu -->|Kelola Siswa| KS[Kelola Siswa]
-    KS --> KS1[Create Siswa Account]
-    KS --> KS2[Edit Siswa Data]
-    KS --> KS3[Delete Siswa]
-    KS --> KS4[View Siswa List]
     
     Menu -->|Input Prestasi| IP[Input Prestasi]
     IP --> IP1[Select Siswa]
@@ -249,6 +251,12 @@ flowchart TD
     IO --> IO3[Upload Bukti]
     IO --> IO4[Submit for Approval]
     
+    Menu -->|Input Kepanitiaan| IK[Input Kepanitiaan]
+    IK --> IK1[Select Siswa]
+    IK --> IK2[Fill Kepanitiaan Form]
+    IK --> IK3[Upload Bukti]
+    IK --> IK4[Submit for Approval]
+    
     Menu -->|Input Event| IE[Input Event]
     IE --> IE1[Select Siswa]
     IE --> IE2[Fill Event Form]
@@ -259,18 +267,17 @@ flowchart TD
     IPL --> IPL1[Select Siswa]
     IPL --> IPL2[Fill Pelanggaran Form]
     IPL --> IPL3[Point Reduction]
-    IPL --> IPL4[Submit for Approval]
+    IPL --> IPL4[Submit for Approval - perlu izin superadmin]
     
     Menu -->|Input Perilaku| IPR[Input Perilaku]
     IPR --> IPR1[Select Siswa]
     IPR --> IPR2[Fill Perilaku Form]
     IPR --> IPR3[Point Addition]
-    IPR --> IPR4[Submit for Approval]
+    IPR --> IPR4[Submit for Approval - perlu izin superadmin]
     
-    Menu -->|Approvals| AP[Pembina Approvals]
-    AP --> AP1[View Pending Requests]
-    AP --> AP2[Approve/Reject with Notes]
-    AP --> AP3[View History]
+    Menu -->|Notifikasi| NT[Notifikasi]
+    NT --> NT1[Lihat Status Pengajuan]
+    NT --> NT2[Tandai Dibaca]
     
     Menu -->|Wali Kelas| WK[Teacher Wali Kelas]
     WK --> WK1[View My Class]
@@ -299,10 +306,10 @@ flowchart TD
     D --> D2[Recent Activities]
     D --> D3[Notifications]
     
-    Menu -->|Leaderboard| LB[Leaderboard]
-    LB --> LB1[View Academic Rank]
-    LB --> LB2[View Non-Academic Rank]
-    LB --> LB3[Search Students]
+    Menu -->|Leaderboard| LB[Peringkat]
+    LB --> LB1[Top 20 per Kategori]
+    LB --> LB2[Podium Top 3]
+    LB --> LB3[Detail Poin per Siswa]
     
     Menu -->|Histori| H[IPC History]
     H --> H1[View All Changes]
@@ -315,18 +322,9 @@ flowchart TD
     N --> N3[View IPC Changes]
     
     Menu -->|Profil| P[Profile]
-    P --> P1[View Biodata]
-    P --> P2[Request Update]
-    P --> P3[Update Avatar]
-    P --> P4[Change Password]
-    
-    P2 --> RU[Request Update Biodata]
-    RU --> RU1[Fill Update Form]
-    RU --> RU2[Submit to Pembina]
-    RU --> RU3[Wait for Approval]
-    
-    RU3 -->|Approved| UA[Update Applied]
-    RU3 -->|Rejected| UR[Update Rejected]
+    P --> P1[Lihat Biodata & IPC]
+    P --> P2[Ubah Foto Profil]
+    P --> P3[Edit Terbatas - mis. No HP]
 ```
 
 ---
@@ -339,121 +337,110 @@ flowchart TD
 flowchart LR
     A[Input Data] -->|Prestasi| B[Point Calculation]
     A -->|Organisasi| B
+    A -->|Kepanitiaan| B
     A -->|Event| B
     A -->|Pelanggaran| B
     A -->|Perilaku| B
     
     B -->|Base: 80| C[IPC Total]
-    C --> D{Range Check}
-    D -->|Min 0| E[Floor: 0]
-    D -->|Max 100| F[Ceiling: 100]
-    D -->|Normal| G[Current Value]
-    
-    E --> H[Save to Database]
-    F --> H
-    G --> H
-    H --> I[Create History Record]
-    I --> J[Send Notification]
-    J --> K[Update Leaderboard]
+    C --> D[Simpan ke Database]
+    D --> E[Buat History Record]
+    E --> F[Kirim Notifikasi]
+    F --> G[Update Leaderboard]
 ```
+
+> Catatan: tidak ada batas 0–100 — nilai IPC boleh negatif
+> (lihat `backend/utils/ipc.js`). Batas minimum IPC per tingkat
+> diatur di menu Konfigurasi IPC.
+
 
 ### Approval Workflow
 
 ```mermaid
 flowchart TD
-    A[User Input] -->|Submit| B[Status: Pending]
-    B -->|Guru/Pembina Check| C{Pembina Action}
-    
-    C -->|Approve| D[Status: Pembina Approved]
-    C -->|Reject| E[Status: Rejected]
-    C -->|Need Review| B
-    
-    D -->|Auto/Superadmin| F{Superadmin Action}
-    
+    A[User Input - via Form] -->|Submit| B[Status: Pending]
+    B --> F{Aksi Superadmin - menu Approvals}
+
     F -->|Approve| G[Status: Approved]
-    F -->|Reject| H[Status: Rejected]
-    F -->|Need Review| D
-    
-    E --> I[Notify User with Reason]
-    H --> I
-    
-    G --> J[Apply Changes]
+    F -->|Reject| H[Status: Rejected - Wajib Alasan]
+
+    H --> I[Notifikasi ke User + Alasan]
+
+    G --> J[Apply Perubahan]
     J --> K[Update IPC]
-    K --> L[Create History]
-    L --> M[Notify User Success]
+    K --> L[Buat History]
+    L --> M[Notifikasi Sukses ke User]
 ```
+
+> Catatan: input langsung oleh superadmin otomatis approved tanpa antrean.
+> Guru/Siswa wajib menunggu persetujuan superadmin.
+
 
 ---
 
 ## 📁 File Structure
 
 ```
-ipc-school/
+ipc-system/
 ├── backend/
 │   ├── config/
 │   │   └── database.js
 │   ├── middleware/
-│   │   ├── auth.js
-│   │   └── security.js
-│   ├── routes/
-│   │   ├── auth.js
-│   │   ├── users.js
-│   │   ├── prestasi.js
-│   │   ├── organisasi.js
-│   │   ├── event.js
-│   │   ├── pelanggaran.js
-│   │   ├── perilaku.js
-│   │   ├── approvals.js
-│   │   ├── approvals-v2.js
-│   │   ├── dashboard.js
-│   │   ├── profile.js
-│   │   ├── reports.js
-│   │   ├── waliKelas.js
-│   │   ├── search.js
-│   │   ├── logs.js
-│   │   ├── permissions.js
-│   │   ├── input-access.js
-│   │   └── drive-*.js
-│   ├── uploads/
-│   │   └── avatars/
-│   ├── .env
+│   │   ├── auth.js          # JWT, RBAC, cek izin input
+│   │   └── security.js      # rate limit, helmet, anti-SQLi
+│   ├── routes/              # dipasang di server.js sebagai /api/*
+│   │   ├── auth.js            → /api/auth
+│   │   ├── users.js           → /api/users
+│   │   ├── prestasi|organisasi|kepanitiaan|event|pelanggaran|perilaku.js
+│   │   ├── approvals-v2.js    → /api/approvals-v2 (sistem approval aktif)
+│   │   ├── approvals.js       → /api/approvals (lama, tidak dipakai UI)
+│   │   ├── permissions.js + input-access.js
+│   │   ├── logs.js            → /api/logs
+│   │   ├── dashboard.js       → /api/dashboard/stats
+│   │   ├── waliKelas.js       → /api/wali-kelas
+│   │   ├── search.js          → /api/search (+ leaderboard)
+│   │   ├── profile.js         → /api/profile
+│   │   ├── reports.js         → /api/reports
+│   │   ├── file-viewer.js, academicYear.js, sync.js
+│   │   └── ipcConfig.js       → /api/ipc-config
+│   │       school-config.js    → /api/school-config
+│   ├── utils/               # ipc.js, ipcConfig.js, schoolConfig.js, ...
+│   ├── scripts/
+│   │   └── setupDb.js         # npm run db:setup
+│   ├── database/
+│   │   └── skema.sql
+│   ├── uploads/             # prestasi|organisasi|kepanitiaan|event|
+│   │                         # pelanggaran|perilaku|approvals|approved|avatars|logos
+│   ├── .env                 # dari .env.example (jangan di-commit)
 │   ├── .env.example
 │   ├── server.js
-│   ├── package.json
-│   └── database/
-│       └── skema.sql
+│   └── package.json
 ├── frontend/
 │   ├── public/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Login.js
-│   │   │   ├── Dashboard.js
-│   │   │   ├── Navbar.js
-│   │   │   ├── Profile.js
-│   │   │   ├── InputPrestasi.js
-│   │   │   ├── InputOrganisasi.js
-│   │   │   ├── InputEvent.js
-│   │   │   ├── InputPelanggaran.js
-│   │   │   ├── InputPerilaku.js
-│   │   │   ├── KelolaAkun.js
-│   │   │   ├── KelolaSiswa.js
-│   │   │   ├── IzinAkun.js
-│   │   │   ├── Leaderboard.js
-│   │   │   ├── WaliKelas.js
-│   │   │   ├── TeacherWaliKelas.js
-│   │   │   ├── ApprovalsV2.js
-│   │   │   ├── PembinaApprovals.js
-│   │   │   ├── LaporanCetak.js
-│   │   │   ├── Logs.js
-│   │   │   ├── Notifications.js
-│   │   │   └── DriveViewer.js
-│   │   ├── config.js
-│   │   ├── index.js
-│   │   └── index.css
+│   │   │   ├── Login.js + Navbar.js + App.js routing
+│   │   │   ├── Dashboard.js + Dashboard.css
+│   │   │   ├── InputPrestasi|Organisasi|Kepanitiaan|Event|Pelanggaran|Perilaku.js
+│   │   │   ├── KelolaAkun.js + IzinAkun.js
+│   │   │   ├── ApprovalsV2.js (aktif; Approvals.js lama tidak dipakai)
+│   │   │   ├── Leaderboard.js + WaliKelas.js + TeacherWaliKelas.js
+│   │   │   ├── KonfigurasiIPC.js + SchoolConfig.js
+│   │   │   ├── LaporanCetak.js + IpcReport.js + IpcPrintSheet.js
+│   │   │   ├── Profile.js + StudentDetail.js + StudentRecordsHistory.js
+│   │   │   ├── Search.js + Notifications.js + NotificationBadge.js
+│   │   │   ├── Logs.js + DriveViewer.js + EditModal.js
+│   │   │   └── icons.js (sistem ikon lucide bersama)
+│   │   ├── utils/ (api.js, minIpc.js, kelasJurusan.js, ...)
+│   │   ├── hooks/, config.js, index.js, index.css
 │   ├── package.json
-│   └── .env
-├── DOCUMENTATION.md
-└── README.md
+│   └── .env (bila perlu override API)
+├── docs/
+│   └── ACADEMIC_YEAR_SYSTEM.md
+├── DOCUMENTATION.md / REQUIREMENTS.md / QUICK_GUIDE.md
+├── SECURITY.md / IPC_SYNC_GUIDE.md / DOCS_INDEX.txt
+├── FLOWCHART.html (+ versi sederhana)
+├── LICENSE (proprietary) + README.md
 ```
 
 ---
@@ -479,12 +466,17 @@ ipc-school/
 | Package | Version | Purpose |
 |---------|---------|---------|
 | react | ^18.2.0 | UI library |
-| react-router-dom | ^6.x | Routing |
-| axios | ^1.x | HTTP client |
-| xlsx | ^0.18.x | Excel export |
-| jspdf | ^2.x | PDF export |
-| jspdf-autotable | ^3.x | PDF tables |
-| aos | ^2.x | Animations |
+| react-router-dom | ^6.20.1 | Routing |
+| axios | ^1.6.2 | HTTP client |
+| recharts | ^2.10.3 | Grafik dashboard |
+| lucide-react | ^1.41.0 | Sistem ikon |
+| react-select | ^5.10.2 | Dropdown kaya fitur |
+| xlsx | ^0.18.5 | Excel export/import |
+| exceljs | ^4.4.0 | Template Excel |
+| jspdf | ^2.5.1 | PDF export |
+| jspdf-autotable | ^3.8.1 | PDF tables |
+| framer-motion | ^12.38.0 | Animasi |
+| aos | ^2.3.4 | Animasi scroll |
 
 ---
 
@@ -535,6 +527,6 @@ ipc-school/
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: May 8, 2026
-**System Version**: IPC School System v1.0
+**Document Version**: 2.0
+**Last Updated**: September 27, 2026
+**System Version**: Website IPC Bali Mandara v0.2

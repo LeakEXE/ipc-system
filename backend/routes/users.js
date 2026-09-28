@@ -7,6 +7,7 @@ const db = require('../config/database');
 const { getStudentRecords } = require('../utils/studentRecords');
 const { validateTahunPelajaran, calculateCurrentClass, shouldGraduate, getClassInfo, calculateFullClass } = require('../utils/academicYear');
 const { logActivity } = require('../utils/logger');
+const { gradePrefixFromKelas, getIpcAwalForGrade } = require('../utils/ipcConfig');
 const { syncBiodataChange } = require('../utils/biodataSync');
 
 async function applyIpcAwalUpdate(userId, newIpcAwal, adminId) {
@@ -449,7 +450,7 @@ router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
 
         // If SuperAdmin, create directly
         if (req.user.role === 'superadmin') {
-            const ipc_awal = 80;
+            const ipc_awal = await getIpcAwalForGrade(gradePrefixFromKelas(calculatedClass));
             const [result] = await db.query(
                 'INSERT INTO users (nama, nis, password, role, kelas, wali_kelas, grha, jurusan, ipc_total, ipc_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [nama, nis, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipc_awal, ipc_awal, tahun_pelajaran]
@@ -962,8 +963,8 @@ router.put('/student-creation-approvals/:id', auth, superAdminOnly, async (req, 
         const data = approval[0];
         
         if (status === 'approved') {
-            // Create student account
-            const ipc_awal = 80;
+            // Create student account (IPC awal follows the grade default)
+            const ipc_awal = await getIpcAwalForGrade(gradePrefixFromKelas(data.kelas));
             const [result] = await db.query(
                 'INSERT INTO users (nama, nis, password, role, kelas, grha, jurusan, ipc_total, ipc_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [data.nama, data.nis, data.password, 'siswa', data.kelas, data.grha, data.jurusan, ipc_awal, ipc_awal, data.tahun_pelajaran]

@@ -1,16 +1,38 @@
 import { useState, useEffect } from 'react';
 import api from './api';
 
-// Batas minimum Total IPC (konfigurasi IPC, kategori 'pengaturan').
-// 0 = fitur nonaktif (tidak ada total yang ditandai merah).
+// Batas minimum Total IPC per tingkat (konfigurasi IPC, kategori 'pengaturan').
+// 0 = nonaktif untuk tingkat tersebut (tidak ada total yang ditandai merah).
 // Gagal mengambil juga dianggap 0 supaya tampilan tetap jalan tanpa error.
-export async function fetchMinIpc() {
+const GRADES = ['X', 'XI', 'XII'];
+
+export function gradePrefix(kelas) {
+  if (!kelas) return null;
+  const prefix = String(kelas).split(' ')[0].toUpperCase();
+  return GRADES.includes(prefix) ? prefix : null;
+}
+
+// Resolve threshold dari map per-grade + kelas ("X TKJ 1") atau objek siswa ({ kelas }).
+export function minIpcFor(map, kelasOrStudent) {
+  const kelas = kelasOrStudent && typeof kelasOrStudent === 'object'
+    ? kelasOrStudent.kelas
+    : kelasOrStudent;
+  const value = Number(map?.[gradePrefix(kelas)] ?? 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export async function fetchMinIpcPerGrade() {
+  const fallback = { X: 0, XI: 0, XII: 0 };
   try {
-    const res = await api.get('/ipc-config/min-ipc');
-    const value = Number(res.data?.min_ipc);
-    return Number.isFinite(value) && value > 0 ? value : 0;
+    const res = await api.get('/ipc-config/min-ipc-per-grade');
+    const out = { ...fallback };
+    for (const grade of GRADES) {
+      const value = Number(res.data?.[grade]);
+      if (Number.isFinite(value) && value > 0) out[grade] = value;
+    }
+    return out;
   } catch (e) {
-    return 0;
+    return fallback;
   }
 }
 
@@ -24,12 +46,12 @@ export function isBelowMinIpc(total, minIpc) {
   return Number.isFinite(value) && value < min;
 }
 
-// Hook: ambil batas minimum sekali saat komponen mount.
-export function useMinIpc() {
-  const [minIpc, setMinIpc] = useState(0);
+// Hook: ambil batas minimum per tingkat sekali saat komponen mount.
+export function useMinIpcPerGrade() {
+  const [minIpc, setMinIpc] = useState({ X: 0, XI: 0, XII: 0 });
   useEffect(() => {
     let alive = true;
-    fetchMinIpc().then((value) => {
+    fetchMinIpcPerGrade().then((value) => {
       if (alive) setMinIpc(value);
     });
     return () => { alive = false; };

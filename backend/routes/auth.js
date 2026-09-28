@@ -91,7 +91,8 @@ const user = users[0];
                 kelas: user.kelas,
                 grha: user.grha,
                 wali_kelas: user.wali_kelas,
-                ipc_total: user.ipc_total
+                ipc_total: user.ipc_total,
+                foto: user.foto || null
             }
         });
     } catch (error) {

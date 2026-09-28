@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import ExcelJS from 'exceljs';
-import { createIndividualIpcExcelBuffer, fetchKopImage } from '../utils/ipcExcel';
-import { fetchMinIpc, isBelowMinIpc } from '../utils/minIpc';
+import { createIndividualIpcExcelBuffer, fetchKopImage, IPC_SHEET_PASSWORD } from '../utils/ipcExcel';
+import { fetchMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import '../ipcPrint.css';
 
 // ------------------------------------------------------------------
@@ -34,9 +34,8 @@ function hitungTotal(s) {
   // Point awal (default 80 if not specified)
   const ipcAwal = s.ipc_awal || 80;
   
-  // Prestasi
-  const prestasiAkademik = Number(s.prestasi_akademik) || 0;
-  const prestasiNonakademik = Number(s.prestasi_nonakademik) || 0;
+  // Prestasi (single category — no more akademik/non-akademik split)
+  const totalPrestasi = Number(s.prestasi) || 0;
   
   // Perilaku (7 karakter)
   const tanggungJawab = Number(s.tanggung_jawab) || 0;
@@ -58,7 +57,6 @@ function hitungTotal(s) {
   const pelanggaranBerat = Number(s.pelanggaran_berat) || 0;
   const pelanggaranLainnya = Number(s.pelanggaran_lainnya) || 0;
   
-  const totalPrestasi = prestasiAkademik + prestasiNonakademik;
   const totalKarakter = tanggungJawab + disiplin + kepedulian + kemandirian + spiritual + kejujuran + kepercayaanDiri;
   const totalKeaktifan = organisasi + kepanitiaan + event;
   const totalPelanggaran = pelanggaranRingan + pelanggaranSedang + pelanggaranBerat + pelanggaranLainnya;
@@ -94,9 +92,7 @@ const COLUMN_DEFS = [
   { key: "ghra", header1: "GHRA", merge: "v", width: 7 },
   { key: "pointAwal", header1: "Point Awal", merge: "v", width: 10 }, // Added point awal column
 
-  { key: "prestasi_akademik", header1: "Prestasi", header2: "Akademik", group: "prestasi", width: 10 },
-  { key: "prestasi_nonakademik", header2: "Non-Akademik", group: "prestasi", width: 15 },
-  { key: "jumlahPrestasi", header2: "Jumlah", group: "prestasi", width: 10, jumlahFill: "jumlahPrestasi" },
+  { key: "prestasi", header1: "Prestasi", header2: "Jumlah", group: "prestasi", width: 10, jumlahFill: "jumlahPrestasi" },
 
   { key: "tanggung_jawab", header1: "Perkembangan Karakter", header2: "Tanggung Jawab", group: "karakter", width: 13 },
   { key: "disiplin", header2: "Disiplin", group: "karakter", width: 9 },
@@ -129,9 +125,7 @@ function buildRowValues(s) {
     kelas: s.kelas,
     ghra: s.ghra || "-",
     pointAwal: t.ipcAwal, // ipc_awal siswa
-    prestasi_akademik: Number(s.prestasi_akademik) ?? 0,
-    prestasi_nonakademik: Number(s.prestasi_nonakademik) ?? 0,
-    jumlahPrestasi: t.totalPrestasi,
+    prestasi: Number(s.prestasi) ?? 0,
     tanggung_jawab: Number(s.tanggung_jawab) ?? 0,
     disiplin: Number(s.disiplin) ?? 0,
     kepedulian: Number(s.kepedulian) ?? 0,
@@ -280,7 +274,7 @@ function LaporanCetak({ user }) {
     } else if (reportType === 'class') {
       // For class report, generate Excel with leger format using ExcelJS
       try {
-        const minIpc = await fetchMinIpc();
+        const minIpc = await fetchMinIpcPerGrade();
         // Prepare student data in the format expected by the Excel generator
         const formattedStudents = classStudents.map((student, index) => {
           const points = student.points || {};
@@ -291,8 +285,7 @@ function LaporanCetak({ user }) {
             kelas: student.kelas || '-',
             ghra: student.grha || '-',
             // Use snake_case to match backend API directly
-            prestasi_akademik: Number(points.prestasi_akademik) || 0,
-            prestasi_nonakademik: Number(points.prestasi_nonakademik) || 0,
+            prestasi: Number(points.prestasi) || 0,
             tanggung_jawab: Number(points.tanggung_jawab) || 0,
             disiplin: Number(points.disiplin) || 0,
             kepedulian: Number(points.kepedulian) || 0,
@@ -420,7 +413,7 @@ function LaporanCetak({ user }) {
             cell.value = values[def.key];
 
             const isNegative = typeof values[def.key] === "number" && values[def.key] < 0;
-            const isBelowMin = def.key === "totalIPC" && isBelowMinIpc(values[def.key], minIpc);
+            const isBelowMin = def.key === "totalIPC" && isBelowMinIpc(values[def.key], minIpcFor(minIpc, s.kelas));
 
             styleCell(cell, {
               fill: def.jumlahFill ? EXCEL_COLORS[def.jumlahFill] : undefined,
@@ -433,6 +426,11 @@ function LaporanCetak({ user }) {
 
         // ---- Freeze panes supaya header tetap kelihatan saat scroll ----
         sheet.views = [{ state: "frozen", ySplit: HEAD_ROW_2 }];
+
+        // ---- Proteksi tulis: dokumen resmi — seluruh sel terkunci,
+        // pengguna hanya boleh menyeleksi (lihat/salin). Password sama
+        // dengan kartu individual (lihat IPC_SHEET_PASSWORD).
+        await sheet.protect(IPC_SHEET_PASSWORD, { selectLockedCells: true, selectUnlockedCells: true });
 
         // ---- Trigger download ----
         const buffer = await workbook.xlsx.writeBuffer();
@@ -466,7 +464,7 @@ function LaporanCetak({ user }) {
       const cardData = await fetchIpcCard(selectedStudentId);
       const school = await getFreshSchoolConfig();
       const kopImage = await fetchKopImage(['/header.png']);
-      const minIpc = await fetchMinIpc();
+      const minIpc = await fetchMinIpcPerGrade();
       const buffer = await createIndividualIpcExcelBuffer({
         student: cardData.student,
         wali: cardData.wali,
@@ -476,7 +474,7 @@ function LaporanCetak({ user }) {
         semester,
         tahunPelajaran,
         kopImage,
-        minIpc,
+        minIpc: minIpcFor(minIpc, cardData.student?.kelas),
       });
       const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const link = document.createElement('a');
@@ -618,7 +616,7 @@ function LaporanCetak({ user }) {
                   onChange={(e) => setSelectedStudentId(e.target.value)}
                   disabled={!selectedClass}
                 >
-                  <option value="">{selectedClass ? '— Pilih siswa —' : '— Pilih kelas dulu —'}</option>
+                  <option value="" disabled hidden>{selectedClass ? '— Pilih siswa —' : '— Pilih kelas dulu —'}</option>
                   {filteredStudents.map(s => (
                     <option key={s.id} value={s.id}>{s.nama} ({s.nis})</option>
                   ))}

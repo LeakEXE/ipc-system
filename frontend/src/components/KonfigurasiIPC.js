@@ -4,6 +4,9 @@ import { formatDisplayText } from '../utils/formatDisplayText';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { getRowField } from '../utils/excelImport';
+import { styleImportTemplateSheet } from '../utils/excelTemplate';
+import { Plus, Download, Pencil, Trash2, TriangleAlert, CircleCheck, CircleX, Settings, RefreshCw } from 'lucide-react';
+import { CATEGORY_ICONS } from './icons';
 
 function KonfigurasiIPC() {
   const [configs, setConfigs] = useState([]);
@@ -25,16 +28,19 @@ function KonfigurasiIPC() {
   const [excelFile, setExcelFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importResults, setImportResults] = useState([]);
-  const [minIpcInput, setMinIpcInput] = useState('0');
+  const [minIpcValues, setMinIpcValues] = useState({ X: '0', XI: '0', XII: '0' });
   const [minIpcSaving, setMinIpcSaving] = useState(false);
+  const [ipcAwalValues, setIpcAwalValues] = useState({ X: '80', XI: '80', XII: '80' });
+  const [ipcAwalStudents, setIpcAwalStudents] = useState({ X: [], XI: [], XII: [] });
+  const [ipcAwalSaving, setIpcAwalSaving] = useState(false);
 
   const categories = [
-    { key: 'prestasi', label: 'Prestasi', icon: '🏆' },
-    { key: 'organisasi', label: 'Organisasi', icon: '👥' },
-    { key: 'kepanitiaan', label: 'Kepanitiaan', icon: '📋' },
-    { key: 'event', label: 'Event', icon: '🎪' },
-    { key: 'pelanggaran', label: 'Pelanggaran', icon: '⚠️' },
-    { key: 'perilaku', label: 'Perilaku', icon: '⭐' }
+    { key: 'prestasi', label: 'Prestasi', icon: CATEGORY_ICONS.prestasi },
+    { key: 'organisasi', label: 'Organisasi', icon: CATEGORY_ICONS.organisasi },
+    { key: 'kepanitiaan', label: 'Kepanitiaan', icon: CATEGORY_ICONS.kepanitiaan },
+    { key: 'event', label: 'Event', icon: CATEGORY_ICONS.event },
+    { key: 'pelanggaran', label: 'Pelanggaran', icon: CATEGORY_ICONS.pelanggaran },
+    { key: 'perilaku', label: 'Perilaku', icon: CATEGORY_ICONS.perilaku }
   ];
 
   useEffect(() => {
@@ -44,6 +50,7 @@ function KonfigurasiIPC() {
     fetchOrganisasiOptions();
     fetchPerilakuRatings();
     fetchMinIpcConfig();
+    fetchIpcAwalConfig();
   }, []);
 
   const fetchOrganisasiOptions = async () => {
@@ -123,29 +130,101 @@ function KonfigurasiIPC() {
 
   const fetchMinIpcConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/min-ipc');
-      setMinIpcInput(String(response.data?.min_ipc ?? 0));
+      const response = await api.get('/ipc-config/min-ipc-per-grade');
+      const data = response.data || {};
+      setMinIpcValues({
+        X: String(data.X ?? 0),
+        XI: String(data.XI ?? 0),
+        XII: String(data.XII ?? 0)
+      });
     } catch (error) {
       console.error('Error fetching min IPC config:', error);
     }
   };
 
   const saveMinIpcConfig = async () => {
-    const trimmed = String(minIpcInput).trim();
-    const value = Number(trimmed);
-    if (trimmed === '' || !Number.isInteger(value) || value < 0) {
-      setMessage('Batas minimum harus bilangan bulat 0 atau lebih (0 = nonaktif)');
-      return;
+    const parsed = {};
+    for (const grade of ['X', 'XI', 'XII']) {
+      const trimmed = String(minIpcValues[grade]).trim();
+      const value = Number(trimmed);
+      if (trimmed === '' || !Number.isInteger(value) || value < 0) {
+        setMessage(`Batas minimum Kelas ${grade} harus bilangan bulat 0 atau lebih (0 = nonaktif)`);
+        return;
+      }
+      parsed[grade] = value;
     }
     try {
       setMinIpcSaving(true);
-      await api.put('/ipc-config/min-ipc', { min_ipc: value });
+      await api.put('/ipc-config/min-ipc-per-grade', parsed);
       setMessage('Batas minimum Total IPC berhasil disimpan!');
-      setMinIpcInput(String(value));
+      setMinIpcValues({ X: String(parsed.X), XI: String(parsed.XI), XII: String(parsed.XII) });
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menyimpan batas minimum IPC');
     } finally {
       setMinIpcSaving(false);
+    }
+  };
+
+  const fetchIpcAwalConfig = async () => {
+    try {
+      const [defaultsRes, usersRes] = await Promise.all([
+        api.get('/ipc-config/ipc-awal-per-grade'),
+        api.get('/users')
+      ]);
+      const defaults = defaultsRes.data || {};
+      setIpcAwalValues({
+        X: String(defaults.X ?? 80),
+        XI: String(defaults.XI ?? 80),
+        XII: String(defaults.XII ?? 80)
+      });
+      const users = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.users;
+      const byGrade = { X: [], XI: [], XII: [] };
+      (users || []).filter(u => u.role === 'siswa').forEach(s => {
+        const prefix = String(s.kelas || '').split(' ')[0].toUpperCase();
+        if (byGrade[prefix]) byGrade[prefix].push({ id: s.id, ipc_awal: s.ipc_awal });
+      });
+      setIpcAwalStudents(byGrade);
+    } catch (error) {
+      console.error('Error fetching IPC awal config:', error);
+    }
+  };
+
+  const saveIpcAwalConfig = async () => {
+    const parsed = {};
+    for (const grade of ['X', 'XI', 'XII']) {
+      const value = parseInt(ipcAwalValues[grade], 10);
+      if (Number.isNaN(value) || value < 0) {
+        setMessage(`IPC awal Kelas ${grade} harus angka valid (min 0)`);
+        return;
+      }
+      parsed[grade] = value;
+    }
+    try {
+      setIpcAwalSaving(true);
+      // 1. Store grade defaults (used for newly created students)
+      await api.put('/ipc-config/ipc-awal-per-grade', parsed);
+      // 2. Apply to current students, but only where the value actually changed
+      const applied = [];
+      for (const grade of ['X', 'XI', 'XII']) {
+        const changed = (ipcAwalStudents[grade] || []).filter(s => (s.ipc_awal ?? 0) !== parsed[grade]);
+        if (changed.length > 0) {
+          await api.post('/users/bulk-update-ipc-awal', {
+            userIds: changed.map(s => s.id),
+            ipcAwal: parsed[grade]
+          });
+          applied.push(`Kelas ${grade} (${changed.length} siswa)`);
+        }
+      }
+      setMessage(
+        applied.length > 0
+          ? `IPC awal berhasil disimpan dan diterapkan: ${applied.join(', ')}!`
+          : 'IPC awal berhasil disimpan! (tidak ada perubahan pada siswa saat ini)'
+      );
+      fetchIpcAwalConfig();
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Gagal menyimpan IPC awal');
+    } finally {
+      setIpcAwalSaving(false);
     }
   };
 
@@ -249,12 +328,13 @@ function KonfigurasiIPC() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Template');
     worksheet.columns = [
+      { header: 'No', key: 'No', width: 6 },
       { header: 'Detail', key: 'Detail', width: 35 },
       { header: 'TingkatPelanggaran', key: 'TingkatPelanggaran', width: 22 }
     ];
 
     if (levelNames.length) {
-      worksheet.dataValidations.add('B2:B1000', {
+      worksheet.dataValidations.add('C2:C1000', {
         type: 'list',
         allowBlank: false,
         formulae: [`"${levelNames.join(',')}"`],
@@ -263,6 +343,8 @@ function KonfigurasiIPC() {
         error: `Pilih salah satu: ${levelNames.join(', ')}`
       });
     }
+
+    await styleImportTemplateSheet(worksheet);
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blobUrl = URL.createObjectURL(new Blob([buffer], {
@@ -491,10 +573,10 @@ function KonfigurasiIPC() {
           style={{
             width: 40, height: 40, borderRadius: 10,
             background: '#EAF1FE', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20
+            fontSize: 20, color: '#3B82F6'
           }}
         >
-          ⚙️
+          <Settings size={20} />
         </div>
         <div>
           <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Konfigurasi IPC</h2>
@@ -511,24 +593,63 @@ function KonfigurasiIPC() {
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 320px' }}>
-            <h3 style={{ margin: '0 0 4px' }}>Batas Minimum Total IPC</h3>
+            <h3 style={{ margin: '0 0 4px' }}>Batas Minimum Total IPC per Tingkat</h3>
             <p style={{ margin: 0, color: '#6B7080', fontSize: 13 }}>
-              Total IPC siswa di bawah batas ini ditampilkan <strong style={{ color: '#dc2626' }}>merah</strong> pada
+              Total IPC siswa di bawah batas tingkatnya ditampilkan <strong style={{ color: '#dc2626' }}>merah</strong> pada
               cetakan Excel (laporan individual &amp; per kelas) dan halaman laporan. Isi <strong>0</strong> untuk
-              menonaktifkan.
+              menonaktifkan per tingkat.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={minIpcInput}
-              onChange={(e) => setMinIpcInput(e.target.value)}
-              style={{ width: 130, padding: '9px 10px', borderRadius: 8, border: '1px solid #D7DBE4', fontSize: 14 }}
-            />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            {['X', 'XI', 'XII'].map(grade => (
+              <div key={grade}>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: 12, fontWeight: 600, color: '#6B7080' }}>
+                  Kelas {grade}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={minIpcValues[grade]}
+                  onChange={(e) => setMinIpcValues(prev => ({ ...prev, [grade]: e.target.value }))}
+                  style={{ width: 110, padding: '9px 10px', borderRadius: 8, border: '1px solid #D7DBE4', fontSize: 14 }}
+                />
+              </div>
+            ))}
             <button className="btn btn-primary" onClick={saveMinIpcConfig} disabled={minIpcSaving}>
               {minIpcSaving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 320px' }}>
+            <h3 style={{ margin: '0 0 4px' }}>IPC Awal per Tingkat</h3>
+            <p style={{ margin: 0, color: '#6B7080', fontSize: 13 }}>
+              Nilai awal IPC untuk siswa Kelas X, XI, dan XII. Menyimpan akan menerapkan nilai ke
+              siswa saat ini (hanya yang berubah) dan menyimpannya sebagai default untuk siswa baru.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            {['X', 'XI', 'XII'].map(grade => (
+              <div key={grade}>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: 12, fontWeight: 600, color: '#6B7080' }}>
+                  Kelas {grade} ({(ipcAwalStudents[grade] || []).length} siswa)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={ipcAwalValues[grade]}
+                  onChange={(e) => setIpcAwalValues(prev => ({ ...prev, [grade]: e.target.value }))}
+                  style={{ width: 110, padding: '9px 10px', borderRadius: 8, border: '1px solid #D7DBE4', fontSize: 14 }}
+                />
+              </div>
+            ))}
+            <button className="btn btn-primary" onClick={saveIpcAwalConfig} disabled={ipcAwalSaving}>
+              {ipcAwalSaving ? 'Menyimpan...' : 'Simpan'}
             </button>
           </div>
         </div>
@@ -544,7 +665,7 @@ function KonfigurasiIPC() {
               className="btn btn-danger"
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              🗑️ Hapus Semua
+              <Trash2 size={14} /> Hapus Semua
             </button>
             <button
               onClick={fetchConfigs}
@@ -552,7 +673,7 @@ function KonfigurasiIPC() {
               className="btn btn-info"
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              🔄 Refresh
+              <RefreshCw size={14} /> Refresh
             </button>
           </div>
         </div>
@@ -566,7 +687,7 @@ function KonfigurasiIPC() {
                 padding: '10px 20px',
                 borderRadius: 8,
                 border: '1px solid #E7E8EE',
-                background: activeCategory === cat.key ? '#3B7CF6' : '#FFFFFF',
+                background: activeCategory === cat.key ? '#3B82F6' : '#FFFFFF',
                 color: activeCategory === cat.key ? '#FFFFFF' : '#1E2130',
                 fontSize: 14,
                 fontWeight: 600,
@@ -577,7 +698,7 @@ function KonfigurasiIPC() {
                 transition: 'all 0.2s'
               }}
             >
-              <span>{cat.icon}</span>
+              <span style={{ display: 'inline-flex' }}><cat.icon size={16} /></span>
               {cat.label}
             </button>
           ))}
@@ -596,7 +717,7 @@ function KonfigurasiIPC() {
                 className="btn btn-info"
                 style={{ display: 'flex', alignItems: 'center', gap: 6 }}
               >
-                📥 Import Excel
+                <Download size={14} /> Import Excel
               </button>
             )}
             <button
@@ -607,7 +728,7 @@ function KonfigurasiIPC() {
               className="btn btn-primary"
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              ➕ Tambah Konfigurasi
+              <Plus size={14} /> Tambah Konfigurasi
             </button>
           </div>
         </div>
@@ -702,7 +823,7 @@ function KonfigurasiIPC() {
           <div className="loading"><div className="spinner"></div></div>
         ) : displayedConfigs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, color: '#6B7080' }}>
-            <div style={{ fontSize: 48, marginBottom: 16, color: '#94A3B8' }}>⚠️</div>
+            <div style={{ fontSize: 48, marginBottom: 16, color: '#94A3B8', display: 'flex', justifyContent: 'center' }}><TriangleAlert size={48} /></div>
             <p>Belum ada konfigurasi untuk kategori ini</p>
           </div>
         ) : (
@@ -765,16 +886,16 @@ function KonfigurasiIPC() {
                     <button
                       onClick={() => openEditModal(config)}
                       className="btn btn-info"
-                      style={{ padding: '4px 8px', fontSize: 12, marginRight: 4 }}
+                      style={{ padding: '4px 8px', fontSize: 12, marginRight: 4, display: 'inline-flex', alignItems: 'center' }}
                     >
-                      ✏️
+                      <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => handleDeleteConfig(config.id)}
                       className="btn btn-danger"
-                      style={{ padding: '4px 8px', fontSize: 12 }}
+                      style={{ padding: '4px 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center' }}
                     >
-                      🗑️
+                      <Trash2 size={13} />
                     </button>
                   </td>
                 </tr>
@@ -787,17 +908,16 @@ function KonfigurasiIPC() {
 
       {/* Edit Modal */}
       {showEditModal && editingConfig && (
-        <div style={{
+        <div className="app-modal-overlay" style={{
           position: 'fixed',
           top: 0,
-          left: 0,
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1500
         }}>
           <div style={{
             background: '#FFFFFF',
@@ -858,7 +978,7 @@ function KonfigurasiIPC() {
                         if (pointInput) pointInput.value = level?.point_value != null ? String(level.point_value) : '';
                       }}
                     >
-                      <option value="" disabled>Pilih Tingkat Pelanggaran</option>
+                      <option value="" disabled hidden>Pilih Tingkat Pelanggaran</option>
                       {editTingkatOptions.map(level => (
                         <option key={level.id} value={level.field1}>
                           {level.field1}{level.is_active ? '' : ' (non-aktif)'}
@@ -941,17 +1061,16 @@ function KonfigurasiIPC() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div style={{
+        <div className="app-modal-overlay" style={{
           position: 'fixed',
           top: 0,
-          left: 0,
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1500
         }}>
           <div style={{
             background: '#FFFFFF',
@@ -995,7 +1114,7 @@ function KonfigurasiIPC() {
                 </label>
                 {activeCategory === 'prestasi' && (
                   <select name="field1" required className="form-control" style={{ fontSize: 14 }}>
-                    <option value="">Pilih Tingkat Lomba</option>
+                    <option value="" disabled hidden>Pilih Tingkat Lomba</option>
                     {FIXED_TINGKAT_OPTIONS.map(tingkat => (
                       <option key={tingkat} value={tingkat}>
                         {formatDisplayText(tingkat)}
@@ -1005,7 +1124,7 @@ function KonfigurasiIPC() {
                 )}
                 {activeCategory === 'perilaku' && (
                   <select name="field1" required className="form-control" style={{ fontSize: 14 }}>
-                    <option value="">Pilih Tingkat Penilaian</option>
+                    <option value="" disabled hidden>Pilih Tingkat Penilaian</option>
                     {perilakuRatings.filter(rating => rating.is_active).map(rating => (
                       <option key={rating.id} value={rating.name}>
                         {formatDisplayText(rating.name)}
@@ -1035,7 +1154,7 @@ function KonfigurasiIPC() {
                 )}
                 {activeCategory === 'kepanitiaan' && (
                   <select name="field1" required className="form-control" style={{ fontSize: 14 }}>
-                    <option value="">Pilih Jabatan</option>
+                    <option value="" disabled hidden>Pilih Jabatan</option>
                     <option value="ketua">Ketua</option>
                     <option value="wakil ketua">Wakil Ketua</option>
                     <option value="sekretaris">Sekretaris</option>
@@ -1046,7 +1165,7 @@ function KonfigurasiIPC() {
                 )}
                 {activeCategory === 'organisasi' && (
                   <select name="field1" required className="form-control" style={{ fontSize: 14 }}>
-                    <option value="">Pilih Organisasi</option>
+                    <option value="" disabled hidden>Pilih Organisasi</option>
                     {organisasiOptions.filter(option => option.is_active).map(option => (
                       <option key={option.id} value={option.name}>{option.name}</option>
                     ))}
@@ -1054,7 +1173,7 @@ function KonfigurasiIPC() {
                 )}
                 {activeCategory === 'event' && (
                   <select name="field1" required className="form-control" style={{ fontSize: 14 }}>
-                    <option value="">Pilih Tingkat Event</option>
+                    <option value="" disabled hidden>Pilih Tingkat Event</option>
                     {FIXED_TINGKAT_OPTIONS.map(tingkat => (
                       <option key={tingkat} value={tingkat}>
                         {formatDisplayText(tingkat)}
@@ -1070,7 +1189,7 @@ function KonfigurasiIPC() {
                   </label>
                   {activeCategory === 'prestasi' && (
                     <select name="field2" required className="form-control" style={{ fontSize: 14 }}>
-                      <option value="">Pilih Juara Lomba</option>
+                      <option value="" disabled hidden>Pilih Juara Lomba</option>
                       {FIXED_JUARA_LOMBA_OPTIONS.map(juara => (
                         <option key={juara} value={juara}>
                           {formatDisplayText(juara)}
@@ -1080,7 +1199,7 @@ function KonfigurasiIPC() {
                   )}
                   {activeCategory === 'pelanggaran' && pelanggaranAddType === 'detail' && (
                     <select name="field2" required className="form-control" style={{ fontSize: 14 }}>
-                      <option value="">Pilih Tingkat Pelanggaran</option>
+                      <option value="" disabled hidden>Pilih Tingkat Pelanggaran</option>
                     {configuredPelanggaranLevels.map(level => (
                       <option key={level.id} value={level.field1}>{level.field1}</option>
                     ))}
@@ -1088,7 +1207,7 @@ function KonfigurasiIPC() {
                   )}
                   {activeCategory === 'organisasi' && (
                     <select name="field2" required className="form-control" style={{ fontSize: 14 }}>
-                      <option value="">Pilih Jabatan</option>
+                      <option value="" disabled hidden>Pilih Jabatan</option>
                       <option value="ketua">Ketua</option>
                       <option value="wakil ketua">Wakil Ketua</option>
                       <option value="sekretaris">Sekretaris</option>
@@ -1144,17 +1263,16 @@ function KonfigurasiIPC() {
 
       {/* Import Detail Pelanggaran dari Excel */}
       {showImportModal && (
-        <div style={{
+        <div className="app-modal-overlay" style={{
           position: 'fixed',
           top: 0,
-          left: 0,
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1500
         }}>
           <div className="card" style={{ width: 500, maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
             <h4>Import Detail Pelanggaran dari Excel</h4>
@@ -1163,9 +1281,9 @@ function KonfigurasiIPC() {
               <button
                 className="btn btn-secondary"
                 onClick={downloadDetailTemplate}
-                style={{ marginBottom: '10px' }}
+                style={{ marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
-                📥 Download Template Detail
+                <Download size={14} /> Download Template Detail
               </button>
               <input
                 type="file"
@@ -1177,7 +1295,7 @@ function KonfigurasiIPC() {
                 <strong>Format:</strong> Detail, TingkatPelanggaran
                 <br />
                 <small style={{ color: '#1976d2' }}>
-                  💡 Kolom TingkatPelanggaran harus sesuai daftar tingkat yang sudah dibuat
+                  Kolom TingkatPelanggaran harus sesuai daftar tingkat yang sudah dibuat
                   {configuredPelanggaranLevels.length > 0 && ` (contoh: ${configuredPelanggaranLevels.slice(0, 3).map(l => l.field1).join(', ')})`}.
                   Point diambil otomatis dari tingkatnya.
                 </small>
@@ -1206,7 +1324,7 @@ function KonfigurasiIPC() {
                     {importResults.map((result, index) => (
                       <tr key={index}>
                         <td style={{ padding: '5px' }}>
-                          {result.status === 'success' ? '✅' : '❌'} {result.name}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{result.status === 'success' ? <CircleCheck size={14} /> : <CircleX size={14} />} {result.name}</span>
                         </td>
                         <td style={{ padding: '5px' }}>{result.level || '-'}</td>
                         <td style={{ padding: '5px' }}>

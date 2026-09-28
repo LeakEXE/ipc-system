@@ -11,7 +11,6 @@ import InputPelanggaran from './components/InputPelanggaran';
 import InputPerilaku from './components/InputPerilaku';
 import KelolaAkun from './components/KelolaAkun';
 import IzinAkun from './components/IzinAkun';
-import EditIPCAwal from './components/EditIPCAwal';
 import Leaderboard from './components/Leaderboard';
 import Profile from './components/Profile';
 import Logs from './components/Logs';
@@ -25,6 +24,7 @@ import LaporanCetak from './components/LaporanCetak';
 import KonfigurasiIPC from './components/KonfigurasiIPC';
 import SchoolConfig from './components/SchoolConfig';
 import api from './utils/api';
+import { Menu, X } from 'lucide-react';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const [loading, setLoading] = useState(true);
@@ -148,11 +148,6 @@ function App() {
             {(user) => <MainLayout user={user}><KelolaAkun /></MainLayout>}
           </ProtectedRoute>
         } />
-        <Route path="/edit-ipc-awal" element={
-          <ProtectedRoute allowedRoles={['superadmin']}>
-            {(user) => <MainLayout user={user}><EditIPCAwal /></MainLayout>}
-          </ProtectedRoute>
-        } />
         <Route path="/izin-akun" element={
           <ProtectedRoute allowedRoles={['superadmin']}>
             {(user) => <MainLayout user={user}><IzinAkun /></MainLayout>}
@@ -243,10 +238,10 @@ function MainLayout({ user, children }) {
   return (
     <div className="main-layout">
       <div className="mobile-header">
-        <button className="mobile-menu-toggle" onClick={toggleMobileMenu}>
-          {isMobileMenuOpen ? '✕' : '☰'}
+        <button className="mobile-menu-toggle" onClick={toggleMobileMenu} aria-label="Menu navigasi">
+          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
-        <span className="mobile-header-title">Sistem IPC</span>
+        <span className="mobile-header-title">Website IPC Bali Mandara</span>
       </div>
       <Navbar user={user} onLogout={handleLogout} isMobileMenuOpen={isMobileMenuOpen} toggleMobileMenu={toggleMobileMenu} />
       <div className="content">

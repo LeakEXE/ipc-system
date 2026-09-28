@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { auth, superAdminOnly } = require('../middleware/auth');
 const db = require('../config/database');
-const { clearConfigCache } = require('../utils/ipcConfig');
+const { clearConfigCache, getIpcAwalPerGrade, IPC_AWAL_GRADES } = require('../utils/ipcConfig');
 
 async function getOrganisasiOptions(activeOnly = false) {
     const [rows] = await db.query(
@@ -228,62 +228,131 @@ router.delete('/perilaku-ratings/:id', auth, superAdminOnly, async (req, res) =>
     }
 });
 
-// ---- Batas minimum Total IPC (bukan poin — hanya pengaturan tampilan) ----
+// ---- Batas minimum Total IPC per tingkat (X, XI, XII) ----
+// Display-only setting: totals below the grade's threshold render red.
+// 0 = nonaktif untuk tingkat tersebut. Missing grade rows fall back to the
+// legacy single `min_ipc` row (if any), then 0 — so existing deployments keep
+// their current value for all grades until saved per grade here.
 const MIN_IPC_CATEGORY = 'pengaturan';
-const MIN_IPC_FIELD1 = 'min_ipc';
+const MIN_IPC_GRADES = ['X', 'XI', 'XII'];
 
 // Dibaca semua role yang login — dipakai untuk menandai total IPC di bawah batas (merah).
-router.get('/min-ipc', auth, async (req, res) => {
+router.get('/min-ipc-per-grade', auth, async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT point_value FROM ipc_config
-             WHERE category = ? AND field1 = ?
-             ORDER BY id LIMIT 1`,
-            [MIN_IPC_CATEGORY, MIN_IPC_FIELD1]
+            `SELECT field1, point_value FROM ipc_config
+             WHERE category = ? AND field1 IN ('min_ipc', 'min_ipc_X', 'min_ipc_XI', 'min_ipc_XII')`,
+            [MIN_IPC_CATEGORY]
         );
-        const value = rows.length ? parseInt(rows[0].point_value, 10) : 0;
-        res.json({ min_ipc: Number.isFinite(value) && value > 0 ? value : 0 });
+        const byField = {};
+        for (const row of rows) byField[row.field1] = parseInt(row.point_value, 10);
+        const legacy = Number.isFinite(byField['min_ipc']) && byField['min_ipc'] > 0 ? byField['min_ipc'] : 0;
+        const pick = (grade) => {
+            const value = byField[`min_ipc_${grade}`];
+            return Number.isFinite(value) && value >= 0 ? value : legacy;
+        };
+        res.json({ X: pick('X'), XI: pick('XI'), XII: pick('XII') });
     } catch (error) {
         console.error('Error fetching min IPC config:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Hanya superadmin yang boleh mengubah batas. 0 = fitur nonaktif.
-router.put('/min-ipc', auth, superAdminOnly, async (req, res) => {
+// Hanya superadmin yang boleh mengubah batas.
+router.put('/min-ipc-per-grade', auth, superAdminOnly, async (req, res) => {
     try {
-        const raw = req.body?.min_ipc;
-        const value = Number(raw);
-        if (raw === '' || raw === null || raw === undefined ||
-            !Number.isInteger(value) || value < 0 || value > 100000) {
-            return res.status(400).json({ message: 'Batas minimum harus bilangan bulat 0 - 100000' });
+        const { X, XI, XII } = req.body || {};
+        const values = { X, XI, XII };
+        for (const grade of MIN_IPC_GRADES) {
+            const value = Number(values[grade]);
+            if (!Number.isInteger(value) || value < 0 || value > 100000) {
+                return res.status(400).json({ message: `Batas minimum Kelas ${grade} harus bilangan bulat 0 - 100000` });
+            }
         }
 
         const userId = req.user.id;
-        const [existing] = await db.query(
-            'SELECT id FROM ipc_config WHERE category = ? AND field1 = ? ORDER BY id LIMIT 1',
-            [MIN_IPC_CATEGORY, MIN_IPC_FIELD1]
-        );
-
-        if (existing.length) {
-            await db.query(
-                'UPDATE ipc_config SET point_value = ?, is_active = TRUE, updated_by = ? WHERE id = ?',
-                [value, userId, existing[0].id]
+        for (const grade of MIN_IPC_GRADES) {
+            const field = `min_ipc_${grade}`;
+            const [existing] = await db.query(
+                'SELECT id FROM ipc_config WHERE category = ? AND field1 = ? ORDER BY id LIMIT 1',
+                [MIN_IPC_CATEGORY, field]
             );
-        } else {
-            await db.query(
-                `INSERT INTO ipc_config (category, field1, field2, field3, point_value, description, is_active, updated_by)
-                 VALUES (?, ?, NULL, NULL, ?, ?, TRUE, ?)`,
-                [MIN_IPC_CATEGORY, MIN_IPC_FIELD1, value,
-                 'Batas minimum Total IPC - total di bawah nilai ini ditampilkan merah (0 = nonaktif)',
-                 userId]
-            );
+            if (existing.length) {
+                await db.query(
+                    'UPDATE ipc_config SET point_value = ?, is_active = TRUE, updated_by = ? WHERE id = ?',
+                    [Number(values[grade]), userId, existing[0].id]
+                );
+            } else {
+                await db.query(
+                    `INSERT INTO ipc_config (category, field1, field2, field3, point_value, description, is_active, updated_by)
+                     VALUES (?, ?, NULL, NULL, ?, ?, TRUE, ?)`,
+                    [MIN_IPC_CATEGORY, field, Number(values[grade]),
+                     `Batas minimum Total IPC Kelas ${grade} - total di bawah nilai ini ditampilkan merah (0 = nonaktif)`,
+                     userId]
+                );
+            }
         }
 
         clearConfigCache();
-        res.json({ min_ipc: value });
+        res.json({ X: Number(values.X), XI: Number(values.XI), XII: Number(values.XII) });
     } catch (error) {
         console.error('Error updating min IPC config:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// ---- IPC awal defaults per grade (X, XI, XII) ----
+// Readable by all logged-in users; only superadmin may change (PUT below).
+// Missing rows fall back to 80 (matches users.ipc_awal column default).
+router.get('/ipc-awal-per-grade', auth, async (req, res) => {
+    try {
+        res.json(await getIpcAwalPerGrade());
+    } catch (error) {
+        console.error('Error fetching IPC awal per grade:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Save all three grade defaults at once. Does NOT touch existing students —
+// the Edit IPC Awal page applies values to current students via bulk-update.
+router.put('/ipc-awal-per-grade', auth, superAdminOnly, async (req, res) => {
+    try {
+        const { X, XI, XII } = req.body || {};
+        const values = { X, XI, XII };
+        for (const grade of IPC_AWAL_GRADES) {
+            const value = Number(values[grade]);
+            if (!Number.isInteger(value) || value < 0 || value > 100000) {
+                return res.status(400).json({ message: `IPC awal Kelas ${grade} harus bilangan bulat 0 - 100000` });
+            }
+        }
+
+        const userId = req.user.id;
+        for (const grade of IPC_AWAL_GRADES) {
+            const field = `ipc_awal_${grade}`;
+            const [existing] = await db.query(
+                'SELECT id FROM ipc_config WHERE category = ? AND field1 = ? ORDER BY id LIMIT 1',
+                ['pengaturan', field]
+            );
+            if (existing.length) {
+                await db.query(
+                    'UPDATE ipc_config SET point_value = ?, is_active = TRUE, updated_by = ? WHERE id = ?',
+                    [Number(values[grade]), userId, existing[0].id]
+                );
+            } else {
+                await db.query(
+                    `INSERT INTO ipc_config (category, field1, field2, field3, point_value, description, is_active, updated_by)
+                     VALUES (?, ?, NULL, NULL, ?, ?, TRUE, ?)`,
+                    ['pengaturan', field, Number(values[grade]),
+                     `IPC awal default untuk siswa Kelas ${grade}`,
+                     userId]
+                );
+            }
+        }
+
+        clearConfigCache();
+        res.json(await getIpcAwalPerGrade());
+    } catch (error) {
+        console.error('Error updating IPC awal per grade:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

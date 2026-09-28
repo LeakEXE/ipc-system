@@ -1,4 +1,4 @@
-# IPC School System
+# Website IPC Bali Mandara
 
 Sistem Individual Point Card untuk sekolah dengan fitur lengkap untuk mengelola prestasi, organisasi, event, pelanggaran, dan perilaku siswa.
 
@@ -199,9 +199,14 @@ Aplikasi akan berjalan di `http://localhost:3000`
 
 ### Superadmin
 - **Username**: ADMIN001
-- **Password**: admin123
+- **Password**: nilai `SUPERADMIN_SETUP_PASSWORD` dari `backend/.env` **(hanya login pertama)**
 
-> ⚠️ **PENTING**: Setelah login pertama, password akan otomatis di-hash. Silakan ganti password default untuk keamanan.
+> ⚠️ **PENTING**: Database baru berisi ADMIN001 dengan password placeholder,
+> jadi tidak bisa login dengan `admin123` sebelum setup. Isi
+> `SUPERADMIN_SETUP_PASSWORD` di `.env` (lihat `backend/.env.example`), login
+> dengan username `ADMIN001` + password tersebut — password otomatis di-hash
+> saat login. Segera ganti password lewat menu Profile, lalu hapus variabel
+> itu dari `.env`.
 
 ## Sistem Poin IPC
 
@@ -263,47 +268,31 @@ Kelas (X, XI, XII) dihitung otomatis berdasarkan tahun pelajaran saat siswa masu
 ## Struktur Project
 
 ```
-full project ipcs/
+ipc-system/
 ├── backend/
 │   ├── config/
 │   │   └── database.js
 │   ├── middleware/
-│   │   └── auth.js
-│   ├── routes/
-│   │   ├── auth.js
-│   │   ├── users.js
-│   │   ├── prestasi.js
-│   │   ├── organisasi.js
-│   │   ├── event.js
-│   │   ├── pelanggaran.js
-│   │   ├── perilaku.js
-│   │   ├── approvals.js
-│   │   ├── approvals-v2.js
-│   │   ├── permissions.js
-│   │   ├── input-access.js
-│   │   ├── logs.js
-│   │   ├── dashboard.js
-│   │   ├── waliKelas.js
-│   │   ├── search.js
-│   │   ├── profile.js
-│   │   ├── reports.js
-│   │   ├── academicYear.js
-│   │   └── file-viewer.js
-│   ├── uploads/
-│   │   ├── prestasi/
-│   │   ├── organisasi/
-│   │   ├── event/
-│   │   ├── kepanitiaan/
-│   │   ├── pelanggaran/
-│   │   └── approvals/
-│   ├── utils/
-│   │   ├── ipc.js
-│   │   ├── approvalSchema.js
-│   │   ├── fileUtils.js
-│   │   └── ipcCardBreakdown.js
+│   │   ├── auth.js          # JWT, RBAC, cek izin input
+│   │   └── security.js      # rate limit, helmet, anti-SQLi
+│   ├── routes/              # terpasang sebagai /api/* di server.js
+│   │   ├── auth.js, users.js, profile.js, permissions.js, input-access.js
+│   │   ├── prestasi.js, organisasi.js, kepanitiaan.js
+│   │   ├── event.js, pelanggaran.js, perilaku.js
+│   │   ├── approvals-v2.js  # approval aktif (superadmin)
+│   │   ├── approvals.js     # lama, tidak dipakai UI
+│   │   ├── dashboard.js, waliKelas.js, search.js, reports.js
+│   │   ├── logs.js, file-viewer.js, academicYear.js, sync.js
+│   │   └── ipcConfig.js, school-config.js
+│   ├── uploads/             # prestasi|organisasi|kepanitiaan|event|
+│   │                         # pelanggaran|perilaku|approvals|approved|avatars|logos
+│   ├── utils/               # ipc.js, schoolConfig.js, fileUtils.js, ...
+│   ├── scripts/
+│   │   └── setupDb.js       # npm run db:setup
 │   ├── constants/
 │   │   └── points.js
-│   ├── .env
+│   ├── .env                 # dari .env.example (jangan di-commit)
+│   ├── .env.example
 │   ├── package.json
 │   └── server.js
 ├── frontend/
@@ -326,12 +315,12 @@ full project ipcs/
 │   │   │   ├── Profile.js
 │   │   │   ├── Logs.js
 │   │   │   ├── WaliKelas.js
-│   │   │   ├── Approvals.js
-│   │   │   ├── ApprovalsV2.js
+│   │   │   ├── ApprovalsV2.js (aktif; Approvals.js lama tidak dipakai)
 │   │   │   ├── Notifications.js
 │   │   │   ├── NotificationBadge.js
 │   │   │   ├── EditModal.js
-│   │   │   ├── EditIPCAwal.js
+│   │   │   ├── KonfigurasiIPC.js
+│   │   │   ├── SchoolConfig.js
 │   │   │   ├── Leaderboard.js
 │   │   │   ├── StudentDetail.js
 │   │   │   ├── StudentRecordsHistory.js
@@ -340,28 +329,26 @@ full project ipcs/
 │   │   │   ├── IpcReport.js
 │   │   │   ├── IpcPrintSheet.js
 │   │   │   ├── ipcPrintBranding.js
+│   │   │   ├── Dashboard.css
+│   │   │   ├── icons.js
 │   │   │   └── DriveViewer.js
 │   │   ├── hooks/
 │   │   │   └── useEditModal.js
-│   │   ├── utils/
-│   │   │   └── kelasJurusan.js
+│   │   ├── utils/           # api.js, minIpc.js, kelasJurusan.js, ...
 │   │   ├── App.js
 │   │   ├── index.js
 │   │   ├── index.css
 │   │   └── config.js
 │   └── package.json
-├── database/
-│   └── skema.sql
+├── backend/
+│   └── database/
+│       └── skema.sql  →  (jalur asli: backend/database/skema.sql)
 ├── docs/
+│   └── ACADEMIC_YEAR_SYSTEM.md
 ├── screenshots/
-├── .github/
-├── .gitignore
-├── apache-config.conf
-├── README.md
-├── DOCUMENTATION.md
-├── QUICK_GUIDE.md
-├── REQUIREMENTS.md
-└── SECURITY.md
+├── DOCUMENTATION.md, REQUIREMENTS.md, QUICK_GUIDE.md
+├── SECURITY.md, IPC_SYNC_GUIDE.md, DOCS_INDEX.txt
+├── FLOWCHART.html (+ versi sederhana), LICENSE, README.md
 ```
 
 ## Panduan Penggunaan
@@ -440,4 +427,9 @@ Fitur yang dapat ditambahkan:
 
 ## License
 
-Project ini dibuat untuk keperluan sekolah.
+Proprietary — Copyright (C) 2026 Dean Putra & Agus Kariada. All rights reserved.
+
+Penggunaan perangkat lunak ini terbatas untuk SMK Negeri Bali Mandara.
+Dilarang menyalin, menyebarluaskan, atau menggunakan kembali perangkat lunak ini
+untuk sekolah atau pihak lain tanpa izin tertulis dari pemegang hak cipta.
+Lihat file `LICENSE` untuk ketentuan lengkap.

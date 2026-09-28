@@ -4,6 +4,8 @@ import Select from 'react-select';
 import EditModal from './EditModal';
 import useEditModal from '../hooks/useEditModal';
 import API_BASE_URL from '../config';
+import { StatusIcon } from './icons';
+import { ClipboardList, ShieldAlert } from 'lucide-react';
 
 function InputKepanitiaan() {
   const [formData, setFormData] = useState({
@@ -330,24 +332,27 @@ function InputKepanitiaan() {
 
   const getStatusBadge = (status) => {
     const styles = {
-      pending: { background: '#ffc107', color: '#333' },
-      approved: { background: '#28a745', color: 'white' },
-      rejected: { background: '#dc3545', color: 'white' }
+      pending: { background: 'var(--warning-color)', color: 'white' },
+      approved: { background: 'var(--success-color)', color: 'white' },
+      rejected: { background: 'var(--danger-color)', color: 'white' }
     };
     const labels = {
-      pending: '⏳ Menunggu',
-      approved: '✅ Disetujui',
-      rejected: '❌ Ditolak'
+      pending: 'Menunggu',
+      approved: 'Disetujui',
+      rejected: 'Ditolak'
     };
     return (
       <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
         padding: '4px 12px',
         borderRadius: '12px',
         fontSize: '12px',
         fontWeight: '500',
         ...styles[status]
       }}>
-        {labels[status] || status}
+        <StatusIcon status={status} /> {labels[status] || status}
       </span>
     );
   };
@@ -359,7 +364,7 @@ function InputKepanitiaan() {
   if (!hasAccess) {
     return (
       <div className="card">
-        <h2>🚫 Akses Ditolak</h2>
+        <h2><ShieldAlert size={22} style={{ verticalAlign: '-4px', marginRight: '8px' }} />Akses Ditolak</h2>
         <div className="alert alert-danger" style={{ marginTop: '15px' }}>
           {accessMessage || 'Anda tidak memiliki izin untuk mengakses halaman ini. Silakan hubungi SuperAdmin.'}
         </div>
@@ -387,7 +392,7 @@ function InputKepanitiaan() {
       {/* Index Display for Superadmin */}
       {(userRole === 'superadmin' && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Index Kepanitiaan</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Kepanitiaan</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -398,7 +403,7 @@ function InputKepanitiaan() {
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
-                    <th>Kategori</th>
+                    <th>Jenis</th>
                     <th>Jabatan</th>
                     <th>Point</th>
                     <th>Status</th>
@@ -531,7 +536,7 @@ function InputKepanitiaan() {
           <div className="form-group">
             <label>Grha</label>
             <select name="grha" value={formData.grha} disabled required onChange={handleChange}>
-              <option value="">Data diisi otomatis</option>
+              <option value="" disabled hidden>Data diisi otomatis</option>
               {grhaOptions.map(grha => (
                 <option key={grha} value={grha}>{grha}</option>
               ))}
@@ -540,17 +545,7 @@ function InputKepanitiaan() {
         </div>
 
         <div className="form-group">
-          <label>Jabatan Kepanitiaan</label>
-          <select name="jabatan_kepanitiaan" value={formData.jabatan_kepanitiaan} onChange={handleChange} required>
-            <option value="">Pilih Jabatan</option>
-            {jabatanOptions.map(jabatan => (
-              <option key={jabatan.value} value={jabatan.value}>{jabatan.label} {formData.jabatan_kepanitiaan === jabatan.value && calculatedPoint ? `(${calculatedPoint} point)` : ''}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label>Kategori Kepanitiaan</label>
+          <label>Jenis Kepanitiaan</label>
           <input
             type="text"
             name="kategori_kepanitiaan"
@@ -558,6 +553,16 @@ function InputKepanitiaan() {
             onChange={handleChange}
             placeholder="Nama kepanitiaan"
           />
+        </div>
+        
+        <div className="form-group">
+          <label>Jabatan Kepanitiaan</label>
+          <select name="jabatan_kepanitiaan" value={formData.jabatan_kepanitiaan} onChange={handleChange} required>
+            <option value="" disabled hidden>Pilih Jabatan</option>
+            {jabatanOptions.map(jabatan => (
+              <option key={jabatan.value} value={jabatan.value}>{jabatan.label} {formData.jabatan_kepanitiaan === jabatan.value && calculatedPoint ? `(${calculatedPoint} point)` : ''}</option>
+            ))}
+          </select>
         </div>
 
         <div className="form-group" style={{ 
@@ -638,7 +643,7 @@ function InputKepanitiaan() {
             value={editModal.editFormData.grha || ''} 
             onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, grha: e.target.value })}
           >
-            <option value="">Pilih Grha</option>
+            <option value="" disabled hidden>Pilih Grha</option>
             {grhaOptions.map(grha => (
               <option key={grha} value={grha}>{grha}</option>
             ))}
@@ -652,14 +657,14 @@ function InputKepanitiaan() {
               value={editModal.editFormData.jabatan_kepanitiaan || ''} 
               onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, jabatan_kepanitiaan: e.target.value })}
             >
-              <option value="">Pilih Jabatan</option>
+              <option value="" disabled hidden>Pilih Jabatan</option>
               {jabatanOptions.map(jabatan => (
                 <option key={jabatan.value} value={jabatan.value}>{jabatan.label}</option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label>Kategori Kepanitiaan</label>
+            <label>Jenis Kepanitiaan</label>
             <input
               type="text"
               value={editModal.editFormData.kategori_kepanitiaan || ''}
@@ -682,7 +687,7 @@ function InputKepanitiaan() {
       {/* Submission History */}
       {submissions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Riwayat Pengajuan Kepanitiaan</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Kepanitiaan</h3>
           <div style={{ display: 'grid', gap: '10px' }}>
             {submissions.map((sub, index) => (
               <div key={sub.id || index} style={{

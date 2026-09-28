@@ -19,8 +19,7 @@ function IpcPrintSheet({ student, wali, points, ipcTotal, printDate = new Date()
   const branding = getIpcPrintBranding(schoolConfig);
   const breakdown = points || {
     point_awal: student?.ipc_awal ?? 80,
-    prestasi_akademik: 0,
-    prestasi_nonakademik: 0,
+    prestasi: 0,
     tanggung_jawab: 0,
     disiplin: 0,
     kepedulian: 0,
@@ -39,8 +38,7 @@ function IpcPrintSheet({ student, wali, points, ipcTotal, printDate = new Date()
   // Calculate total using the same formula as backend for consistency
   const calculatedTotal =
     (Number(breakdown.point_awal) || 80) +
-    (Number(breakdown.prestasi_akademik) || 0) +
-    (Number(breakdown.prestasi_nonakademik) || 0) +
+    (Number(breakdown.prestasi) || 0) +
     (Number(breakdown.tanggung_jawab) || 0) +
     (Number(breakdown.disiplin) || 0) +
     (Number(breakdown.kepedulian) || 0) +
@@ -120,16 +118,8 @@ function IpcPrintSheet({ student, wali, points, ipcTotal, printDate = new Date()
               <td colSpan="2">II Prestasi</td>
             </tr>
             <tr>
-              <td>1. Akademik</td>
-              <td className="point-value">{breakdown.prestasi_akademik}</td>
-            </tr>
-            <tr>
-              <td>2. Non-Akademik</td>
-              <td className="point-value">{breakdown.prestasi_nonakademik}</td>
-            </tr>
-            <tr className="subtotal-row">
               <td><strong>Jumlah Prestasi</strong></td>
-              <td className="point-value subtotal"><strong>{(Number(breakdown.prestasi_akademik) || 0) + (Number(breakdown.prestasi_nonakademik) || 0)}</strong></td>
+              <td className="point-value subtotal"><strong>{Number(breakdown.prestasi) || 0}</strong></td>
             </tr>
 
             <tr className="section-header">

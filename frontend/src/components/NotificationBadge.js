@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
+import { CircleCheck, CircleX, Clock, UserCheck, FileText, Bell, Inbox } from 'lucide-react';
 
 function NotificationBadge() {
   const [count, setCount] = useState(0);
@@ -47,25 +48,24 @@ function NotificationBadge() {
     setShowDropdown(!showDropdown);
   };
 
-  const getNotificationIcon = (type) => {
-    switch(type) {
-      case 'approved': return '✅';
-      case 'rejected': return '❌';
-      case 'approval_needed': return '⏳';
-      case 'pembina_approved': return '👨‍🏫';
-      case 'new_submission': return '📝';
-      default: return '📢';
-    }
+  const NOTIF_ICONS = {
+    approved: CircleCheck,
+    rejected: CircleX,
+    approval_needed: Clock,
+    pembina_approved: UserCheck,
+    new_submission: FileText
   };
+
+  const getNotificationIcon = (type) => NOTIF_ICONS[type] || Bell;
 
   const getNotificationColor = (type) => {
     switch(type) {
-      case 'approved': return '#d4edda';
-      case 'rejected': return '#f8d7da';
-      case 'approval_needed': return '#fff3cd';
-      case 'pembina_approved': return '#cce5ff';
-      case 'new_submission': return '#e2e3e5';
-      default: return '#f8f9fa';
+      case 'approved': return 'var(--green-bg)';
+      case 'rejected': return 'var(--danger-bg)';
+      case 'approval_needed': return 'var(--amber-bg)';
+      case 'pembina_approved': return 'var(--blue-light)';
+      case 'new_submission': return 'var(--bg-tertiary)';
+      default: return 'var(--bg-tertiary)';
     }
   };
 
@@ -81,13 +81,13 @@ function NotificationBadge() {
           position: 'relative'
         }}
       >
-        <span style={{ fontSize: '24px' }}>🔔</span>
+        <span style={{ display: 'inline-flex', color: 'var(--slate)' }}><Bell size={24} /></span>
         {count > 0 && (
           <span style={{
             position: 'absolute',
             top: '-2px',
             right: '-2px',
-            backgroundColor: '#e74c3c',
+            backgroundColor: 'var(--danger-color)',
             color: 'white',
             borderRadius: '50%',
             width: '20px',
@@ -121,17 +121,17 @@ function NotificationBadge() {
         }}>
           <div style={{
             padding: '15px 20px',
-            borderBottom: '2px solid #007bff',
-            backgroundColor: '#f8f9fa',
+            borderBottom: '2px solid var(--blue)',
+            backgroundColor: 'var(--bg-tertiary)',
             borderTopLeftRadius: '12px',
             borderTopRightRadius: '12px'
           }}>
-            <h4 style={{ margin: 0, color: '#333', fontSize: '16px', fontWeight: '600' }}>
-              📢 Notifikasi
+            <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Bell size={17} /> Notifikasi
               {count > 0 && (
                 <span style={{
                   marginLeft: '10px',
-                  backgroundColor: '#e74c3c',
+                  backgroundColor: 'var(--danger-color)',
                   color: 'white',
                   padding: '2px 8px',
                   borderRadius: '12px',
@@ -144,9 +144,9 @@ function NotificationBadge() {
           </div>
           
           {notifications.length === 0 ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#999' }}>
-              <span style={{ fontSize: '48px' }}>📭</span>
-              <p style={{ marginTop: '10px', margin: 0 }}>Tidak ada notifikasi</p>
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted-light)' }}>
+              <span style={{ display: 'inline-flex' }}><Inbox size={48} /></span>
+              <p style={{ marginTop: '10px', marginBottom: 0 }}>Tidak ada notifikasi</p>
             </div>
           ) : (
             <div>
@@ -170,15 +170,17 @@ function NotificationBadge() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                    <span style={{ fontSize: '20px', marginTop: '2px' }}>{getNotificationIcon(notif.type)}</span>
+                    {(() => { const Icon = getNotificationIcon(notif.type); return (
+                    <span style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--slate)' }}><Icon size={18} /></span>
+                    ); })()}
                     <div style={{ flex: 1 }}>
-                      <strong style={{ fontSize: '14px', color: '#333', display: 'block', marginBottom: '4px' }}>
+                      <strong style={{ fontSize: '14px', color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>
                         {notif.title}
                       </strong>
-                      <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#555', lineHeight: '1.4' }}>
+                      <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: 'var(--slate)', lineHeight: '1.4' }}>
                         {notif.message}
                       </p>
-                      <small style={{ color: '#999', fontSize: '11px', display: 'block' }}>
+                      <small style={{ color: 'var(--muted-light)', fontSize: '11px', display: 'block' }}>
                         {new Date(notif.created_at).toLocaleString('id-ID', {
                           day: 'numeric',
                           month: 'short',

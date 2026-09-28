@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
-import { useMinIpc, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import './IpcReport.css';
 
 function formatTahunPelajaran(date = new Date()) {
@@ -18,7 +18,7 @@ function formatPrintDate(date = new Date()) {
 }
 
 function IpcReport({ studentId, onClose }) {
-  const minIpc = useMinIpc();
+  const minIpc = useMinIpcPerGrade();
   const [studentData, setStudentData] = useState(null);
   const [ipcData, setIpcData] = useState(null);
   const [schoolConfig, setSchoolConfig] = useState(null);
@@ -77,8 +77,7 @@ function IpcReport({ studentId, onClose }) {
   // Use the breakdown total from backend for consistency
   const calculatedTotal = ipcData ? (
     (Number(ipcData.point_awal) || 80) +
-    (Number(ipcData.prestasi_akademik) || 0) +
-    (Number(ipcData.prestasi_nonakademik) || 0) +
+    (Number(ipcData.prestasi) || 0) +
     (Number(ipcData.tanggung_jawab) || 0) +
     (Number(ipcData.disiplin) || 0) +
     (Number(ipcData.kepedulian) || 0) +
@@ -181,16 +180,8 @@ function IpcReport({ studentId, onClose }) {
                 <td colSpan="2">II Prestasi</td>
               </tr>
               <tr>
-                <td>1. Akademik</td>
-                <td className="point-value">{ipcData?.prestasi_akademik || 0}</td>
-              </tr>
-              <tr>
-                <td>2. Non-Akademik</td>
-                <td className="point-value">{ipcData?.prestasi_nonakademik || 0}</td>
-              </tr>
-              <tr className="subtotal-row">
                 <td><strong>Jumlah Prestasi</strong></td>
-                <td className="point-value subtotal"><strong>{(Number(ipcData?.prestasi_akademik) || 0) + (Number(ipcData?.prestasi_nonakademik) || 0)}</strong></td>
+                <td className="point-value subtotal"><strong>{Number(ipcData?.prestasi) || 0}</strong></td>
               </tr>
 
               <tr className="section-header">
@@ -280,7 +271,7 @@ function IpcReport({ studentId, onClose }) {
 
               <tr className="total-row">
                 <td><strong>TOTAL POINT IPC</strong></td>
-                <td className={`point-value total ${total < 0 || isBelowMinIpc(total, minIpc) ? 'total-minus' : ''}`}><strong>{formatTotal(total)}</strong></td>
+                <td className={`point-value total ${total < 0 || isBelowMinIpc(total, minIpcFor(minIpc, studentData?.kelas)) ? 'total-minus' : ''}`}><strong>{formatTotal(total)}</strong></td>
               </tr>
             </tbody>
           </table>

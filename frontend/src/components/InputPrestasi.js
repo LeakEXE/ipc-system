@@ -5,12 +5,12 @@ import EditModal from './EditModal';
 import useEditModal from '../hooks/useEditModal';
 import API_BASE_URL from '../config';
 import Select from 'react-select';
+import { ClipboardList, ShieldAlert } from 'lucide-react';
 
 function InputPrestasi() {
   const [formData, setFormData] = useState({
     nama: '',
     nis: '',
-    jenis: 'akademik',
     nama_lomba: '',
     kelas: '',
     pembina: '',
@@ -365,7 +365,6 @@ function InputPrestasi() {
       setFormData({
         nama: '',
         nis: '',
-        jenis: 'akademik',
         nama_lomba: '',
         kelas: '',
         pembina: '',
@@ -395,7 +394,7 @@ function InputPrestasi() {
   if (!hasAccess) {
     return (
       <div className="card">
-        <h2>🚫 Akses Ditolak</h2>
+        <h2><ShieldAlert size={22} style={{ verticalAlign: '-4px', marginRight: '8px' }} />Akses Ditolak</h2>
         <div className="alert alert-danger" style={{ marginTop: '15px' }}>
           {accessMessage || 'Anda tidak memiliki izin untuk mengakses halaman ini. Silakan hubungi SuperAdmin.'}
         </div>
@@ -423,7 +422,7 @@ function InputPrestasi() {
       {/* Index Display for Superadmin */}
       {(userRole === 'superadmin' && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Index Prestasi</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Prestasi</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -581,20 +580,11 @@ function InputPrestasi() {
         <div className="form-group">
           <label>Pembina</label>
           <select name="pembina" value={formData.pembina} onChange={handleChange}>
-            <option value="">Pilih Pembina</option>
+            <option value="" disabled hidden>Pilih Pembina</option>
             {teachers.map(teacher => (
               <option key={teacher.id} value={teacher.nama}>{teacher.nama} ({teacher.nip})</option>
             ))}
           </select>
-        </div>
-
-        <div className="form-group">
-          <label>Foto Bukti</label>
-          <input
-            type="file"
-            onChange={handleFileChange}
-            accept="image/*"
-          />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -632,6 +622,15 @@ function InputPrestasi() {
           }}>
             {calculatedPoint > 0 ? '+' : ''}{calculatedPoint}
           </span>
+        </div>
+        
+        <div className="form-group">
+          <label>Foto Bukti</label>
+          <input
+            type="file"
+            onChange={handleFileChange}
+            accept="image/*"
+          />
         </div>
 
         <button
@@ -693,7 +692,7 @@ function InputPrestasi() {
             disabled={true}
             onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, grha: e.target.value })}
           >
-            <option value="">Pilih Grha</option>
+            <option value="" disabled hidden>Pilih Grha</option>
             {grhaOptions.map(grha => (
               <option key={grha} value={grha}>{grha}</option>
             ))}
@@ -715,7 +714,7 @@ function InputPrestasi() {
         <div className="form-group">
           <label>Pembina</label>
           <select name="pembina" value={editModal.editFormData.pembina} onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, pembina: e.target.value })}>
-            <option value="">Pilih Pembina</option>
+            <option value="" disabled hidden>Pilih Pembina</option>
             {teachers.map(teacher => (
               <option key={teacher.id} value={teacher.nama}>{teacher.nama} ({teacher.nip})</option>
             ))}
@@ -744,7 +743,7 @@ function InputPrestasi() {
       {/* Submission History - Hidden for Superadmin */}
       {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
         <div style={{ marginTop: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Riwayat Pengajuan Prestasi</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Prestasi</h3>
           {submissions.length === 0 ? (
             <p className="text-muted">Belum ada pengajuan</p>
           ) : (

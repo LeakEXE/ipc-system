@@ -1,4 +1,4 @@
-# 📦 IPC School System - Requirements
+# 📦 Website IPC Bali Mandara - Requirements
 
 ## 🖥️ System Requirements
 
@@ -208,9 +208,10 @@ npm start
 
 ### Step 7: Akses Aplikasi
 1. Buka browser: http://localhost:3000
-2. Login dengan akun default:
+2. Login pertama dengan akun default:
    - Username: ADMIN001
-   - Password: admin123
+   - Password: nilai `SUPERADMIN_SETUP_PASSWORD` dari `backend/.env`
+   (password otomatis di-hash; segera ganti lewat Profile lalu hapus variabel itu)
 3. Selesai! 🎉
 
 ---
@@ -284,9 +285,9 @@ REACT_APP_API_URL=http://localhost:5000/api
 
 | Role | Login ID | Password | Akses |
 |------|----------|----------|-------|
-| Superadmin | ADMIN001 | admin123 | Full access |
-| Guru | (NIP) | (diatur superadmin) | Input data, approval |
-| Siswa | (NIS/NISN) | (diatur guru) | View only |
+| Superadmin | ADMIN001 | `SUPERADMIN_SETUP_PASSWORD` (login pertama saja) | Full access |
+| Guru | (NIP) | (dibuat superadmin) | Input data sesuai izin |
+| Siswa | (NIS) | (dibuat superadmin) | View only |
 
 ---
 

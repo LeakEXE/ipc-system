@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
-import { useMinIpc, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import StudentDetail from './StudentDetail';
 import { GRHA_OPTIONS, getRowField, normalizeGrha } from '../utils/excelImport';
+import { styleImportTemplateSheet } from '../utils/excelTemplate';
+import { Plus, Download, CircleCheck, CircleX, BookOpen, Lightbulb } from 'lucide-react';
 
 const JABATAN_OPTIONS = ['Guru', 'Pegawai'];
 
@@ -18,7 +20,7 @@ const KELAS_OPTIONS = [
 ];
 
 function KelolaAkun() {
-  const minIpc = useMinIpc();
+  const minIpc = useMinIpcPerGrade();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({});
@@ -412,24 +414,14 @@ function KelolaAkun() {
 
   const downloadTemplate = async (type) => {
     const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
-    const currentAcademicYear = currentMonth >= 6 
-      ? `${currentYear}-${currentYear + 1}` 
-      : `${currentYear - 1}-${currentYear}`;
     
     if (type === 'siswa') {
       // Create 30 sample students with TKJ 1 and the current academic year
       const templateData = [];
-      const grhaOptions = ['Airsanya', 'Daksina', 'Genya', 'Madhya', 'Pascima', 'Uttara'];
       
       for (let i = 1; i <= 30; i++) {
         templateData.push({
-          Nama: `Siswa TKJ 1 ${i}`,
-          NIS: `2024${String(i).padStart(3, '0')}`,
-          Jurusan: 'TKJ 1',
-          Grha: grhaOptions[i % grhaOptions.length],
-          TahunPelajaran: currentAcademicYear,
-          Password: '123456'
+          No: i
         });
       }
 
@@ -437,6 +429,7 @@ function KelolaAkun() {
       const worksheet = workbook.addWorksheet('Template');
 
       worksheet.columns = [
+        { header: 'No', key: 'No', width: 6 },
         { header: 'Nama', key: 'Nama', width: 25 },
         { header: 'NIS', key: 'NIS', width: 10 },
         { header: 'Jurusan', key: 'Jurusan', width: 10 },
@@ -462,22 +455,24 @@ function KelolaAkun() {
       });
 
       for (let rowNumber = 2; rowNumber <= 1000; rowNumber += 1) {
-        worksheet.getCell(`C${rowNumber}`).dataValidation = validationFor(
+        worksheet.getCell(`D${rowNumber}`).dataValidation = validationFor(
           validJurusanOptions,
           'Jurusan tidak valid',
           `Pilih salah satu: ${validJurusanOptions.join(', ')}`
         );
-        worksheet.getCell(`D${rowNumber}`).dataValidation = validationFor(
+        worksheet.getCell(`E${rowNumber}`).dataValidation = validationFor(
           GRHA_OPTIONS,
           'Grha tidak valid',
           `Pilih salah satu: ${GRHA_OPTIONS.join(', ')}`
         );
-        worksheet.getCell(`E${rowNumber}`).dataValidation = validationFor(
+        worksheet.getCell(`F${rowNumber}`).dataValidation = validationFor(
           academicYearOptions,
           'Tahun Pelajaran tidak valid',
           'Pilih TahunPelajaran dari daftar yang tersedia'
         );
       }
+
+      await styleImportTemplateSheet(worksheet);
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blobUrl = URL.createObjectURL(new Blob([buffer], {
@@ -489,13 +484,18 @@ function KelolaAkun() {
       link.click();
       URL.revokeObjectURL(blobUrl);
     } else {
-      const templateData = [
-        { Nama: '', NIP: '', Jabatan: 'Guru', NoHP: '', Password: '123456' }
-      ];
+      const templateData = [];
+      
+      for (let i = 1; i <= 30; i++) {
+        templateData.push({
+          No: i
+        });
+      }
 
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Template');
       worksheet.columns = [
+        { header: 'No', key: 'No', width: 6 },
         { header: 'Nama', key: 'Nama', width: 25 },
         { header: 'NIP', key: 'NIP', width: 18 },
         { header: 'Jabatan', key: 'Jabatan', width: 14 },
@@ -504,7 +504,7 @@ function KelolaAkun() {
       ];
       templateData.forEach(row => worksheet.addRow(row));
 
-      worksheet.dataValidations.add('C2:C1000', {
+      worksheet.dataValidations.add('D2:D1000', {
         type: 'list',
         allowBlank: false,
         formulae: [`"${JABATAN_OPTIONS.join(',')}"`],
@@ -512,6 +512,8 @@ function KelolaAkun() {
         errorTitle: 'Jabatan tidak valid',
         error: `Pilih salah satu: ${JABATAN_OPTIONS.join(', ')}`
       });
+
+      await styleImportTemplateSheet(worksheet);
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blobUrl = URL.createObjectURL(new Blob([buffer], {
@@ -540,14 +542,14 @@ function KelolaAkun() {
   }
 
   return (
-    <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif', background: '#f5f5f5', padding: '20px', color: '#333', minHeight: '100vh' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', background: 'white', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' }}>
+    <div style={{ fontFamily: 'var(--font-sans)', background: 'transparent', padding: '4px 4px 40px', color: 'var(--text-primary)' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--card-radius)', padding: '24px', boxShadow: 'var(--shadow-card)' }}>
         <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: '600', color: '#1a1a1a', marginBottom: '8px', margin: 0 }}>Kelola Akun</h1>
-          <p style={{ fontSize: '13px', color: '#666', margin: 0 }}>Role: {userRole || 'loading...'}</p>
+          <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--ink)', margin: '0 0 8px' }}>Kelola Akun</h1>
+          <p style={{ fontSize: '13px', color: 'var(--slate)', margin: 0 }}>Role: {userRole || 'loading...'}</p>
         </div>
 
-        {message && <div style={{ padding: '12px 16px', background: '#d4edda', border: '1px solid #c3e6cb', borderRadius: '4px', color: '#155724', marginBottom: '20px' }}>{message}</div>}
+        {message && <div className="alert alert-success" style={{ marginBottom: '20px' }}>{message}</div>}
 
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
           {(userRole === 'superadmin' || userRole === 'guru') && (
@@ -555,13 +557,13 @@ function KelolaAkun() {
               onClick={() => { setShowCreateModal(true); setCreateModalType('student'); setFormData({}); }}
               style={{ 
                 padding: '10px 16px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
-                background: '#1e88e5', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: 'var(--blue)', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
                 transition: 'all 0.3s ease'
               }}
-              onMouseOver={(e) => { e.target.style.background = '#1565c0'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(30, 136, 229, 0.3)'; }}
-              onMouseOut={(e) => { e.target.style.background = '#1e88e5'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+              onMouseOver={(e) => { e.target.style.background = 'var(--blue-dark)'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(30, 136, 229, 0.3)'; }}
+              onMouseOut={(e) => { e.target.style.background = 'var(--blue)'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
             >
-              <i className="fas fa-plus"></i> Buat Akun Siswa
+              <Plus size={15} /> Buat Akun Siswa
             </button>
           )}
           
@@ -570,13 +572,13 @@ function KelolaAkun() {
               onClick={() => { setShowCreateModal(true); setCreateModalType('teacher'); setFormData({}); }}
               style={{ 
                 padding: '10px 16px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
-                background: '#43a047', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: 'var(--success-color)', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
                 transition: 'all 0.3s ease'
               }}
-              onMouseOver={(e) => { e.target.style.background = '#388e3c'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(67, 160, 71, 0.3)'; }}
-              onMouseOut={(e) => { e.target.style.background = '#43a047'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+              onMouseOver={(e) => { e.target.style.background = '#059669'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(67, 160, 71, 0.3)'; }}
+              onMouseOut={(e) => { e.target.style.background = 'var(--success-color)'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
             >
-              <i className="fas fa-plus"></i> Buat Akun Guru
+              <Plus size={15} /> Buat Akun Guru
             </button>
           )}
 
@@ -586,25 +588,25 @@ function KelolaAkun() {
                 onClick={() => { setShowImportModal(true); setImportModalType('siswa'); setExcelFile(null); setImportResults([]); }}
                 style={{ 
                   padding: '10px 16px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
-                  background: '#1e88e5', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  background: 'var(--blue)', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
                   transition: 'all 0.3s ease'
                 }}
-                onMouseOver={(e) => { e.target.style.background = '#1565c0'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(30, 136, 229, 0.3)'; }}
-                onMouseOut={(e) => { e.target.style.background = '#1e88e5'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+                onMouseOver={(e) => { e.target.style.background = 'var(--blue-dark)'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(30, 136, 229, 0.3)'; }}
+                onMouseOut={(e) => { e.target.style.background = 'var(--blue)'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
               >
-                <i className="fas fa-download"></i> Import Siswa
+                <Download size={15} /> Import Siswa
               </button>
               <button 
                 onClick={() => { setShowImportModal(true); setImportModalType('guru'); setExcelFile(null); setImportResults([]); }}
                 style={{ 
                   padding: '10px 16px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
-                  background: '#1e88e5', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  background: 'var(--blue)', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
                   transition: 'all 0.3s ease'
                 }}
-                onMouseOver={(e) => { e.target.style.background = '#1565c0'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(30, 136, 229, 0.3)'; }}
-                onMouseOut={(e) => { e.target.style.background = '#1e88e5'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+                onMouseOver={(e) => { e.target.style.background = 'var(--blue-dark)'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(30, 136, 229, 0.3)'; }}
+                onMouseOut={(e) => { e.target.style.background = 'var(--blue)'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
               >
-                <i className="fas fa-download"></i> Import Guru
+                <Download size={15} /> Import Guru
               </button>
             </>
           )}
@@ -624,7 +626,7 @@ function KelolaAkun() {
                   width: '100%', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
                   fontSize: '13px', background: 'white', color: '#333', transition: 'all 0.3s ease'
                 }}
-                onFocus={(e) => { e.target.style.borderColor = '#1e88e5'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
+                onFocus={(e) => { e.target.style.borderColor = 'var(--blue)'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
                 onBlur={(e) => { e.target.style.borderColor = '#d0d0d0'; e.target.style.boxShadow = 'none'; }}
               />
             </div>
@@ -638,7 +640,7 @@ function KelolaAkun() {
                     width: '100%', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
                     fontSize: '13px', background: 'white', color: '#333', transition: 'all 0.3s ease'
                   }}
-                  onFocus={(e) => { e.target.style.borderColor = '#1e88e5'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
+                  onFocus={(e) => { e.target.style.borderColor = 'var(--blue)'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
                   onBlur={(e) => { e.target.style.borderColor = '#d0d0d0'; e.target.style.boxShadow = 'none'; }}
                 >
                   <option value="">Semua Role</option>
@@ -657,7 +659,7 @@ function KelolaAkun() {
                   width: '100%', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', 
                   fontSize: '13px', background: 'white', color: '#333', transition: 'all 0.3s ease'
                 }}
-                onFocus={(e) => { e.target.style.borderColor = '#1e88e5'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
+                onFocus={(e) => { e.target.style.borderColor = 'var(--blue)'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
                 onBlur={(e) => { e.target.style.borderColor = '#d0d0d0'; e.target.style.boxShadow = 'none'; }}
               >
                 <option value="">Semua Kelas</option>
@@ -673,7 +675,7 @@ function KelolaAkun() {
                   width: '100%', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', 
                   fontSize: '13px', background: 'white', color: '#333', transition: 'all 0.3s ease'
                 }}
-                onFocus={(e) => { e.target.style.borderColor = '#1e88e5'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
+                onFocus={(e) => { e.target.style.borderColor = 'var(--blue)'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
                 onBlur={(e) => { e.target.style.borderColor = '#d0d0d0'; e.target.style.boxShadow = 'none'; }}
               >
                 <option value="">Semua Grha</option>
@@ -691,7 +693,7 @@ function KelolaAkun() {
                       width: '100%', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', 
                       fontSize: '13px', background: 'white', color: '#333', transition: 'all 0.3s ease'
                     }}
-                    onFocus={(e) => { e.target.style.borderColor = '#1e88e5'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
+                    onFocus={(e) => { e.target.style.borderColor = 'var(--blue)'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
                     onBlur={(e) => { e.target.style.borderColor = '#d0d0d0'; e.target.style.boxShadow = 'none'; }}
                   >
                     <option value="">Semua Jurusan</option>
@@ -712,7 +714,7 @@ function KelolaAkun() {
                       width: '100%', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', 
                       fontSize: '13px', background: 'white', color: '#333', transition: 'all 0.3s ease'
                     }}
-                    onFocus={(e) => { e.target.style.borderColor = '#1e88e5'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
+                    onFocus={(e) => { e.target.style.borderColor = 'var(--blue)'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
                     onBlur={(e) => { e.target.style.borderColor = '#d0d0d0'; e.target.style.boxShadow = 'none'; }}
                   >
                     <option value="">Semua Tahun</option>
@@ -794,8 +796,8 @@ function KelolaAkun() {
                   <td style={{ padding: '10px 12px', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>
                     <span style={{ 
                       display: 'inline-block', padding: '4px 8px', borderRadius: '3px', fontSize: '11px', fontWeight: '500', textAlign: 'center', minWidth: '50px',
-                      background: user.role === 'superadmin' ? '#ef5350' : user.role === 'guru' ? '#ffc107' : '#b3e5fc',
-                      color: user.role === 'superadmin' ? 'white' : user.role === 'guru' ? 'white' : '#01579b'
+                      background: user.role === 'superadmin' ? 'var(--danger-color)' : user.role === 'guru' ? 'var(--warning-color)' : 'var(--blue-light)',
+                      color: user.role === 'superadmin' ? 'white' : user.role === 'guru' ? 'white' : 'var(--blue)'
                     }}>
                       {user.role.toUpperCase()}
                     </span>
@@ -835,8 +837,8 @@ function KelolaAkun() {
                   )}
                   <td style={{ padding: '10px 12px', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>
                     <span style={{ 
-                      color: (user.ipc_total ?? 0) < 0 || isBelowMinIpc(user.ipc_total ?? 0, minIpc) ? '#dc2626' : 'inherit',
-                      fontWeight: (user.ipc_total ?? 0) < 0 || isBelowMinIpc(user.ipc_total ?? 0, minIpc) ? 'bold' : 'normal'
+                      color: (user.ipc_total ?? 0) < 0 || isBelowMinIpc(user.ipc_total ?? 0, minIpcFor(minIpc, user.kelas)) ? '#dc2626' : 'inherit',
+                      fontWeight: (user.ipc_total ?? 0) < 0 || isBelowMinIpc(user.ipc_total ?? 0, minIpcFor(minIpc, user.kelas)) ? 'bold' : 'normal'
                     }}>
                       {(user.ipc_total ?? 0) < 0 ? `${user.ipc_total ?? 0} (MINUS)` : (user.ipc_total ?? 0)}
                     </span>
@@ -850,10 +852,10 @@ function KelolaAkun() {
                             style={{ 
                               padding: '6px 10px', border: 'none', borderRadius: '3px', 
                               fontSize: '11px', fontWeight: '600', cursor: 'pointer', color: 'white',
-                              background: '#1e88e5', transition: 'all 0.2s ease', width: '100%', textAlign: 'center'
+                              background: 'var(--blue)', transition: 'all 0.2s ease', width: '100%', textAlign: 'center'
                             }}
-                            onMouseOver={(e) => { e.target.style.background = '#1565c0'; e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = '0 2px 4px rgba(30, 136, 229, 0.3)'; }}
-                            onMouseOut={(e) => { e.target.style.background = '#1e88e5'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+                            onMouseOver={(e) => { e.target.style.background = 'var(--blue-dark)'; e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = '0 2px 4px rgba(30, 136, 229, 0.3)'; }}
+                            onMouseOut={(e) => { e.target.style.background = 'var(--blue)'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
                           >
                             Detail
                           </button>
@@ -891,10 +893,10 @@ function KelolaAkun() {
                           style={{ 
                             padding: '6px 10px', border: 'none', borderRadius: '3px', 
                             fontSize: '11px', fontWeight: '600', cursor: 'pointer', color: 'white',
-                            background: '#1e88e5', transition: 'all 0.2s ease', width: '100%', textAlign: 'center'
+                            background: 'var(--blue)', transition: 'all 0.2s ease', width: '100%', textAlign: 'center'
                           }}
-                          onMouseOver={(e) => { e.target.style.background = '#1565c0'; e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = '0 2px 4px rgba(30, 136, 229, 0.3)'; }}
-                          onMouseOut={(e) => { e.target.style.background = '#1e88e5'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+                          onMouseOver={(e) => { e.target.style.background = 'var(--blue-dark)'; e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = '0 2px 4px rgba(30, 136, 229, 0.3)'; }}
+                          onMouseOut={(e) => { e.target.style.background = 'var(--blue)'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
                         >
                           Detail
                         </button>
@@ -939,11 +941,11 @@ function KelolaAkun() {
                   <button
                     onClick={handleBulkDelete}
                     style={{
-                      padding: '6px 12px', border: '1px solid #d0d0d0', background: '#dc3545', borderRadius: '3px',
+                      padding: '6px 12px', border: '1px solid var(--border-color)', background: 'var(--danger-color)', borderRadius: '3px',
                       fontSize: '12px', cursor: 'pointer', color: 'white'
                     }}
-                    onMouseOver={(e) => { e.target.style.background = '#c82333'; }}
-                    onMouseOut={(e) => { e.target.style.background = '#dc3545'; }}
+                    onMouseOver={(e) => { e.target.style.background = 'var(--danger-dark)'; }}
+                    onMouseOut={(e) => { e.target.style.background = 'var(--danger-color)'; }}
                   >
                     Hapus ({selectedIds.length})
                   </button>
@@ -1008,17 +1010,16 @@ function KelolaAkun() {
 
       {/* Create Account Modal */}
       {showCreateModal && (
-        <div style={{
+        <div className="app-modal-overlay" style={{
           position: 'fixed',
           top: 0,
-          left: 0,
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1500
         }}>
           <div className="card" style={{ width: 500, maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3>{createModalType === 'student' ? 'Buat Akun Siswa' : 'Buat Akun Guru'}</h3>
@@ -1037,7 +1038,7 @@ function KelolaAkun() {
                 <div className="form-group">
                   <label>Kelas</label>
                   <select value={formData.jurusan || ''} onChange={(e) => setFormData({...formData, jurusan: e.target.value})} required>
-                    <option value="">Pilih Kelas</option>
+                    <option value="" disabled hidden>Pilih Kelas</option>
                     <option value="TKJ 1">TKJ 1</option>
                     <option value="TKJ 2">TKJ 2</option>
                     <option value="DPIB 1">DPIB 1</option>
@@ -1050,7 +1051,7 @@ function KelolaAkun() {
                 <div className="form-group">
                   <label>Grha</label>
                   <select value={formData.grha || ''} onChange={(e) => setFormData({...formData, grha: e.target.value})}>
-                    <option value="">Pilih Grha</option>
+                    <option value="" disabled hidden>Pilih Grha</option>
                     {grhaOptions.map(grha => (
                       <option key={grha} value={grha}>{grha}</option>
                     ))}
@@ -1059,7 +1060,7 @@ function KelolaAkun() {
                 <div className="form-group">
                   <label>Tahun Pelajaran (Masuk)</label>
                   <select value={formData.tahun_pelajaran || ''} onChange={(e) => setFormData({...formData, tahun_pelajaran: e.target.value})} required>
-                    <option value="">Pilih Tahun Pelajaran</option>
+                    <option value="" disabled hidden>Pilih Tahun Pelajaran</option>
                     {(() => {
                       // Opsi tahun pelajaran dari 2024-2025 sampai 2030-2031
                       const options = [];
@@ -1082,8 +1083,8 @@ function KelolaAkun() {
                     borderRadius: '4px',
                     border: '1px solid #2196f3'
                   }}>
-                    <strong style={{ color: '#1976d2', display: 'block', marginBottom: '5px' }}>
-                      📚 Preview Kelas yang Akan Dibuat:
+                    <strong style={{ color: '#1976d2', display: 'flex', alignItems: 'center', gap: 6, marginBottom: '5px' }}>
+                      <BookOpen size={15} /> Preview Kelas yang Akan Dibuat:
                     </strong>
                     <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#0d47a1' }}>
                       {(() => {
@@ -1175,7 +1176,7 @@ function KelolaAkun() {
                 <div className="form-group">
                   <label>Jabatan</label>
                   <select value={formData.jabatan || ''} onChange={(e) => setFormData({...formData, jabatan: e.target.value})} required>
-                    <option value="">Pilih Jabatan</option>
+                    <option value="" disabled hidden>Pilih Jabatan</option>
                     {JABATAN_OPTIONS.map((jabatan) => (
                       <option key={jabatan} value={jabatan}>{jabatan}</option>
                     ))}
@@ -1198,17 +1199,16 @@ function KelolaAkun() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div style={{
+        <div className="app-modal-overlay" style={{
           position: 'fixed',
           top: 0,
-          left: 0,
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1500
         }}>
           <div className="card" style={{ width: 500, maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
             <h4>Import {importModalType === 'siswa' ? 'Siswa' : 'Guru'} dari Excel</h4>
@@ -1217,9 +1217,9 @@ function KelolaAkun() {
               <button
                 className="btn btn-secondary"
                 onClick={() => downloadTemplate(importModalType)}
-                style={{ marginBottom: '10px' }}
+                style={{ marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
-                📥 Download Template {importModalType === 'siswa' ? 'Siswa' : 'Guru'}
+                <Download size={14} /> Download Template {importModalType === 'siswa' ? 'Siswa' : 'Guru'}
               </button>
               <input
                 type="file"
@@ -1232,9 +1232,10 @@ function KelolaAkun() {
                   <div>
                     <strong>Format Siswa:</strong> nama, nis, jurusan, grha, tahun_pelajaran, password
                     <br />
-                    <small style={{ color: '#1976d2' }}>
-                      💡 Kelas akan dihitung otomatis berdasarkan tahun_pelajaran dan jurusan. 
-                      Download template untuk melihat contoh.
+                    <small style={{ color: '#1976d2', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <Lightbulb size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span>Kelas akan dihitung otomatis berdasarkan tahun_pelajaran dan jurusan.
+                      Download template untuk melihat contoh.</span>
                     </small>
                   </div>
                 ) : (
@@ -1267,14 +1268,14 @@ function KelolaAkun() {
                     {importResults.map((result, index) => (
                       <tr key={index}>
                         <td style={{ padding: '5px' }}>
-                          {result.status === 'success' ? '✅' : '❌'} {result.name}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{result.status === 'success' ? <CircleCheck size={14} /> : <CircleX size={14} />} {result.name}</span>
                         </td>
                         <td style={{ padding: '5px' }}>
                           {result.status === 'success' && result.expectedClass ? (
                             <div>
                               <span style={{ 
-                                backgroundColor: result.expectedClass === 'Lulus' ? '#ffebee' : '#e3f2fd',
-                                color: result.expectedClass === 'Lulus' ? '#c62828' : '#1976d2',
+                                backgroundColor: result.expectedClass === 'Lulus' ? 'var(--danger-bg)' : 'var(--blue-light)',
+                                color: result.expectedClass === 'Lulus' ? 'var(--danger-dark)' : 'var(--blue)',
                                 padding: '2px 6px',
                                 borderRadius: '4px',
                                 fontSize: '11px',
@@ -1304,17 +1305,16 @@ function KelolaAkun() {
 
       {/* Edit Biodata Modal */}
       {showEditBiodataModal && (
-        <div style={{
+        <div className="app-modal-overlay" style={{
           position: 'fixed',
           top: 0,
-          left: 0,
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1500
         }}>
           <div className="card" style={{ width: 500, maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3>Edit Data {editStudent?.role === 'siswa' ? 'Siswa' : 'Guru'}</h3>
@@ -1337,7 +1337,7 @@ function KelolaAkun() {
                   <div className="form-group">
                     <label>Kelas</label>
                     <select value={formData.jurusan || ''} onChange={(e) => setFormData({...formData, jurusan: e.target.value})} required>
-                      <option value="">Pilih Kelas</option>
+                      <option value="" disabled hidden>Pilih Kelas</option>
                       <option value="TKJ 1">TKJ 1</option>
                       <option value="TKJ 2">TKJ 2</option>
                       <option value="DPIB 1">DPIB 1</option>
@@ -1350,7 +1350,7 @@ function KelolaAkun() {
                   <div className="form-group">
                     <label>Grha</label>
                     <select value={formData.grha || ''} onChange={(e) => setFormData({...formData, grha: e.target.value})}>
-                      <option value="">Pilih Grha</option>
+                      <option value="" disabled hidden>Pilih Grha</option>
                       {grhaOptions.map(grha => (
                         <option key={grha} value={grha}>{grha}</option>
                       ))}
@@ -1359,7 +1359,7 @@ function KelolaAkun() {
                   <div className="form-group">
                     <label>Tahun Pelajaran (Masuk)</label>
                     <select value={formData.tahun_pelajaran || ''} onChange={(e) => setFormData({...formData, tahun_pelajaran: e.target.value})} required>
-                      <option value="">Pilih Tahun Pelajaran</option>
+                      <option value="" disabled hidden>Pilih Tahun Pelajaran</option>
                       {(() => {
                         const currentYear = new Date().getFullYear();
                         const options = [];
@@ -1385,7 +1385,7 @@ function KelolaAkun() {
                   <div className="form-group">
                     <label>Jabatan</label>
                     <select value={formData.jabatan || ''} onChange={(e) => setFormData({...formData, jabatan: e.target.value})} required>
-                      <option value="">Pilih Jabatan</option>
+                      <option value="" disabled hidden>Pilih Jabatan</option>
                       {!JABATAN_OPTIONS.includes(formData.jabatan) && formData.jabatan ? (
                         <option value={formData.jabatan}>{formData.jabatan} (lama)</option>
                       ) : null}

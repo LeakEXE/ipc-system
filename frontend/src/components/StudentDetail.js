@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { useMinIpc, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import { formatDisplayText } from '../utils/formatDisplayText';
 import StudentRecordsHistory from './StudentRecordsHistory';
+import { User } from 'lucide-react';
 
 function StudentDetail({ student, onClose }) {
-    const minIpc = useMinIpc();
+    const minIpc = useMinIpcPerGrade();
     const [records, setRecords] = useState(null);
     const [ipcHistory, setIpcHistory] = useState([]);
     const [ipcCard, setIpcCard] = useState(null);
@@ -50,7 +51,7 @@ function StudentDetail({ student, onClose }) {
         : null;
     const ipcGroups = [
         { title: 'Dasar', rows: [['Point Awal', 'point_awal']] },
-        { title: 'Prestasi', rows: [['Akademik', 'prestasi_akademik'], ['Nonakademik', 'prestasi_nonakademik']] },
+        { title: 'Prestasi', rows: [['Prestasi', 'prestasi']] },
         {
             title: 'Perkembangan Karakter',
             rows: [
@@ -65,22 +66,19 @@ function StudentDetail({ student, onClose }) {
     ];
 
     return (
-        <div style={{
+        <div className="app-modal-overlay" style={{
             position: 'fixed',
             top: 0,
-            left: 0,
             right: 0,
             bottom: 0,
             backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 1000,
+            zIndex: 1500,
             overflow: 'auto',
             padding: 20
         }}>
             <div style={{
                 maxWidth: 900,
                 margin: isMobile ? '20px auto' : '80px auto 0 auto',
-                marginLeft: isMobile ? 'auto' : 'calc(50% + 140px)',
-                transform: isMobile ? 'none' : 'translateX(-50%)',
                 background: 'var(--bg-primary, #fff)',
                 borderRadius: 12,
                 padding: 24,
@@ -113,7 +111,7 @@ function StudentDetail({ student, onClose }) {
                                     {avatarUrl ? (
                                         <img src={avatarUrl} alt={student.nama} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <span style={{ fontSize: 32 }}>👤</span>
+                                        <span style={{ display: 'inline-flex', color: '#94a3b8' }}><User size={36} /></span>
                                     )}
                                 </div>
                                 <div>
@@ -126,7 +124,7 @@ function StudentDetail({ student, onClose }) {
                                         <strong>IPC:</strong>{' '}
                                         <span style={{ 
                                             fontSize: 20, 
-                                            color: (student.ipc_total ?? 0) < 0 || isBelowMinIpc(student.ipc_total ?? 0, minIpc) ? '#dc2626' : '#3498db', 
+                                            color: (student.ipc_total ?? 0) < 0 || isBelowMinIpc(student.ipc_total ?? 0, minIpcFor(minIpc, student?.kelas)) ? '#dc2626' : 'var(--blue)', 
                                             fontWeight: 'bold' 
                                         }}>
                                             {(student.ipc_total ?? 0) < 0 ? `${student.ipc_total ?? 0} (MINUS)` : (student.ipc_total ?? 0)}

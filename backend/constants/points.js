@@ -322,12 +322,6 @@ const formatPerilakuKarakter = (fields) => {
         .join(', ');
 };
 
-// Normalize prestasi jenis across tables (legacy non_akademik → nonakademik)
-const normalizePrestasiJenis = (jenis) => {
-    if (jenis === 'non_akademik') return 'nonakademik';
-    return jenis;
-};
-
 // Synchronous versions for backward compatibility (using default values)
 const calculatePrestasiPointsSync = (juara, kategori) => {
     return PRESTASI_POINTS[juara]?.[kategori] || 0;
@@ -384,7 +378,6 @@ module.exports = {
     formatPerilakuKarakter,
     PERILAKU_CHARACTER_FIELDS,
     PERILAKU_CHARACTER_LABELS,
-    normalizePrestasiJenis,
     lookupPerilakuPoint,
     FIXED_TINGKAT_OPTIONS,
     FIXED_JUARA_LOMBA_OPTIONS

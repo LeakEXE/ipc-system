@@ -32,8 +32,7 @@ async function syncStudentIPC(userId) {
         console.log(`  - Calculated IPC: ${calculatedTotal}`);
         console.log(`  - Breakdown:`, {
             point_awal: points.point_awal,
-            prestasi_akademik: points.prestasi_akademik,
-            prestasi_nonakademik: points.prestasi_nonakademik,
+            prestasi: points.prestasi,
             karakter: points.tanggung_jawab + points.disiplin + points.kepedulian + 
                       points.kemandirian + points.spiritual + points.kejujuran + points.kepercayaan_diri,
             organisasi: points.organisasi,

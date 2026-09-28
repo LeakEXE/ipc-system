@@ -3,22 +3,24 @@ import api from '../utils/api';
 import API_BASE_URL from '../config';
 import { toTitleCase } from '../utils/perilaku';
 import { formatDisplayText } from '../utils/formatDisplayText';
+import { StatusIcon } from './icons';
+import { Camera, Inbox } from 'lucide-react';
 
 function ApprovalsV2() {
-  const PAGE_BG = '#f3f5f9';
-  const CARD = '#ffffff';
-  const BORDER = '#e7eaf0';
-  const TEXT = '#1f2430';
-  const MUTED = '#6b7280';
-  const BLUE = '#2f5fe8';
-  const BLUE_DARK = '#234bc4';
-  const AMBER = '#f5a524';
-  const AMBER_BG = '#fdf1de';
-  const GREEN = '#16a875';
-  const GREEN_DARK = '#0f8a61';
-  const RED = '#e34848';
-  const RED_DARK = '#cc3b3b';
-  const RADIUS = '12px';
+  const PAGE_BG = 'var(--bg-secondary)';
+  const CARD = 'var(--bg-primary)';
+  const BORDER = 'var(--border-color)';
+  const TEXT = 'var(--ink)';
+  const MUTED = 'var(--slate)';
+  const BLUE = 'var(--blue)';
+  const BLUE_DARK = 'var(--blue-dark)';
+  const AMBER = 'var(--warning-color)';
+  const AMBER_BG = 'var(--amber-bg)';
+  const GREEN = 'var(--success-color)';
+  const GREEN_DARK = '#059669';
+  const RED = 'var(--danger-color)';
+  const RED_DARK = 'var(--danger-dark)';
+  const RADIUS = 'var(--card-radius)';
   const [activeTab, setActiveTab] = useState('prestasi');
   const [approvals, setApprovals] = useState({
     prestasi: [],
@@ -34,6 +36,9 @@ function ApprovalsV2() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState('');
+  // Enlarged photo popup (same pattern as DriveViewer: URL string or null)
+  const [previewImage, setPreviewImage] = useState(null);
+  const [previewError, setPreviewError] = useState(false);
 
   useEffect(() => {
     fetchApprovals();
@@ -146,7 +151,7 @@ function ApprovalsV2() {
           textAlign: "center",
           color: MUTED
         }}>
-          <span style={{ fontSize: "34px", display: "block", marginBottom: "10px" }}>🗂️</span>
+          <span style={{ display: 'inline-flex', color: 'var(--muted-light)' }}><Inbox size={34} /></span>
           <strong style={{ color: TEXT, display: "block", marginBottom: "4px", fontSize: "15px" }}>Belum ada pengajuan {type}</strong>
           Pengajuan baru akan muncul di sini untuk ditinjau.
         </div>
@@ -308,7 +313,7 @@ function ApprovalsV2() {
                 whiteSpace: 'nowrap',
                 background: '#e5f7ee',
                 color: GREEN_DARK
-              }}>✅ DISETUJUI</span>
+              }}><StatusIcon status="approved" /> DISETUJUI</span>
             ) : (
               <span style={{
                 display: 'inline-flex',
@@ -321,7 +326,7 @@ function ApprovalsV2() {
                 whiteSpace: 'nowrap',
                 background: '#fdeaea',
                 color: RED_DARK
-              }}>❌ DITOLAK</span>
+              }}><StatusIcon status="rejected" /> DITOLAK</span>
             )}
           </div>
 
@@ -356,21 +361,24 @@ function ApprovalsV2() {
                 }}>Foto</div>
                 <div style={{ fontSize: '13.5px' }}>
                   {getItemPhoto(item, type) ? (
-                    <a
-                      href={getItemPhoto(item, type)}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => { setPreviewError(false); setPreviewImage(getItemPhoto(item, type)); }}
                       style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
                         color: BLUE,
                         fontWeight: '600',
-                        textDecoration: 'none',
+                        fontSize: '13.5px',
+                        fontFamily: 'inherit',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px'
                       }}
                     >
-                      📷 Foto Bukti
-                    </a>
+                      <Camera size={14} /> Foto Bukti
+                    </button>
                   ) : (
                     <span style={{ color: MUTED }}>-</span>
                   )}
@@ -406,7 +414,7 @@ function ApprovalsV2() {
                   }}
                   onClick={() => setSelectedItem({ ...item, type })}
                 >
-                  ✅ Setuju
+                  <StatusIcon status="approved" /> Setuju
                 </button>
                 <button 
                   style={{
@@ -426,7 +434,7 @@ function ApprovalsV2() {
                   }}
                   onClick={() => setSelectedItem({ ...item, type, action: 'reject' })}
                 >
-                  ❌ Tolak
+                  <StatusIcon status="rejected" /> Tolak
                 </button>
               </div>
             ) : (
@@ -444,7 +452,7 @@ function ApprovalsV2() {
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
           }
-          @keyframes fadeIn {
+          @keyframes approvalFade {
             from { opacity: 0; }
             to { opacity: 1; }
           }
@@ -452,13 +460,22 @@ function ApprovalsV2() {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.25; }
           }
-          @media (max-width: 880px) {
+          @media (max-width: 768px) {
             .desktop-table { display: none !important; }
             .mobile-cards { display: block !important; }
           }
-          @media (min-width: 881px) {
+          @media (min-width: 769px) {
             .mobile-cards { display: none !important; }
             .desktop-table { display: table !important; }
+          }
+          /* Photo popup: leave room for the fixed sidebar on desktop
+             (280px wide, 240px at <=1024px, in-flow below 769px) */
+          .approval-photo-overlay { left: 0; }
+          @media (min-width: 769px) and (max-width: 1024px) {
+            .approval-photo-overlay { left: 240px; }
+          }
+          @media (min-width: 1025px) {
+            .approval-photo-overlay { left: 280px; }
           }
           @media (max-width: 480px) {
             .mobile-cards .req-fields {
@@ -658,7 +675,7 @@ function ApprovalsV2() {
                           whiteSpace: 'nowrap',
                           background: '#e5f7ee',
                           color: GREEN_DARK
-                        }}>✅ DISETUJUI</span>
+                        }}><StatusIcon status="approved" /> DISETUJUI</span>
                       ) : (
                         <span style={{
                           display: 'inline-flex',
@@ -671,7 +688,7 @@ function ApprovalsV2() {
                           whiteSpace: 'nowrap',
                           background: '#fdeaea',
                           color: RED_DARK
-                        }}>❌ DITOLAK</span>
+                        }}><StatusIcon status="rejected" /> DITOLAK</span>
                       )}
                     </td>
                   </>
@@ -717,7 +734,7 @@ function ApprovalsV2() {
                           whiteSpace: 'nowrap',
                           background: '#e5f7ee',
                           color: GREEN_DARK
-                        }}>✅ DISETUJUI</span>
+                        }}><StatusIcon status="approved" /> DISETUJUI</span>
                       ) : (
                         <span style={{
                           display: 'inline-flex',
@@ -730,7 +747,7 @@ function ApprovalsV2() {
                           whiteSpace: 'nowrap',
                           background: '#fdeaea',
                           color: RED_DARK
-                        }}>❌ DITOLAK</span>
+                        }}><StatusIcon status="rejected" /> DITOLAK</span>
                       )}
                     </td>
                   </>
@@ -747,7 +764,7 @@ function ApprovalsV2() {
                           src={getItemPhoto(item, type)}
                           alt="Foto Bukti"
                           style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '5px', cursor: 'pointer' }}
-                          onClick={() => window.open(getItemPhoto(item, type), '_blank')}
+                          onClick={() => { setPreviewError(false); setPreviewImage(getItemPhoto(item, type)); }}
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
                             e.currentTarget.insertAdjacentHTML('afterend', '<span style="color:#6b7280;font-size:12.5px">Foto tidak ditemukan</span>');
@@ -800,7 +817,7 @@ function ApprovalsV2() {
                         whiteSpace: 'nowrap',
                         background: '#e5f7ee',
                         color: GREEN_DARK
-                      }}>✅ DISETUJUI</span>
+                      }}><StatusIcon status="approved" /> DISETUJUI</span>
                     ) : (
                       <span style={{
                         display: 'inline-flex',
@@ -813,7 +830,7 @@ function ApprovalsV2() {
                         whiteSpace: 'nowrap',
                         background: '#fdeaea',
                         color: RED_DARK
-                      }}>❌ DITOLAK</span>
+                      }}><StatusIcon status="rejected" /> DITOLAK</span>
                     )}
                   </td>
                 )}
@@ -851,7 +868,7 @@ function ApprovalsV2() {
                           onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
                           onClick={() => setSelectedItem({ ...item, type, id: item.id })} 
                         >
-                          ✅ Setuju
+                          <StatusIcon status="approved" /> Setuju
                         </button>
                         <button 
                           style={{
@@ -875,7 +892,7 @@ function ApprovalsV2() {
                           onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
                           onClick={() => setSelectedItem({ ...item, type, id: item.id, action: 'reject' })} 
                         >
-                          ❌ Tolak
+                          <StatusIcon status="rejected" /> Tolak
                         </button>
                       </div>
                     )
@@ -907,7 +924,7 @@ function ApprovalsV2() {
                         onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
                         onClick={() => setSelectedItem({ ...item, type })} 
                       >
-                        ✅ Setuju
+                        <StatusIcon status="approved" /> Setuju
                       </button>
                       <button 
                         style={{
@@ -931,7 +948,7 @@ function ApprovalsV2() {
                         onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
                         onClick={() => setSelectedItem({ ...item, type, action: 'reject' })} 
                       >
-                        ❌ Tolak
+                        <StatusIcon status="rejected" /> Tolak
                       </button>
                     </div>
                   )}
@@ -951,22 +968,11 @@ function ApprovalsV2() {
   if (loading) {
     return (
       <div style={{
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        fontFamily: "var(--font-sans)",
         background: PAGE_BG,
-        minHeight: "100vh",
-        padding: "28px 20px 60px"
+        padding: "4px 4px 40px"
       }}>
-        <div style={{
-          background: CARD,
-          border: `1px solid ${BORDER}`,
-          borderRadius: RADIUS,
-          padding: "60px 20px",
-          textAlign: "center",
-          color: MUTED
-        }}>
-          <div style={{ fontSize: "34px", marginBottom: "10px" }}>⏳</div>
-          <strong style={{ color: TEXT, fontSize: "15px" }}>Memuat data...</strong>
-        </div>
+        <div className="inline-loading"><div className="spinner" style={{ margin: '0 auto 12px' }}></div><strong>Memuat data...</strong></div>
       </div>
     );
   }
@@ -982,10 +988,9 @@ function ApprovalsV2() {
 
   return (
     <div style={{
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+      fontFamily: "var(--font-sans)",
       background: PAGE_BG,
-      minHeight: "100vh",
-      padding: "28px 20px 60px"
+      padding: "4px 4px 40px"
     }}>
       <h1 style={{
         fontSize: "26px",
@@ -1073,18 +1078,17 @@ function ApprovalsV2() {
       </div>
 
       {selectedItem && (
-        <div style={{
+        <div className="app-modal-overlay" style={{
           position: 'fixed',
           top: 0,
-          left: 0,
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000,
-          animation: 'fadeIn 0.2s ease'
+          zIndex: 1500,
+          animation: 'approvalFade 0.2s ease'
         }}>
           <div style={{
             background: CARD,
@@ -1156,7 +1160,7 @@ function ApprovalsV2() {
                   onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
                   onClick={() => handleReject(selectedItem.type, selectedItem.id)}
                 >
-                  ❌ Tolak
+                  <StatusIcon status="rejected" /> Tolak
                 </button>
               ) : (
                 <button 
@@ -1181,7 +1185,7 @@ function ApprovalsV2() {
                   onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
                   onClick={() => handleApprove(selectedItem.type, selectedItem.id)}
                 >
-                  ✅ Setuju
+                  <StatusIcon status="approved" /> Setuju
                 </button>
               )}
               <button 
@@ -1208,6 +1212,80 @@ function ApprovalsV2() {
                 Batal
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {previewImage && (
+        <div
+          className="approval-photo-overlay"
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            cursor: 'pointer',
+            animation: 'approvalFade 0.2s ease'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '90%',
+              maxHeight: '90%',
+              position: 'relative',
+              cursor: 'default'
+            }}
+          >
+            {!previewError ? (
+              <img
+                src={previewImage}
+                alt="Foto Bukti"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '90vh',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                }}
+                onError={() => setPreviewError(true)}
+              />
+            ) : (
+              <div style={{
+                background: CARD,
+                borderRadius: '8px',
+                padding: '24px 32px',
+                color: TEXT,
+                fontSize: '14px',
+                fontWeight: '600'
+              }}>
+                Foto tidak dapat dimuat
+              </div>
+            )}
+            <button
+              onClick={() => setPreviewImage(null)}
+              style={{
+                position: 'absolute',
+                top: '-40px',
+                right: 0,
+                background: 'white',
+                color: 'black',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                fontSize: '20px',
+                lineHeight: '32px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              ×
+            </button>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import { LogOut } from 'lucide-react';
 
 function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
   const [pendingCount, setPendingCount] = useState(0);
@@ -107,7 +108,6 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
     { path: '/input-perilaku', label: 'Perilaku', show: user?.role === 'superadmin' || (user?.role === 'guru' && permissions?.can_input_perilaku) },
     // Kelola Akun for superadmin
     { path: '/kelola-akun', label: 'Kelola Akun', show: user?.role === 'superadmin' },
-    { path: '/edit-ipc-awal', label: 'Edit IPC Awal', show: user?.role === 'superadmin' },
     { path: '/konfigurasi-ipc', label: 'Konfigurasi IPC', show: user?.role === 'superadmin' },
     { path: '/school-config', label: 'Konfigurasi Sekolah', show: user?.role === 'superadmin' },
     { path: '/izin-akun', label: 'Izin Akun', show: user?.role === 'superadmin' },
@@ -134,8 +134,8 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
       <div className={`sidebar ${isMobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-header-content">
-            <h2>IPC School</h2>
-            <p>Sistem Informasi Sekolah IPC</p>
+            <h2>Website IPC</h2>
+            <p>Bali Mandara</p>
           </div>
         </div>
         <ul className="sidebar-nav">
@@ -157,40 +157,12 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
               >
                 {item.label}
                 {item.path === '/approvals' && pendingCount > 0 && (
-                  <span
-                    style={{
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      borderRadius: '50%',
-                      minWidth: '20px',
-                      height: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      padding: '0 6px'
-                    }}
-                  >
+                  <span className="nav-badge">
                     {pendingCount}
                   </span>
                 )}
                 {item.path === '/notifications' && unreadCount > 0 && (
-                  <span
-                    style={{
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      borderRadius: '50%',
-                      minWidth: '20px',
-                      height: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      padding: '0 6px'
-                    }}
-                  >
+                  <span className="nav-badge">
                     {unreadCount}
                   </span>
                 )}
@@ -230,10 +202,15 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
                 e.target.style.transform = 'translateX(0)';
               }}
             >
-              🚪 Logout
+              <LogOut size={16} /> Logout
             </button>
           </li>
         </ul>
+        <div className="sidebar-footer">
+          <div className="sidebar-footer-label">Dikembangkan oleh</div>
+          <div className="sidebar-footer-names">Dean Putra & Agus Kariada</div>
+          <div className="sidebar-footer-year">© 2026 · Website IPC Bali Mandara</div>
+        </div>
       </div>
       <div className={`sidebar-overlay ${isMobileMenuOpen ? 'active' : ''}`} onClick={toggleMobileMenu}></div>
     </>

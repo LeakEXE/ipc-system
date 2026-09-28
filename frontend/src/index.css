@@ -17,23 +17,45 @@
   --text-secondary: #718096;
   --text-light: #a0aec0;
   --bg-primary: #ffffff;
-  --bg-secondary: #f5f7fa;
-  --bg-tertiary: #f7fafc;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
   --border-color: #e2e8f0;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
   --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.15);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 8px rgba(0, 0, 0, 0.04);
   --border-radius-sm: 6px;
   --border-radius-md: 12px;
   --border-radius-lg: 16px;
+  --card-radius: 14px;
   --transition-fast: 0.2s ease;
   --transition-medium: 0.3s ease;
   --transition-slow: 0.5s ease;
+  /* Unified aliases (single source for pages that defined their own palettes) */
+  --ink: #0f172a;
+  --slate: #64748b;
+  --muted-light: #94a3b8;
+  --blue: #2563eb;
+  --blue-dark: #1d4ed8;
+  --blue-light: #eff6ff;
+  --blue-border: #c6dafc;
+  --green-bg: #dcfce7;
+  --green-text: #16a34a;
+  --amber-bg: #fef3c7;
+  --amber-text: #b45309;
+  --amber-border: #fde68a;
+  --danger-bg: #fee2e2;
+  --danger-dark: #dc2626;
+  --teal: #14b8a6;
+  --teal-light: #ccfbf1;
+  --purple: #8b5cf6;
+  --purple-bg: #ede9fe;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg-secondary);
   min-height: 100vh;
   color: var(--text-primary);
@@ -59,6 +81,8 @@ body {
   z-index: 1000;
   box-shadow: var(--shadow-xl);
   transition: transform var(--transition-medium);
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-header {
@@ -68,6 +92,33 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px 20px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.sidebar-footer-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sidebar-footer-names {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 3px;
+}
+
+.sidebar-footer-year {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 2px;
 }
 
 .sidebar-logo {
@@ -170,6 +221,16 @@ body {
 .container {
   max-width: 1400px;
   margin: 0 auto;
+}
+
+/* Modal overlays: center dialogs within the content area, leaving room
+   for the fixed sidebar (280px wide, 240px at <=1024px, in-flow below 769px) */
+.app-modal-overlay { left: 0; }
+@media (min-width: 769px) and (max-width: 1024px) {
+  .app-modal-overlay { left: 240px; }
+}
+@media (min-width: 1025px) {
+  .app-modal-overlay { left: 280px; }
 }
 
 @media (max-width: 768px) {
@@ -1324,5 +1385,80 @@ p {
 @media (min-width: 769px) {
   .sidebar-overlay {
     display: none !important;
+  }
+}
+
+/* ============ Unified UI system (single source of truth) ============
+   Breakpoints: 480 / 768 / 1024 / 1200 only. Do not add 520/560/600/640/880/900.
+   Colors: use var() below, no hardcoded hex in components.
+   Cards: 14px radius + --shadow-card. Buttons: .btn + variants. */
+
+.btn-secondary {
+  background: linear-gradient(135deg, #64748b, #475569);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary:hover {
+  box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3);
+}
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.card-flat {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-card);
+}
+
+.table-wrap {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.empty-state {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--slate);
+  font-size: 14px;
+}
+
+.inline-loading {
+  background: var(--bg-primary);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-card);
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--slate);
+  font-size: 14px;
+}
+
+.nav-badge {
+  background-color: var(--danger-color);
+  color: white;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 0 6px;
+}
+
+@keyframes appRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
   }
 }

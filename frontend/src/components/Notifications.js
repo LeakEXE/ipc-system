@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
+import { CircleCheck, CircleX, Clock, UserCheck, FileText, Bell, Inbox } from 'lucide-react';
 
 function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -54,25 +55,24 @@ function Notifications() {
     }
   };
 
-  const getNotificationIcon = (type) => {
-    switch(type) {
-      case 'approved': return '✅';
-      case 'rejected': return '❌';
-      case 'approval_needed': return '⏳';
-      case 'pembina_approved': return '👨‍🏫';
-      case 'new_submission': return '📝';
-      default: return '📢';
-    }
+  const NOTIF_ICONS = {
+    approved: CircleCheck,
+    rejected: CircleX,
+    approval_needed: Clock,
+    pembina_approved: UserCheck,
+    new_submission: FileText
   };
+
+  const getNotificationIcon = (type) => NOTIF_ICONS[type] || Bell;
 
   const getNotificationColor = (type) => {
     switch(type) {
-      case 'approved': return '#d4edda';
-      case 'rejected': return '#f8d7da';
-      case 'approval_needed': return '#fff3cd';
-      case 'pembina_approved': return '#cce5ff';
-      case 'new_submission': return '#e2e3e5';
-      default: return '#f8f9fa';
+      case 'approved': return 'var(--green-bg)';
+      case 'rejected': return 'var(--danger-bg)';
+      case 'approval_needed': return 'var(--amber-bg)';
+      case 'pembina_approved': return 'var(--blue-light)';
+      case 'new_submission': return 'var(--bg-tertiary)';
+      default: return 'var(--bg-tertiary)';
     }
   };
 
@@ -94,49 +94,27 @@ function Notifications() {
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <h2 style={{ margin: 0 }}>📢 Notifikasi</h2>
+        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}><Bell size={22} /> Notifikasi</h2>
         {unreadCount > 0 && (
-          <span style={{
-            backgroundColor: '#ef4444',
-            color: 'white',
-            borderRadius: '50%',
-            minWidth: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            padding: '0 8px'
-          }}>
+          <span className="nav-badge" style={{ minWidth: '24px', height: '24px', fontSize: '12px', padding: '0 8px' }}>
             {unreadCount}
           </span>
         )}
       </div>
       
       {message && (
-        <div style={{
-          padding: '12px 20px',
-          marginBottom: '20px',
-          backgroundColor: '#d1ecf1',
-          color: '#0c5460',
-          borderRadius: '8px',
-          border: '1px solid #bee5eb'
-        }}>
+        <div className="alert alert-info" style={{ marginBottom: '20px' }}>
           {message}
         </div>
       )}
 
       {notifications.length === 0 ? (
-        <div style={{
+        <div className="card-flat" style={{
           padding: '60px 20px',
-          textAlign: 'center',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          border: '1px solid #e0e0e0'
+          textAlign: 'center'
         }}>
-          <span style={{ fontSize: '64px' }}>📭</span>
-          <p style={{ marginTop: '20px', fontSize: '18px', color: '#666', margin: 0 }}>
+          <span style={{ display: 'inline-flex', color: 'var(--muted-light)' }}><Inbox size={64} /></span>
+          <p style={{ marginTop: '20px', fontSize: '18px', color: 'var(--slate)', marginBottom: 0 }}>
             Tidak ada notifikasi
           </p>
         </div>
@@ -148,9 +126,9 @@ function Notifications() {
               onClick={() => !notif.is_read && markAsRead(notif.id)}
               style={{
                 padding: '20px',
-                backgroundColor: notif.is_read ? 'white' : getNotificationColor(notif.type),
+                backgroundColor: notif.is_read ? 'var(--bg-primary)' : getNotificationColor(notif.type),
                 borderRadius: '12px',
-                border: notif.is_read ? '1px solid #e0e0e0' : '2px solid #007bff',
+                border: notif.is_read ? '1px solid var(--border-color)' : '2px solid var(--blue)',
                 cursor: notif.is_read ? 'default' : 'pointer',
                 transition: 'all 0.2s',
                 boxShadow: notif.is_read ? 'none' : '0 2px 8px rgba(0,0,0,0.1)'
@@ -165,15 +143,17 @@ function Notifications() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
-                <span style={{ fontSize: '32px' }}>{getNotificationIcon(notif.type)}</span>
+                {(() => { const Icon = getNotificationIcon(notif.type); return (
+                <span style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--slate)' }}><Icon size={22} /></span>
+                ); })()}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', color: '#333' }}>
+                    <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-primary)' }}>
                       {getNotificationTitle(notif.type)}
                       {!notif.is_read && (
                         <span style={{
                           marginLeft: '10px',
-                          backgroundColor: '#007bff',
+                          backgroundColor: 'var(--blue)',
                           color: 'white',
                           padding: '2px 8px',
                           borderRadius: '12px',
@@ -184,7 +164,7 @@ function Notifications() {
                         </span>
                       )}
                     </h3>
-                    <small style={{ color: '#999', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                    <small style={{ color: 'var(--muted-light)', fontSize: '12px', whiteSpace: 'nowrap' }}>
                       {new Date(notif.created_at).toLocaleString('id-ID', {
                         day: 'numeric',
                         month: 'short',
@@ -195,12 +175,12 @@ function Notifications() {
                     </small>
                   </div>
                   
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#555', lineHeight: '1.5' }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'var(--slate)', lineHeight: '1.5' }}>
                     {notif.message}
                   </p>
                   
                   {!notif.is_read && (
-                    <small style={{ color: '#007bff', fontSize: '12px' }}>
+                    <small style={{ color: 'var(--blue)', fontSize: '12px' }}>
                       Klik untuk menandai sebagai dibaca
                     </small>
                   )}

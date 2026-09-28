@@ -56,6 +56,7 @@ function Login() {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '1.5rem',
@@ -164,13 +165,13 @@ function Login() {
             )}
           </div>
           <h1 style={{
-            fontFamily: 'Georgia, serif',
+            fontFamily: 'var(--font-sans)',
             fontWeight: '600',
             fontSize: '1.5rem',
             margin: '0',
             color: '#1c2333'
           }}>
-            Sistem IPC
+            Website IPC Bali Mandara
           </h1>
           <p style={{
             margin: '.25rem 0 0',
@@ -209,7 +210,7 @@ function Login() {
               style={{
                 width: '100%',
                 padding: '1.15rem .95rem .5rem',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'var(--font-sans)',
                 fontSize: '.98rem',
                 border: '1.5px solid #e1ddd0',
                 borderRadius: '10px',
@@ -248,7 +249,7 @@ function Login() {
               style={{
                 width: '100%',
                 padding: '1.15rem .95rem .5rem',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'var(--font-sans)',
                 fontSize: '.98rem',
                 border: '1.5px solid #e1ddd0',
                 borderRadius: '10px',
@@ -317,7 +318,7 @@ function Login() {
               borderRadius: '10px',
               background: 'linear-gradient(135deg, #6c7fd8, #28396b)',
               color: '#fff',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'var(--font-sans)',
               fontWeight: '700',
               fontSize: '.98rem',
               letterSpacing: '.02em',
@@ -367,6 +368,18 @@ function Login() {
             Butuh bantuan? <a href={schoolConfig?.support_link || DEFAULT_SUPPORT_LINK} style={{ color: '#28396b', fontWeight: '600', textDecoration: 'none' }}>Hubungi admin sekolah</a>
           </p>
         </form>
+      </div>
+      <div style={{
+        position: 'relative',
+        zIndex: 1,
+        marginTop: '18px',
+        textAlign: 'center',
+        color: 'rgba(255,255,255,.75)',
+        fontSize: '.78rem',
+        lineHeight: 1.6
+      }}>
+        <div>Dikembangkan oleh <strong style={{ color: '#fff' }}>Dean Putra & Agus Kariada</strong></div>
+        <div>© 2026 · Website IPC Bali Mandara</div>
       </div>
     </div>
   );

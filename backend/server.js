@@ -17,7 +17,7 @@ const {
   loginLimiter
 } = require('./middleware/security');
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 

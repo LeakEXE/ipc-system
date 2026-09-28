@@ -11,6 +11,11 @@ async function getStudentRecords(userId) {
         [userId, 'approved']
     );
 
+    const [kepanitiaan] = await db.query(
+        'SELECT * FROM kepanitiaan WHERE user_id = ? AND status = ? ORDER BY created_at DESC',
+        [userId, 'approved']
+    );
+
     const [event] = await db.query(
         'SELECT * FROM event WHERE user_id = ? AND status = ? ORDER BY created_at DESC',
         [userId, 'approved']
@@ -26,20 +31,18 @@ async function getStudentRecords(userId) {
         [userId, 'approved']
     );
 
-    const akademikCount = prestasi.filter((p) => p.jenis === 'akademik').length;
-    const nonakademikCount = prestasi.filter(
-        (p) => p.jenis === 'nonakademik' || p.jenis === 'non_akademik'
-    ).length;
+    const prestasiCount = prestasi.length;
 
     return {
-        total_prestasi_akademik: akademikCount,
-        total_prestasi_nonakademik: nonakademikCount,
+        total_prestasi: prestasiCount,
         total_organisasi: organisasi.length,
+        total_kepanitiaan: kepanitiaan.length,
         total_event: event.length,
         total_pelanggaran: pelanggaran.length,
         total_perilaku: perilaku.length,
         prestasi,
         organisasi,
+        kepanitiaan,
         event,
         pelanggaran,
         perilaku

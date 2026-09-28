@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 // Support both DATABASE_URL and individual DB_* vars.
 // Defaults are PostgreSQL-oriented (previous MySQL defaults root/3306 no longer apply).

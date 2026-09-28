@@ -17,8 +17,7 @@ const TRAIT_FIELD_MAP = {
 function createEmptyPoints(ipcAwal = 80) {
     return {
         point_awal: ipcAwal,
-        prestasi_akademik: 0,
-        prestasi_nonakademik: 0,
+        prestasi: 0,
         tanggung_jawab: 0,
         disiplin: 0,
         kepedulian: 0,
@@ -70,8 +69,7 @@ async function addPerilakuPoints(points, karakterSiswa) {
 
 function calculateBreakdownTotal(points) {
     let total = points.point_awal || 80;
-    total += points.prestasi_akademik || 0;
-    total += points.prestasi_nonakademik || 0;
+    total += points.prestasi || 0;
     total += points.tanggung_jawab || 0;
     total += points.disiplin || 0;
     total += points.kepedulian || 0;
@@ -112,16 +110,10 @@ async function buildIpcCardBreakdown(userId, cutoff = null) {
     const beforeParam = (params) => (cutoff ? [...params, cutoff] : params);
 
     const [prestasi] = await db.query(
-        `SELECT jenis, point FROM prestasi WHERE user_id = ? AND status = 'approved'${before}`,
+        `SELECT point FROM prestasi WHERE user_id = ? AND status = 'approved'${before}`,
         beforeParam([userId])
     );
-    prestasi.forEach((row) => {
-        if (row.jenis === 'akademik') {
-            points.prestasi_akademik += row.point || 0;
-        } else {
-            points.prestasi_nonakademik += row.point || 0;
-        }
-    });
+    points.prestasi = prestasi.reduce((sum, row) => sum + (row.point || 0), 0);
 
     const [organisasi] = await db.query(
         `SELECT point FROM organisasi WHERE user_id = ? AND status = 'approved'${before}`,

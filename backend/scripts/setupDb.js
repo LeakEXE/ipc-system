@@ -1,8 +1,8 @@
 // PostgreSQL setup helper: creates the database (if missing) and imports database/skema.sql.
 // Usage: npm run db:setup
-require('dotenv').config();
-const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const fs = require('fs');
 const { Client } = require('pg');
 
 const dbName = process.env.DB_NAME || 'ipc_school';

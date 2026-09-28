@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPC School System - Flowchart Diagram</title>
+    <title>Website IPC Bali Mandara - Flowchart Diagram</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
         * {
@@ -187,7 +187,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>🎓 IPC School System</h1>
+        <h1>🎓 Website IPC Bali Mandara</h1>
         <p>Flowchart & System Documentation</p>
         <p style="font-size: 0.9em; margin-top: 10px;">
             <a href="DOCUMENTATION.md" class="btn">📄 Dokumentasi Lengkap</a>
@@ -207,7 +207,7 @@
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #2196f3;"></div>
-                    <span><span class="role-badge role-guru">Guru/Pembina</span> - Input & Approval</span>
+                    <span><span class="role-badge role-guru">Guru</span> - Input Data</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #4caf50;"></div>
@@ -231,13 +231,13 @@ flowchart TD
     SA --> SA5[📊 Laporan]
     SA --> SA6[📝 Logs]
     
-    GU --> GU1[👨‍🎓 Kelola Siswa]
+    GU --> GU1[📊 Dashboard & Statistik]
     GU --> GU2[🏆 Input Prestasi]
     GU --> GU3[🤝 Input Organisasi]
     GU --> GU4[🎯 Input Event]
     GU --> GU5[⚠️ Input Pelanggaran]
     GU --> GU6[⭐ Input Perilaku]
-    GU --> GU7[✅ Pembina Approvals]
+    GU --> GU7[🔔 Notifikasi Pengajuan]
     GU --> GU8[📋 Wali Kelas Panel]
     
     SI --> SI1[📈 My IPC Score]
@@ -357,11 +357,11 @@ flowchart LR
 
         <!-- Guru Flow -->
         <div class="section">
-            <h2>👨‍🏫 Guru/Pembina Workflow</h2>
-            <h3>Data Input & First-Level Approval</h3>
+            <h2>👨‍🏫 Guru Workflow</h2>
+            <h3>Data Input (persetujuan Superadmin)</h3>
             
             <div class="info-box">
-                <strong>Access Level:</strong> Input student data, manage assigned students, and first-level approval.
+                <strong>Access Level:</strong> Input student data (Pelanggaran & Perilaku perlu izin), lihat statistik, panel wali kelas bila ditunjuk. Tidak dapat mengelola akun.
             </div>
 
             <div class="diagram-container">
@@ -369,10 +369,10 @@ flowchart LR
 flowchart TD
     A[Guru Login] --> B[Guru Dashboard]
     
-    B --> C[Manage Students]
-    C --> C1[Create Siswa Account]
-    C --> C2[Edit Student Data]
-    C --> C3[View Student List]
+    B --> C[Lihat Statistik]
+    C --> C1[Dashboard & Peringkat]
+    C --> C2[Notifikasi Pengajuan]
+    C --> C3[Wali Kelas - bila ditunjuk]
     
     B --> D[Input Data]
     D --> D1[🏆 Prestasi]
@@ -392,12 +392,10 @@ flowchart TD
     
     Submit --> Pending{Pending Status}
     
-    Pending -->|Self Check| E[Pembina Approvals]
-    Pending -->|Direct| F[Auto to Superadmin]
+    Pending --> E[Persetujuan Superadmin]
     
     E --> E1[Review Request]
-    E --> E2[Approve/Reject]
-    E --> E3[Add Notes]
+    E --> E2[Approve / Reject + Alasan]
     
     B --> G[Class Management]
     G --> G1[Wali Kelas Panel]
@@ -438,7 +436,7 @@ flowchart TD
                 </tr>
                 <tr>
                     <td>Perilaku</td>
-                    <td>+/- Points</td>
+                    <td>+ Points</td>
                     <td>Yes</td>
                 </tr>
             </table>
@@ -450,7 +448,7 @@ flowchart TD
             <h3>View & Monitor Only</h3>
             
             <div class="warning-box">
-                <strong>Access Level:</strong> View-only access. Cannot input data. Can request biodata updates (pending approval).
+                <strong>Access Level:</strong> View-only access. Cannot input data. Edit profil terbatas (mis. No HP, foto).
             </div>
 
             <div class="diagram-container">
@@ -463,10 +461,10 @@ flowchart LR
     C --> C2[IPC History]
     C --> C3[Score Changes]
     
-    B --> D[Leaderboard]
-    D --> D1[Academic Rank]
-    D --> D2[Non-Academic Rank]
-    D --> D3[Search Students]
+    B --> D[Peringkat]
+    D --> D1[Top 20 per Kategori]
+    D --> D2[Podium Top 3]
+    D --> D3[Detail Poin per Siswa]
     
     B --> E[History]
     E --> E1[All Changes]
@@ -481,14 +479,7 @@ flowchart LR
     B --> G[Profile]
     G --> G1[View Biodata]
     G --> G2[Update Avatar]
-    G --> G3[Request Update]
-    G --> G4[Change Password]
-    
-    G3 --> R[Request Form]
-    R --> S[Submit to Pembina]
-    S --> T{Wait Approval}
-    T -->|Approved| U[Data Updated]
-    T -->|Rejected| V[See Reason]
+    G --> G3[Edit Terbatas]
                 </pre>
             </div>
 
@@ -506,7 +497,7 @@ flowchart LR
                 <tr>
                     <td>Leaderboard</td>
                     <td>✅ Yes</td>
-                    <td>Academic & non-academic</td>
+                    <td>Top 20 per kategori + podium</td>
                 </tr>
                 <tr>
                     <td>Input Data</td>
@@ -514,9 +505,9 @@ flowchart LR
                     <td>Only teachers can input</td>
                 </tr>
                 <tr>
-                    <td>Request Update</td>
+                    <td>Edit Profil</td>
                     <td>✅ Yes</td>
-                    <td>Pending approval</td>
+                    <td>Terbatas (foto, No HP)</td>
                 </tr>
                 <tr>
                     <td>View History</td>
@@ -529,47 +520,31 @@ flowchart LR
         <!-- Approval Workflow -->
         <div class="section">
             <h2>✅ Approval Workflow</h2>
-            <h3>2-Level Approval System</h3>
+            <h3>Single-Level: Superadmin</h3>
             
             <div class="diagram-container">
                 <pre class="mermaid">
 flowchart TD
-    A[Data Input] -->|Submit| B[Status: Pending]
+    A[Data Input - Guru/Siswa] -->|Submit| B[Status: Pending]
     
-    B --> C{Approval Level 1}
-    C -->|Pembina/Guru| D[Review Data]
-    C -->|Auto-approve| E[Skip to Level 2]
+    B --> J{Superadmin - menu Approvals}
+    J -->|Approve| M[Status: Approved]
+    J -->|Reject + Alasan| N[Status: Rejected]
     
-    D --> F{Decision}
-    F -->|Approve| G[Status: Pembina Approved]
-    F -->|Reject| H[Status: Rejected]
-    F -->|Need Review| B
-    
-    G --> I{Approval Level 2}
-    I -->|Superadmin| J[Final Review]
-    I -->|Auto-approve| K[Auto Approve]
-    
-    J --> L{Final Decision}
-    L -->|Approve| M[Status: Approved]
-    L -->|Reject| N[Status: Rejected]
-    
-    K --> M
     M --> O[Apply Changes]
     O --> P[Update IPC]
     P --> Q[Create History]
     Q --> R[Notify User]
     
-    H --> S[Notify with Reason]
-    N --> S
+    N --> S[Notify with Reason]
                 </pre>
             </div>
 
             <div class="info-box">
                 <strong>Approval Timeline:</strong>
                 <ul>
-                    <li>Level 1 (Pembina): Immediate or within 24 hours</li>
-                    <li>Level 2 (Superadmin): Within 48 hours</li>
-                    <li>Auto-approval: For trusted users or low-point changes</li>
+                    <li>Superadmin: meninjau antrean Approvals (tidak ada SLA baku)</li>
+                    <li>Input superadmin: otomatis approved, tanpa antrean</li>
                     <li>Rejected requests can be resubmitted with corrections</li>
                 </ul>
             </div>
@@ -599,15 +574,7 @@ flowchart TD
     Per --> Sum
     
     Sum --> Total[Total IPC]
-    Total --> Check{Range Check}
-    
-    Check -->|&lt; 0| Min[Set to 0]
-    Check -->|&gt; 100| Max[Set to 100]
-    Check -->|0-100| Valid[Valid IPC]
-    
-    Min --> Save
-    Max --> Save
-    Valid --> Save[Save to Database]
+    Total --> Save[Save to Database]
     
     Save --> Log[Create History Log]
     Log --> Notify[Send Notification]
@@ -616,10 +583,9 @@ flowchart TD
             </div>
 
             <div class="success-box">
-                <strong>IPC Range:</strong> 0 - 100 points<br>
+                <strong>IPC Range:</strong> tidak dibatasi 0–100, nilai boleh negatif<br>
                 <strong>Base Score:</strong> 80 points<br>
-                <strong>Minimum:</strong> 0 (floor)<br>
-                <strong>Maximum:</strong> 100 (ceiling)
+                <strong>Batas minimum:</strong> per tingkat X/XI/XII, diatur di Konfigurasi IPC
             </div>
         </div>
 
@@ -632,23 +598,24 @@ flowchart TD
 erDiagram
     USERS ||--o{ PRESTASI : has
     USERS ||--o{ ORGANISASI : has
+    USERS ||--o{ KEPANITIAAN : has
     USERS ||--o{ EVENT : has
     USERS ||--o{ PELANGGARAN : has
     USERS ||--o{ PERILAKU : has
     USERS ||--o{ IPC_HISTORY : tracks
-    USERS ||--o{ APPROVALS : submits
     USERS ||--o{ PERMISSIONS : has
+    USERS ||--o{ NOTIFICATIONS : receives
     
     USERS {
         int id PK
         string nama
         string nis
-        string nisn
         string nip
         string password
         enum role
         string kelas
         string grha
+        string jurusan
         int ipc_total
         int ipc_awal
         string foto
@@ -658,9 +625,10 @@ erDiagram
         int id PK
         int user_id FK
         string nama_lomba
-        enum jenis
-        enum tingkat
-        int peringkat
+        string kelas
+        string grha
+        string juara
+        string kategori
         int point
         string foto
         enum status
@@ -673,16 +641,6 @@ erDiagram
         int ipc_sesudah
         string keterangan
         timestamp created_at
-    }
-    
-    APPROVALS {
-        int id PK
-        int user_id FK
-        enum jenis
-        string data
-        enum pembina_status
-        enum superadmin_status
-        text rejection_reason
     }
                 </pre>
             </div>
@@ -711,7 +669,7 @@ flowchart LR
     
     F --> F1[http://localhost:3000]
     F --> F2[Login: ADMIN001]
-    F --> F3[Password: admin123]
+    F --> F3[Password: SUPERADMIN_SETUP_PASSWORD - login pertama]
                 </pre>
             </div>
 
@@ -724,7 +682,7 @@ flowchart LR
     </div>
 
     <div class="header" style="margin-top: 50px;">
-        <p style="font-size: 0.9em;">© 2026 IPC School System | Dokumentasi Sistem Individual Point Card</p>
+        <p style="font-size: 0.9em;">© 2026 Website IPC Bali Mandara | Dokumentasi Sistem Individual Point Card</p>
     </div>
 
     <script>

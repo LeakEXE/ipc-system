@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
+import { Lock } from 'lucide-react';
 
 const buildAssetUrl = (path) => {
   if (!path) return null;
@@ -24,15 +25,15 @@ function SchoolConfig() {
   const [user, setUser] = useState(null);
   const mountedRef = useRef(true);
 
-  // CSS Variables
-  const BG = '#eef1f7';
-  const CARD = '#ffffff';
-  const BORDER = '#e6e9f1';
-  const TEXT = '#1b2033';
-  const MUTED = '#727a8c';
-  const BLUE = '#2f5fe8';
-  const RADIUS = '16px';
-  const SHADOW = '0 1px 2px rgba(20,25,45,.04), 0 10px 26px -14px rgba(20,25,45,.14)';
+  // Shared UI tokens (see index.css :root)
+  const BG = 'var(--bg-secondary)';
+  const CARD = 'var(--bg-primary)';
+  const BORDER = 'var(--border-color)';
+  const TEXT = 'var(--ink)';
+  const MUTED = 'var(--slate)';
+  const BLUE = 'var(--blue)';
+  const RADIUS = 'var(--card-radius)';
+  const SHADOW = 'var(--shadow-card)';
 
   useEffect(() => {
     mountedRef.current = true;
@@ -154,22 +155,11 @@ function SchoolConfig() {
   if (loading) {
     return (
       <div style={{
-        fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily: "var(--font-sans)",
         background: BG,
-        minHeight: "100vh",
-        padding: "26px 24px 60px"
+        padding: "4px 4px 40px"
       }}>
-        <div style={{
-          background: CARD,
-          border: `1px solid ${BORDER}`,
-          borderRadius: RADIUS,
-          padding: "60px 20px",
-          textAlign: "center",
-          color: MUTED
-        }}>
-          <div style={{ fontSize: "34px", marginBottom: "10px" }}>⏳</div>
-          <strong style={{ color: TEXT, fontSize: "15px" }}>Memuat konfigurasi...</strong>
-        </div>
+        <div className="inline-loading"><div className="spinner" style={{ margin: '0 auto 12px' }}></div><strong>Memuat konfigurasi...</strong></div>
       </div>
     );
   }
@@ -177,21 +167,13 @@ function SchoolConfig() {
   if (user?.role !== 'superadmin') {
     return (
       <div style={{
-        fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily: "var(--font-sans)",
         background: BG,
-        minHeight: "100vh",
-        padding: "26px 24px 60px"
+        padding: "4px 4px 40px"
       }}>
-        <div style={{
-          background: CARD,
-          border: `1px solid ${BORDER}`,
-          borderRadius: RADIUS,
-          padding: "60px 20px",
-          textAlign: "center",
-          color: MUTED
-        }}>
-          <div style={{ fontSize: "34px", marginBottom: "10px" }}>🔒</div>
-          <strong style={{ color: TEXT, fontSize: "15px" }}>Akses Ditolak</strong>
+        <div className="inline-loading">
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px', color: 'var(--slate)' }}><Lock size={34} /></div>
+          <strong>Akses Ditolak</strong>
           <p style={{ marginTop: "10px" }}>Hanya Super Admin yang dapat mengakses halaman ini.</p>
         </div>
       </div>
@@ -200,10 +182,9 @@ function SchoolConfig() {
 
   return (
     <div style={{
-      fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily: "var(--font-sans)",
       background: BG,
-      minHeight: "100vh",
-      padding: "26px 24px 60px"
+      padding: "4px 4px 40px"
     }}>
       <div style={{
         marginBottom: '24px'

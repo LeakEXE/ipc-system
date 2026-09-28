@@ -4,6 +4,8 @@ import Select from 'react-select';
 import EditModal from './EditModal';
 import useEditModal from '../hooks/useEditModal';
 import API_BASE_URL from '../config';
+import { StatusIcon } from './icons';
+import { ClipboardList, ShieldAlert } from 'lucide-react';
 
 function InputOrganisasi() {
   const [formData, setFormData] = useState({
@@ -349,24 +351,27 @@ function InputOrganisasi() {
 
   const getStatusBadge = (status) => {
     const styles = {
-      pending: { background: '#ffc107', color: '#333' },
-      approved: { background: '#28a745', color: 'white' },
-      rejected: { background: '#dc3545', color: 'white' }
+      pending: { background: 'var(--warning-color)', color: 'white' },
+      approved: { background: 'var(--success-color)', color: 'white' },
+      rejected: { background: 'var(--danger-color)', color: 'white' }
     };
     const labels = {
-      pending: '⏳ Menunggu',
-      approved: '✅ Disetujui',
-      rejected: '❌ Ditolak'
+      pending: 'Menunggu',
+      approved: 'Disetujui',
+      rejected: 'Ditolak'
     };
     return (
       <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
         padding: '4px 12px',
         borderRadius: '12px',
         fontSize: '12px',
         fontWeight: '500',
         ...styles[status]
       }}>
-        {labels[status] || status}
+        <StatusIcon status={status} /> {labels[status] || status}
       </span>
     );
   };
@@ -378,7 +383,7 @@ function InputOrganisasi() {
   if (!hasAccess) {
     return (
       <div className="card">
-        <h2>🚫 Akses Ditolak</h2>
+        <h2><ShieldAlert size={22} style={{ verticalAlign: '-4px', marginRight: '8px' }} />Akses Ditolak</h2>
         <div className="alert alert-danger" style={{ marginTop: '15px' }}>
           {accessMessage || 'Anda tidak memiliki izin untuk mengakses halaman ini. Silakan hubungi SuperAdmin.'}
         </div>
@@ -406,7 +411,7 @@ function InputOrganisasi() {
       {/* Index Display for Superadmin */}
       {(userRole === 'superadmin' && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Index Organisasi</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Organisasi</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -550,7 +555,7 @@ function InputOrganisasi() {
           <div className="form-group">
             <label>Grha</label>
             <select name="grha" value={formData.grha} disabled required onChange={handleChange}>
-              <option value="">Data diisi otomatis</option>
+              <option value="" disabled hidden>Data diisi otomatis</option>
               {grhaOptions.map(grha => (
                 <option key={grha} value={grha}>{grha}</option>
               ))}
@@ -561,7 +566,7 @@ function InputOrganisasi() {
         <div className="form-group">
           <label>Kategori Organisasi</label>
           <select name="kategori_organisasi" value={formData.kategori_organisasi} onChange={handleChange} required>
-            <option value="">Pilih Organisasi</option>
+            <option value="" disabled hidden>Pilih Organisasi</option>
             {organisasiOptions.map(org => (
               <option key={org.id} value={org.name}>{org.name}</option>
             ))}
@@ -571,7 +576,7 @@ function InputOrganisasi() {
         <div className="form-group">
           <label>Jabatan Organisasi</label>
           <select name="jabatan_organisasi" value={formData.jabatan_organisasi} onChange={handleChange} required>
-            <option value="">Pilih Jabatan</option>
+            <option value="" disabled hidden>Pilih Jabatan</option>
             {jabatanOptions.map(jabatan => (
               <option key={jabatan.value} value={jabatan.value}>{jabatan.label} {formData.jabatan_organisasi === jabatan.value && calculatedPoint ? `(${calculatedPoint} point)` : ''}</option>
             ))}
@@ -656,7 +661,7 @@ function InputOrganisasi() {
             value={editModal.editFormData.grha || ''} 
             onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, grha: e.target.value })}
           >
-            <option value="">Pilih Grha</option>
+            <option value="" disabled hidden>Pilih Grha</option>
             {grhaOptions.map(grha => (
               <option key={grha} value={grha}>{grha}</option>
             ))}
@@ -670,7 +675,7 @@ function InputOrganisasi() {
               value={editModal.editFormData.jabatan_organisasi || ''} 
               onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, jabatan_organisasi: e.target.value })}
             >
-              <option value="">Pilih Jabatan</option>
+              <option value="" disabled hidden>Pilih Jabatan</option>
               {jabatanOptions.map(jabatan => (
                 <option key={jabatan.value} value={jabatan.value}>{jabatan.label}</option>
               ))}
@@ -682,7 +687,7 @@ function InputOrganisasi() {
               value={editModal.editFormData.kategori_organisasi || ''}
               onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, kategori_organisasi: e.target.value })}
             >
-              <option value="">Pilih Organisasi</option>
+              <option value="" disabled hidden>Pilih Organisasi</option>
               {editModal.editFormData.kategori_organisasi &&
                 !organisasiOptions.some(org => org.name === editModal.editFormData.kategori_organisasi) && (
                   <option value={editModal.editFormData.kategori_organisasi}>
@@ -709,7 +714,7 @@ function InputOrganisasi() {
       {/* Submission History */}
       {submissions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Riwayat Pengajuan Organisasi</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Organisasi</h3>
           <div style={{ display: 'grid', gap: '10px' }}>
             {submissions.map((sub, index) => (
               <div key={sub.id || index} style={{

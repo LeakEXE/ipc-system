@@ -379,9 +379,7 @@ router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
 
         // Calculate totals
         const pointAwal = Number(points.point_awal) || 80;
-        const prestasiAkademik = Number(points.prestasi_akademik) || 0;
-        const prestasiNonAkademik = Number(points.prestasi_nonakademik) || 0;
-        const jumlahPrestasi = prestasiAkademik + prestasiNonAkademik;
+        const jumlahPrestasi = Number(points.prestasi) || 0;
         
         const karakterTanggungJawab = Number(points.tanggung_jawab) || 0;
         const karakterDisiplin = Number(points.disiplin) || 0;
@@ -416,8 +414,6 @@ router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
             semester: getRequestedSemester(req),
             tahun_pelajaran: getRequestedTahunPelajaran(req),
             point_awal: pointAwal,
-            prestasi_akademik: prestasiAkademik,
-            prestasi_non_akademik: prestasiNonAkademik,
             jumlah_prestasi: jumlahPrestasi,
             karakter_tanggung_jawab: karakterTanggungJawab,
             karakter_disiplin: karakterDisiplin,
@@ -516,9 +512,7 @@ router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
 
         // Calculate totals
         const pointAwal = Number(points.point_awal) || 80;
-        const prestasiAkademik = Number(points.prestasi_akademik) || 0;
-        const prestasiNonAkademik = Number(points.prestasi_nonakademik) || 0;
-        const jumlahPrestasi = prestasiAkademik + prestasiNonAkademik;
+        const jumlahPrestasi = Number(points.prestasi) || 0;
         
         const karakterTanggungJawab = Number(points.tanggung_jawab) || 0;
         const karakterDisiplin = Number(points.disiplin) || 0;
@@ -553,8 +547,6 @@ router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
             semester: getRequestedSemester(req),
             tahun_pelajaran: getRequestedTahunPelajaran(req),
             point_awal: pointAwal,
-            prestasi_akademik: prestasiAkademik,
-            prestasi_non_akademik: prestasiNonAkademik,
             jumlah_prestasi: jumlahPrestasi,
             karakter_tanggung_jawab: karakterTanggungJawab,
             karakter_disiplin: karakterDisiplin,
@@ -632,9 +624,7 @@ router.get('/leger-pdf/:kelas', auth, async (req, res) => {
                 const points = cardData.points;
                 
                 const pointAwal = Number(points.point_awal) || 80;
-                const prestasiAkademik = Number(points.prestasi_akademik) || 0;
-                const prestasiNonAkademik = Number(points.prestasi_nonakademik) || 0;
-                const jumlahPrestasi = prestasiAkademik + prestasiNonAkademik;
+                const jumlahPrestasi = Number(points.prestasi) || 0;
                 
                 const karakterTanggungJawab = Number(points.tanggung_jawab) || 0;
                 const karakterDisiplin = Number(points.disiplin) || 0;
@@ -669,8 +659,6 @@ router.get('/leger-pdf/:kelas', auth, async (req, res) => {
                     nis: student.nis || '-',
                     kelas: calculatedClass || '-',
                     ghra: student.grha || '-',
-                    akademik: prestasiAkademik,
-                    nonAkademik: prestasiNonAkademik,
                     jumlahPrestasi: jumlahPrestasi,
                     tanggungJawab: karakterTanggungJawab,
                     disiplin: karakterDisiplin,
@@ -770,9 +758,7 @@ router.get('/leger-preview/:kelas', auth, async (req, res) => {
                 const points = cardData.points;
                 
                 const pointAwal = Number(points.point_awal) || 80;
-                const prestasiAkademik = Number(points.prestasi_akademik) || 0;
-                const prestasiNonAkademik = Number(points.prestasi_nonakademik) || 0;
-                const jumlahPrestasi = prestasiAkademik + prestasiNonAkademik;
+                const jumlahPrestasi = Number(points.prestasi) || 0;
                 
                 const karakterTanggungJawab = Number(points.tanggung_jawab) || 0;
                 const karakterDisiplin = Number(points.disiplin) || 0;
@@ -807,8 +793,6 @@ router.get('/leger-preview/:kelas', auth, async (req, res) => {
                     nis: student.nis || '-',
                     kelas: calculatedClass || '-',
                     ghra: student.grha || '-',
-                    akademik: prestasiAkademik,
-                    nonAkademik: prestasiNonAkademik,
                     jumlahPrestasi: jumlahPrestasi,
                     tanggungJawab: karakterTanggungJawab,
                     disiplin: karakterDisiplin,

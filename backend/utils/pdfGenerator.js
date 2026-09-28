@@ -69,8 +69,6 @@ function buildRow(siswa, no) {
     <td>${esc(siswa.kelas)}</td>
     <td>${esc(siswa.ghra)}</td>
 
-    <td class="grp-prestasi">${siswa.akademik ?? 0}</td>
-    <td class="grp-prestasi">${siswa.nonAkademik ?? 0}</td>
     <td class="grp-prestasi col-jml">${siswa.jumlahPrestasi ?? 0}</td>
 
     <td class="grp-karakter">${siswa.tanggungJawab ?? 0}</td>

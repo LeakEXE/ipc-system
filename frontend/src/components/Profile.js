@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { useMinIpc, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import { formatDisplayText } from '../utils/formatDisplayText';
 import StudentRecordsHistory from './StudentRecordsHistory';
+import { UserRound, Camera, Trash2 } from 'lucide-react';
 
 const JABATAN_OPTIONS = ['Guru', 'Pegawai'];
 
 function Profile() {
-  const minIpc = useMinIpc();
+  const minIpc = useMinIpcPerGrade();
   const [profile, setProfile] = useState(null);
   const [ipcHistory, setIpcHistory] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -163,7 +164,7 @@ function Profile() {
               <div className="form-group">
                 <label>Jabatan</label>
                 <select value={editData.jabatan || editData.detail || ''} onChange={(e) => setEditData({...editData, jabatan: e.target.value})}>
-                  <option value="">Pilih Jabatan</option>
+                  <option value="" disabled hidden>Pilih Jabatan</option>
                   {!JABATAN_OPTIONS.includes(editData.jabatan || editData.detail) && (editData.jabatan || editData.detail) ? (
                     <option value={editData.jabatan || editData.detail}>{editData.jabatan || editData.detail} (lama)</option>
                   ) : null}
@@ -222,7 +223,7 @@ function Profile() {
   return (
     <div>
       <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        👤 Profile
+        <UserRound size={26} /> Profile
       </h2>
       
       <div className="card" style={{ marginBottom: '24px' }}>
@@ -243,7 +244,7 @@ function Profile() {
             {avatarUrl ? (
               <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <span style={{ fontSize: '3rem' }}>👤</span>
+              <span style={{ display: 'inline-flex', color: 'var(--text-secondary)' }}><UserRound size={56} /></span>
             )}
           </div>
           <div>
@@ -251,7 +252,7 @@ function Profile() {
             <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px 0' }}>{profile?.role}</p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
-                📷 Upload Avatar
+                <Camera size={15} /> Upload Avatar
                 <input
                   type="file"
                   accept="image/*"
@@ -273,7 +274,7 @@ function Profile() {
                   onClick={handleAvatarDelete}
                   className="btn btn-danger"
                 >
-                  🗑️ Hapus
+                  <Trash2 size={15} /> Hapus
                 </button>
               )}
             </div>
@@ -334,15 +335,14 @@ function Profile() {
         <>
           <div className="card" style={{ marginBottom: '24px' }}>
             <h3>IPC Anda</h3>
-            <p style={{ fontSize: '48px', fontWeight: 'bold', color: isBelowMinIpc(profile?.ipc_total ?? 0, minIpc) ? '#dc2626' : '#3498db' }}>{profile?.ipc_total || 0}</p>
+            <p style={{ fontSize: '48px', fontWeight: 'bold', color: isBelowMinIpc(profile?.ipc_total ?? 0, minIpcFor(minIpc, profile?.kelas)) ? '#dc2626' : 'var(--blue)' }}>{profile?.ipc_total || 0}</p>
             <p>IPC Awal: {profile?.ipc_awal || 0}</p>
           </div>
 
           {summary && (
             <div className="card" style={{ marginBottom: '24px' }}>
               <h3>Ringkasan Prestasi</h3>
-              <p><strong>Total Prestasi Akademik:</strong> {summary.total_prestasi_akademik}</p>
-              <p><strong>Total Prestasi Non-Akademik:</strong> {summary.total_prestasi_nonakademik}</p>
+              <p><strong>Total Prestasi:</strong> {summary.total_prestasi}</p>
               <p><strong>Total Organisasi:</strong> {summary.total_organisasi}</p>
               <p><strong>Total Event:</strong> {summary.total_event}</p>
               <p><strong>Total Pelanggaran:</strong> {summary.total_pelanggaran}</p>

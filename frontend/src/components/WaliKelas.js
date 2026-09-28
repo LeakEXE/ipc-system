@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { useMinIpc, isBelowMinIpc } from '../utils/minIpc';
+import { buildEvidenceMap } from '../utils/historyEvidence';
+import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import { formatDisplayText } from '../utils/formatDisplayText';
+import { GraduationCap, BarChart3, Users, User, Settings, Search, Pencil, Lightbulb, CircleCheck, Paperclip, X, History, FileText, TriangleAlert } from 'lucide-react';
+import { CATEGORY_ICONS } from './icons';
 
 function getCurrentAcademicYear() {
   const now = new Date();
@@ -20,7 +23,7 @@ function getAcademicYearOptions() {
 
 function getIpcDetailRows(points = {}) {
   return [
-    ['Prestasi', (Number(points.prestasi_akademik) || 0) + (Number(points.prestasi_nonakademik) || 0)],
+    ['Prestasi', Number(points.prestasi) || 0],
     ['Perilaku', ['tanggung_jawab', 'disiplin', 'kepedulian', 'kemandirian', 'spiritual', 'kejujuran', 'kepercayaan_diri']
       .reduce((sum, key) => sum + (Number(points[key]) || 0), 0)],
     ['Organisasi', Number(points.organisasi) || 0],
@@ -32,7 +35,7 @@ function getIpcDetailRows(points = {}) {
 }
 
 function WaliKelas() {
-  const minIpc = useMinIpc();
+  const minIpc = useMinIpcPerGrade();
   const [assignments, setAssignments] = useState([]);
   const [classStats, setClassStats] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -48,6 +51,8 @@ function WaliKelas() {
   const [loadingMismatches, setLoadingMismatches] = useState(false);
   const [studentHistory, setStudentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [studentRecords, setStudentRecords] = useState(null);
+  const [evidenceImage, setEvidenceImage] = useState(null);
   
   const currentAcademicYear = getCurrentAcademicYear();
   const academicYearOptions = getAcademicYearOptions();
@@ -59,11 +64,11 @@ function WaliKelas() {
   });
 
   const kelasOptions = [
-    'X TKJ 1', 'X TKJ 2', 'X TO 1', 'X TO 2',
+    'X TKJ 1', 'X TKJ 2', 'X TKR 1', 'X TKR 2',
     'X DPIB 1', 'X DPIB 2',
-    'XI TKJ 1', 'XI TKJ 2', 'XI TO 1', 'XI TO 2',
+    'XI TKJ 1', 'XI TKJ 2', 'XI TKR 1', 'XI TKR 2',
     'XI DPIB 1', 'XI DPIB 2',
-    'XII TKJ 1', 'XII TKJ 2', 'XII TO 1', 'XII TO 2',
+    'XII TKJ 1', 'XII TKJ 2', 'XII TKR 1', 'XII TKR 2',
     'XII DPIB 1', 'XII DPIB 2'
   ];
 
@@ -157,17 +162,29 @@ function WaliKelas() {
   const handleViewStudentDetail = async (student) => {
     setSelectedStudent(student);
     setShowStudentDetail(true);
+    setEvidenceImage(null);
+    setStudentRecords(null);
     setLoadingHistory(true);
     try {
-      const response = await api.get(`/users/${student.id}/ipc-history`);
-      setStudentHistory(response.data);
+      const historyRes = await api.get(`/users/${student.id}/ipc-history`);
+      setStudentHistory(historyRes.data);
     } catch (err) {
       console.error('Error fetching student history:', err);
       setStudentHistory([]);
+    }
+    try {
+      const recordsRes = await api.get(`/users/${student.id}/records`);
+      setStudentRecords(recordsRes.data);
+    } catch (err) {
+      console.error('Error fetching student records for evidence:', err);
+      setStudentRecords(null);
     } finally {
       setLoadingHistory(false);
     }
   };
+
+  // Evidence photo per history row, matched by exact keterangan text.
+  const evidenceMap = useMemo(() => buildEvidenceMap(studentRecords), [studentRecords]);
 
   const groupHistoryByCategory = (history = []) => {
     const grouped = {};
@@ -216,7 +233,7 @@ function WaliKelas() {
   if (loading) {
     return (
       <div data-aos="fade-up">
-        <h2>👨‍🏫 Manajemen Wali Kelas</h2>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><GraduationCap size={26} /> Manajemen Wali Kelas</h2>
         <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
           <div className="spinner" style={{ marginBottom: '20px' }}></div>
           <p>Memuat data...</p>
@@ -228,9 +245,9 @@ function WaliKelas() {
   if (error) {
     return (
       <div data-aos="fade-up">
-        <h2>👨‍🏫 Manajemen Wali Kelas</h2>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><GraduationCap size={26} /> Manajemen Wali Kelas</h2>
         <div className="card" style={{ textAlign: 'center', padding: '60px', color: '#ef4444' }}>
-          <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>⚠️ {error}</p>
+          <p style={{ fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><TriangleAlert size={20} /> {error}</p>
           <button onClick={() => { setError(null); setLoading(true); fetchClassStatistics(); }} 
             style={{ marginTop: '20px', padding: '8px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
             Coba Lagi
@@ -249,15 +266,11 @@ function WaliKelas() {
   const totalPelanggaran = classStats.reduce((sum, cls) => sum + cls.totalPelanggaran, 0);
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.3s ease-out' }}>
+    <div style={{ padding: '4px 4px 40px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'waliFade 0.3s ease-out' }}>
       <style>{`
-        @keyframes fadeIn {
+        @keyframes waliFade {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
         }
         .stat-card:hover {
           transform: translateY(-4px);
@@ -277,13 +290,12 @@ function WaliKelas() {
         .btn:active {
           transform: translateY(0);
         }
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
           .stats-grid { grid-template-columns: repeat(3, 1fr) !important; }
           .kelas-grid { grid-template-columns: 1fr !important; }
           .detail-stats-grid { grid-template-columns: repeat(3, 1fr) !important; }
         }
-        @media (max-width: 600px) {
-          body { padding: 14px; }
+        @media (max-width: 480px) {
           .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
           .stat-card { padding: 14px 8px; }
           .stat-card .num { font-size: 1.3rem; }
@@ -295,12 +307,12 @@ function WaliKelas() {
           .detail-stats-grid > div > div:first-child { font-size: 1.2rem; }
         }
         /* Modal responsive */
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
           .modal-content { max-width: 95% !important; }
           .modal-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
           .modal-header .btn { width: 100% !important; }
         }
-        @media (max-width: 600px) {
+        @media (max-width: 480px) {
           .modal-content { max-width: 100% !important; margin: 0 !important; border-radius: 0 !important; }
           .modal-overlay { padding: 0 !important; }
           .modal-header { padding: 16px !important; }
@@ -332,11 +344,11 @@ function WaliKelas() {
           fontSize: '26px',
           flexShrink: 0
         }}>
-          🎓
+          <GraduationCap size={26} />
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, letterSpacing: '-0.01em' }}>Manajemen Wali Kelas</h1>
-          <p style={{ margin: '2px 0 0', fontSize: '.85rem', opacity: .85, fontWeight: 400 }}>Kelola wali kelas dan lihat statistik seluruh kelas</p>
+          <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, letterSpacing: '-0.01em', color: '#fff' }}>Manajemen Wali Kelas</h1>
+          <p style={{ margin: '2px 0 0', fontSize: '.85rem', color: 'rgba(255,255,255,0.92)', fontWeight: 400 }}>Kelola wali kelas dan lihat statistik seluruh kelas</p>
         </div>
       </div>
 
@@ -347,7 +359,7 @@ function WaliKelas() {
           <div style={{ fontSize: '.7rem', color: '#64748b', fontWeight: 600 }}>TOTAL KELAS</div>
         </div>
         <div className="stat-card" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px 12px', textAlign: 'center', boxShadow: '0 1px 2px rgba(15,23,42,.04)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#3b82f6', marginBottom: '6px' }}>{totalSiswa}</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#3B82F6', marginBottom: '6px' }}>{totalSiswa}</div>
           <div style={{ fontSize: '.7rem', color: '#64748b', fontWeight: 600 }}>TOTAL SISWA</div>
         </div>
         <div className="stat-card" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px 12px', textAlign: 'center', boxShadow: '0 1px 2px rgba(15,23,42,.04)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
@@ -374,7 +386,7 @@ function WaliKelas() {
 
       {/* OVERVIEW PER KELAS */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 700, color: '#0f172a', margin: '4px 0 -6px' }}>
-        📊 Overview per Kelas
+        <BarChart3 size={18} /> Overview per Kelas
       </div>
       <div className="kelas-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
         {classStats.map((cls) => (
@@ -401,7 +413,7 @@ function WaliKelas() {
                   {cls.wali?.foto ? (
                     <img src={getImageUrl(cls.wali.foto)} alt={cls.wali.nama} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    '👤'
+                    <User size={16} />
                   )}
                 </div>
                 <div>
@@ -442,7 +454,7 @@ function WaliKelas() {
       {/* MANAGEMENT PANEL */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 700 }}>⚙️ Manajemen Wali Kelas</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 700 }}><Settings size={18} /> Manajemen Wali Kelas</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
             <div>
               <label style={{ display: 'block', fontSize: '.72rem', fontWeight: 600, color: '#64748b', marginBottom: '5px' }}>Tahun Ajaran</label>
@@ -461,8 +473,8 @@ function WaliKelas() {
               </select>
             </div>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button onClick={() => { setFormData((current) => ({ ...current, tahun_ajaran: selectedAcademicYear })); setShowForm(true); }} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '9px 16px', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', background: '#2563eb', color: '#fff', whiteSpace: 'nowrap', transition: 'all 0.2s' }}>+ Assign Wali Kelas Baru</button>
-              <button onClick={handleCheckMismatches} disabled={loadingMismatches} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '9px 16px', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', background: '#f59e0b', color: '#fff', whiteSpace: 'nowrap', transition: 'all 0.2s', opacity: loadingMismatches ? 0.6 : 1 }}>{loadingMismatches ? 'Mengecek...' : '🔍 Cek Ketidaksesuaian Kelas'}</button>
+              <button onClick={() => { setFormData((current) => ({ ...current, tahun_ajaran: selectedAcademicYear })); setShowForm(true); }} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '9px 16px', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', background: '#2563eb', color: '#fff', whiteSpace: 'nowrap', transition: 'all 0.2s', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Pencil size={14} /> Assign Wali Kelas Baru</button>
+              <button onClick={handleCheckMismatches} disabled={loadingMismatches} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '9px 16px', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', background: '#f59e0b', color: '#fff', whiteSpace: 'nowrap', transition: 'all 0.2s', opacity: loadingMismatches ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>{loadingMismatches ? 'Mengecek...' : <><Search size={14} /> Cek Ketidaksesuaian Kelas</>}</button>
             </div>
           </div>
         </div>
@@ -471,14 +483,14 @@ function WaliKelas() {
         {showForm && (
           <div style={{ border: '1px solid #eff6ff', background: '#eff6ff', borderRadius: '10px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 700, fontSize: '.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>✏️ Assign Wali Kelas Baru</div>
+              <div style={{ fontWeight: 700, fontSize: '.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}><Pencil size={15} /> Assign Wali Kelas Baru</div>
               <button onClick={() => setShowForm(false)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#ef4444', color: '#fff', transition: 'all 0.2s' }}>Tutup</button>
             </div>
             <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '.72rem', fontWeight: 600, color: '#64748b', marginBottom: '5px' }}>Guru</label>
                 <select value={formData.guru_id} onChange={(e) => setFormData({...formData, guru_id: e.target.value})} required style={{ fontFamily: 'inherit', fontSize: '.85rem', padding: '9px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a', outline: 'none', width: '100%' }}>
-                  <option value="">Pilih Guru</option>
+                  <option value="" disabled hidden>Pilih Guru</option>
                   {teachers.map(teacher => (
                     <option key={teacher.id} value={teacher.id}>{teacher.nama} ({teacher.nip})</option>
                   ))}
@@ -487,7 +499,7 @@ function WaliKelas() {
               <div>
                 <label style={{ display: 'block', fontSize: '.72rem', fontWeight: 600, color: '#64748b', marginBottom: '5px' }}>Kelas</label>
                 <select value={formData.kelas} onChange={(e) => setFormData({...formData, kelas: e.target.value})} required style={{ fontFamily: 'inherit', fontSize: '.85rem', padding: '9px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a', outline: 'none', width: '100%' }}>
-                  <option value="">Pilih Kelas</option>
+                  <option value="" disabled hidden>Pilih Kelas</option>
                   {kelasOptions.map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
               </div>
@@ -508,10 +520,10 @@ function WaliKelas() {
 
         {/* Class Mismatches Modal */}
         {showMismatches && mismatches && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 50 }}>
+          <div className="app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1500 }}>
             <div style={{ background: '#fff', borderRadius: '14px', padding: '30px', maxWidth: '900px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <h3 style={{ margin: 0 }}>🔍 Ketidaksesuaian Kelas</h3>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><Search size={18} /> Ketidaksesuaian Kelas</h3>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ background: '#e3f2fd', color: '#1976d2', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>Tahun Ajaran: {mismatches.tahun_ajaran}</span>
                   <button onClick={() => setShowMismatches(false)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '8px 16px', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', background: '#ef4444', color: '#fff', transition: 'all 0.2s' }}>Tutup</button>
@@ -558,12 +570,12 @@ function WaliKelas() {
                       </table>
                     </div>
                     <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', fontSize: '12px' }}>
-                      <strong>💡 Solusi:</strong> Gunakan fitur "Validasi Kelas" di halaman Kelola Akun untuk memperbaiki ketidaksesuaian ini secara otomatis.
+                      <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Lightbulb size={13} /> Solusi:</strong> Gunakan fitur "Validasi Kelas" di halaman Kelola Akun untuk memperbaiki ketidaksesuaian ini secara otomatis.
                     </div>
                   </div>
                 ) : (
                   <div style={{ padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px', textAlign: 'center', color: '#2e7d32' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '10px' }}>✅</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px', color: '#16a34a' }}><CircleCheck size={48} /></div>
                     <strong>Semua siswa memiliki kelas yang sesuai dengan perhitungan tahun pelajaran!</strong>
                   </div>
                 )}
@@ -593,7 +605,7 @@ function WaliKelas() {
                         {assignment.guru_foto ? (
                           <img src={getImageUrl(assignment.guru_foto)} alt={assignment.guru_nama} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          '👤'
+                          <User size={16} />
                         )}
                       </div>
                       {assignment.guru_nama}
@@ -616,10 +628,10 @@ function WaliKelas() {
 
       {/* DETAIL KELAS MODAL */}
       {showClassDetail && selectedClass && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 50 }} onClick={(e) => { if (e.target === e.currentTarget) setShowClassDetail(false) }}>
+        <div className="modal-overlay app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1500 }} onClick={(e) => { if (e.target === e.currentTarget) setShowClassDetail(false) }}>
           <div className="modal-content" style={{ background: '#fff', borderRadius: '14px', maxWidth: '900px', width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(15,23,42,.25)' }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '20px 22px', borderBottom: '1px solid #f1f5f9' }}>
-              <div style={{ fontSize: '1.15rem', fontWeight: 700 }}>📊 Detail Kelas {selectedClass.kelas}</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><BarChart3 size={18} /> Detail Kelas {selectedClass.kelas}</div>
               <button onClick={() => setShowClassDetail(false)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '9px 16px', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', background: '#ef4444', color: '#fff', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>Tutup</button>
             </div>
 
@@ -651,7 +663,7 @@ function WaliKelas() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '.95rem', fontWeight: 700, color: '#0f172a' }}>👥 Daftar Siswa</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '.95rem', fontWeight: 700, color: '#0f172a' }}><Users size={17} /> Daftar Siswa</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '.85rem', color: '#64748b' }}>Wali Kelas: <strong style={{ color: '#2563eb' }}>{selectedClass.wali?.nama}</strong> (NIP: {selectedClass.wali?.nip})</div>
 
               <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
@@ -676,7 +688,7 @@ function WaliKelas() {
                               {student.foto ? (
                                 <img src={getImageUrl(student.foto)} alt={student.nama} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               ) : (
-                                '👤'
+                                <User size={16} />
                               )}
                             </div>
                             {student.nama}
@@ -694,7 +706,7 @@ function WaliKelas() {
                           </div>
                         </td>
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: isBelowMinIpc(student.ipc_total || 80, minIpc) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '.85rem' }}>{student.ipc_total || 80}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: isBelowMinIpc(student.ipc_total || 80, minIpcFor(minIpc, selectedClass?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '.85rem' }}>{student.ipc_total || 80}</span>
                         </td>
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>
                           <button onClick={() => handleViewStudentDetail(student)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#2563eb', color: '#fff', transition: 'all 0.2s' }}>Detail</button>
@@ -711,7 +723,7 @@ function WaliKelas() {
 
       {/* DETAIL SISWA MODAL */}
       {showStudentDetail && selectedStudent && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 50 }} onClick={(e) => { if (e.target === e.currentTarget) setShowStudentDetail(false) }}>
+        <div className="modal-overlay app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1500 }} onClick={(e) => { if (e.target === e.currentTarget) { setShowStudentDetail(false); setEvidenceImage(null); } }}>
           <div className="modal-content" style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(15,23,42,.25)' }}>
             <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -719,12 +731,12 @@ function WaliKelas() {
                   {selectedStudent.foto ? (
                     <img src={getImageUrl(selectedStudent.foto)} alt={selectedStudent.nama} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    '👤'
+                    <User size={16} />
                   )}
                 </div>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>👤 Detail Siswa</h3>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><User size={18} /> Detail Siswa</h3>
               </div>
-              <button onClick={() => setShowStudentDetail(false)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#ef4444', color: '#fff', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>Tutup</button>
+              <button onClick={() => { setShowStudentDetail(false); setEvidenceImage(null); }} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#ef4444', color: '#fff', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>Tutup</button>
             </div>
 
             <div style={{ padding: '16px 20px 22px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -765,14 +777,14 @@ function WaliKelas() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '320px', overflowY: 'auto' }}>
                     {groupHistoryByCategory(studentHistory).map(group => {
                       const categoryIcons = {
-                        prestasi: '🏆',
-                        perilaku: '✅',
-                        organisasi: '👥',
-                        kepanitiaan: '🤝',
-                        event: '📅',
-                        pelanggaran: '⚠️',
-                        initial: '🔄',
-                        manual: '✏️'
+                        prestasi: CATEGORY_ICONS.prestasi,
+                        perilaku: CATEGORY_ICONS.perilaku,
+                        organisasi: CATEGORY_ICONS.organisasi,
+                        kepanitiaan: CATEGORY_ICONS.kepanitiaan,
+                        event: CATEGORY_ICONS.event,
+                        pelanggaran: CATEGORY_ICONS.pelanggaran,
+                        initial: History,
+                        manual: Pencil
                       };
                       const categoryLabels = {
                         prestasi: 'Prestasi',
@@ -787,12 +799,14 @@ function WaliKelas() {
                       return (
                         <div key={group.category} style={{ border: '1px solid #e2e8f0', borderRadius: '8px'}}>
                           <div style={{ background: '#f1f5f9', padding: '8px 12px', fontSize: '.75rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>{categoryIcons[group.category] || '📄'}</span>
+                            {(() => { const CatIcon = categoryIcons[group.category] || FileText; return <CatIcon size={14} />; })()}
                             <span>{categoryLabels[group.category] || group.category}</span>
                             <span style={{ marginLeft: 'auto', fontSize: '.68rem', color: '#64748b' }}>{group.records.length} record</span>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            {group.records.map(record => (
+                            {group.records.map(record => {
+                              const evidenceFoto = evidenceMap[record.keterangan];
+                              return (
                               <div key={record.id} style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                                   <span style={{ color: '#334155', fontSize: '.78rem', wordBreak: 'break-word', flex: 1 }}>
@@ -802,12 +816,16 @@ function WaliKelas() {
                                     {record.point_change > 0 ? '+' : ''}{record.point_change}
                                   </span>
                                 </div>
+                                {evidenceFoto && (
+                                  <span onClick={() => setEvidenceImage(evidenceFoto)} style={{ color: '#2563eb', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Paperclip size={12} /> Lihat Bukti</span>
+                                )}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.68rem', color: '#94a3b8' }}>
                                   <span>{new Date(record.created_at).toLocaleString('id-ID')}</span>
                                   <span>{record.ipc_sebelum} → {record.ipc_sesudah}</span>
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -818,10 +836,18 @@ function WaliKelas() {
 
               <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
                 <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Total IPC</div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: isBelowMinIpc(selectedStudent.ipc_total || 80, minIpc) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '1rem' }}>{selectedStudent.ipc_total || 80}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: isBelowMinIpc(selectedStudent.ipc_total || 80, minIpcFor(minIpc, selectedClass?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '1rem' }}>{selectedStudent.ipc_total || 80}</span>
               </div>
             </div>
           </div>
+          {evidenceImage && (
+            <div className="app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1600 }} onClick={() => setEvidenceImage(null)}>
+              <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '85vh' }} onClick={(e) => e.stopPropagation()}>
+                <img src={getImageUrl(evidenceImage)} alt="Bukti" style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,.4)', display: 'block' }} />
+                <button onClick={() => setEvidenceImage(null)} style={{ position: 'absolute', top: '-14px', right: '-14px', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={16} /></button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

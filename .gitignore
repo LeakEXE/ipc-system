@@ -27,6 +27,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+.opencode/
 *.swp
 *.swo
 
@@ -35,3 +36,4 @@ build/
 
 # User
 **/*.pdf
+patches

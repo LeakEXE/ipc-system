@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { getRecordPhotoUrl } from '../utils/recordPhoto';
 import { toTitleCase } from '../utils/perilaku';
 import { formatDisplayText } from '../utils/formatDisplayText';
+import { FileText } from 'lucide-react';
 
 const TABS = [
     { key: 'prestasi', label: 'Prestasi' },
@@ -26,9 +27,10 @@ function RecordThumbnail({ path, type, alt }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 24,
-                flexShrink: 0
+                flexShrink: 0,
+                color: 'var(--slate, #64748b)'
             }}>
-                📄
+                <FileText size={28} />
             </div>
         );
     }
@@ -68,7 +70,7 @@ function renderRecordDetails(item, type) {
                 <>
                     <strong>{item.nama_lomba}</strong>
                     <div style={{ fontSize: 13, color: 'var(--text-secondary, #666)', marginTop: 4 }}>
-                        {formatDisplayText(item.jenis)} · {formatDisplayText(item.juara)} · {formatDisplayText(item.kategori)}
+                        {formatDisplayText(item.juara)} · {formatDisplayText(item.kategori)}
                     </div>
                     <div style={{ fontSize: 13, marginTop: 4 }}>
                         <span className="badge badge-success">+{item.point} poin</span>

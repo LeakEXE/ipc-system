@@ -4,6 +4,8 @@ import { parseKarakterSiswa, toTitleCase } from '../utils/perilaku';
 import Select from 'react-select';
 import EditModal from './EditModal';
 import useEditModal from '../hooks/useEditModal';
+import { StatusIcon } from './icons';
+import { ClipboardList } from 'lucide-react';
 
 function InputPerilaku() {
   const [formData, setFormData] = useState({
@@ -345,7 +347,7 @@ function InputPerilaku() {
       {/* Index Display for Superadmin */}
       {(userRole === 'superadmin' && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Index Perilaku</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Perilaku</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -489,7 +491,7 @@ function InputPerilaku() {
           <div className="form-group">
             <label>Grha</label>
             <select name="grha" value={formData.grha} disabled required onChange={handleChange}>
-              <option value="">Data diisi otomatis</option>
+              <option value="" disabled hidden>Data diisi otomatis</option>
               {grhaOptions.map(grha => (
                 <option key={grha} value={grha}>{grha}</option>
               ))}
@@ -503,7 +505,7 @@ function InputPerilaku() {
             <div className="form-group">
               <label>Tanggung Jawab <span className="required">*</span></label>
               <select name="tanggung_jawab" value={formData.tanggung_jawab} onChange={handleChange} required>
-                <option value="">Pilih Nilai</option>
+                <option value="" disabled hidden>Pilih Nilai</option>
                 {karakterOptions.map(karakter => (
                   <option key={karakter.value} value={karakter.value}>{karakter.label} {formData.tanggung_jawab === karakter.value && calculatedPoints.tanggung_jawab ? `(${calculatedPoints.tanggung_jawab} point)` : ''}</option>
                 ))}
@@ -512,7 +514,7 @@ function InputPerilaku() {
             <div className="form-group">
               <label>Disiplin <span className="required">*</span></label>
               <select name="disiplin" value={formData.disiplin} onChange={handleChange} required>
-                <option value="">Pilih Nilai</option>
+                <option value="" disabled hidden>Pilih Nilai</option>
                 {karakterOptions.map(karakter => (
                   <option key={karakter.value} value={karakter.value}>{karakter.label} {formData.disiplin === karakter.value && calculatedPoints.disiplin ? `(${calculatedPoints.disiplin} point)` : ''}</option>
                 ))}
@@ -521,7 +523,7 @@ function InputPerilaku() {
             <div className="form-group">
               <label>Kepedulian <span className="required">*</span></label>
               <select name="kepedulian" value={formData.kepedulian} onChange={handleChange} required>
-                <option value="">Pilih Nilai</option>
+                <option value="" disabled hidden>Pilih Nilai</option>
                 {karakterOptions.map(karakter => (
                   <option key={karakter.value} value={karakter.value}>{karakter.label} {formData.kepedulian === karakter.value && calculatedPoints.kepedulian ? `(${calculatedPoints.kepedulian} point)` : ''}</option>
                 ))}
@@ -530,7 +532,7 @@ function InputPerilaku() {
             <div className="form-group">
               <label>Kemandirian <span className="required">*</span></label>
               <select name="kemandirian" value={formData.kemandirian} onChange={handleChange} required>
-                <option value="">Pilih Nilai</option>
+                <option value="" disabled hidden>Pilih Nilai</option>
                 {karakterOptions.map(karakter => (
                   <option key={karakter.value} value={karakter.value}>{karakter.label} {formData.kemandirian === karakter.value && calculatedPoints.kemandirian ? `(${calculatedPoints.kemandirian} point)` : ''}</option>
                 ))}
@@ -539,7 +541,7 @@ function InputPerilaku() {
             <div className="form-group">
               <label>Spiritual <span className="required">*</span></label>
               <select name="spiritual" value={formData.spiritual} onChange={handleChange} required>
-                <option value="">Pilih Nilai</option>
+                <option value="" disabled hidden>Pilih Nilai</option>
                 {karakterOptions.map(karakter => (
                   <option key={karakter.value} value={karakter.value}>{karakter.label} {formData.spiritual === karakter.value && calculatedPoints.spiritual ? `(${calculatedPoints.spiritual} point)` : ''}</option>
                 ))}
@@ -548,7 +550,7 @@ function InputPerilaku() {
             <div className="form-group">
               <label>Kejujuran <span className="required">*</span></label>
               <select name="kejujuran" value={formData.kejujuran} onChange={handleChange} required>
-                <option value="">Pilih Nilai</option>
+                <option value="" disabled hidden>Pilih Nilai</option>
                 {karakterOptions.map(karakter => (
                   <option key={karakter.value} value={karakter.value}>{karakter.label} {formData.kejujuran === karakter.value && calculatedPoints.kejujuran ? `(${calculatedPoints.kejujuran} point)` : ''}</option>
                 ))}
@@ -557,7 +559,7 @@ function InputPerilaku() {
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label>Kepercayaan Diri <span className="required">*</span></label>
               <select name="kepercayaan_diri" value={formData.kepercayaan_diri} onChange={handleChange} required>
-                <option value="">Pilih Nilai</option>
+                <option value="" disabled hidden>Pilih Nilai</option>
                 {karakterOptions.map(karakter => (
                   <option key={karakter.value} value={karakter.value}>{karakter.label} {formData.kepercayaan_diri === karakter.value && calculatedPoints.kepercayaan_diri ? `(${calculatedPoints.kepercayaan_diri} point)` : ''}</option>
                 ))}
@@ -645,7 +647,7 @@ function InputPerilaku() {
             disabled required
             onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, grha: e.target.value })}
           >
-            <option value="">Data diisi otomatis</option>
+            <option value="" disabled hidden>Data diisi otomatis</option>
             {grhaOptions.map(grha => (
               <option key={grha} value={grha}>{grha}</option>
             ))}
@@ -660,7 +662,7 @@ function InputPerilaku() {
                 value={editModal.editFormData[field] || ''} 
                 onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, [field]: e.target.value })}
               >
-                <option value="">Pilih Nilai</option>
+                <option value="" disabled hidden>Pilih Nilai</option>
                 {karakterOptions.map(karakter => (
                   <option key={karakter.value} value={karakter.value}>{karakter.label}</option>
                 ))}
@@ -673,7 +675,7 @@ function InputPerilaku() {
       {/* Submission History - Hidden for Superadmin */}
       {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
         <div style={{ marginTop: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Riwayat Pengajuan Perilaku</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Perilaku</h3>
           {submissions.length === 0 ? (
             <p className="text-muted">Belum ada pengajuan</p>
           ) : (
@@ -713,9 +715,9 @@ function InputPerilaku() {
 
 function getStatusBadge(status) {
   const styles = {
-    pending: { background: '#ffc107', color: '#333', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500' },
-    approved: { background: '#28a745', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500' },
-    rejected: { background: '#dc3545', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500' }
+    pending: { background: 'var(--warning-color)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '6px' },
+    approved: { background: 'var(--success-color)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '6px' },
+    rejected: { background: 'var(--danger-color)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '6px' }
   };
 
   const labels = {
@@ -727,7 +729,7 @@ function getStatusBadge(status) {
   const style = styles[status] || styles.pending;
   const label = labels[status] || 'Menunggu';
 
-  return <span style={style}>{label}</span>;
+  return <span style={style}><StatusIcon status={status} /> {label}</span>;
 }
 
 export default InputPerilaku;

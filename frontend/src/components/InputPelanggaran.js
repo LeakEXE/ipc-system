@@ -4,6 +4,8 @@ import EditModal from './EditModal';
 import useEditModal from '../hooks/useEditModal';
 import API_BASE_URL from '../config';
 import Select from 'react-select';
+import { StatusIcon } from './icons';
+import { ClipboardList } from 'lucide-react';
 
 function InputPelanggaran() {
   const [formData, setFormData] = useState({
@@ -35,8 +37,14 @@ function InputPelanggaran() {
       const level = (ipcConfig['pelanggaran'] || []).find(
         candidate => !candidate.field2 && candidate.field1 === config.field2
       );
-      return { value: config.field1, label: config.field1, point: level?.point_value || 0 };
+      return { value: config.field1, label: config.field1, level: config.field2, point: level?.point_value || 0 };
     });
+  // Options with level info (e.g. "mencuri (berat)") — shared by the dropdown
+  // list and the selected-value display of both add and edit forms.
+  const jenisSelectOptions = jenisOptions.map((jenis) => ({
+    value: jenis.value,
+    label: jenis.level ? `${jenis.label} (${jenis.level})` : jenis.label,
+  }));
 
   const grhaOptions = [
     'Airsanya', 'Daksina', 'Genya', 'Madhya', 'Nairiti', 'Pascima', 'Purwa', 'Uttara', 'Wayabhya'
@@ -374,7 +382,7 @@ function InputPelanggaran() {
       {/* Index Display for Superadmin */}
       {(userRole === 'superadmin' && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Index Pelanggaran</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Pelanggaran</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -385,7 +393,7 @@ function InputPelanggaran() {
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
-                    <th>Keterangan</th>
+                    <th>Detail</th>
                     <th>Jenis</th>
                     <th>Point</th>
                     <th>Aksi</th>
@@ -516,7 +524,7 @@ function InputPelanggaran() {
           <div className="form-group">
             <label>Grha</label>
             <select name="grha" value={formData.grha} disabled required onChange={handleChange}>
-              <option value="">Data diisi otomatis</option>
+              <option value="" disabled hidden>Data diisi otomatis</option>
               {grhaOptions.map(grha => (
                 <option key={grha} value={grha}>{grha}</option>
               ))}
@@ -525,27 +533,12 @@ function InputPelanggaran() {
         </div>
 
         <div className="form-group">
-          <label>Keterangan Pelanggaran</label>
-          <textarea
-            name="keterangan"
-            value={formData.keterangan}
-            onChange={handleChange}
-            placeholder="Jelaskan pelanggaran yang dilakukan"
-            rows="3"
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Detail Pelanggaran</label>
+          <label>Jenis Pelanggaran</label>
           <Select
-            value={jenisOptions.find(jenis => jenis.value === formData.jenis_pelanggaran) || null}
+            value={jenisSelectOptions.find(jenis => jenis.value === formData.jenis_pelanggaran) || null}
             onChange={handleJenisSelect}
-            options={jenisOptions.map(jenis => ({
-              value: jenis.value,
-              label: jenis.point > 0 ? `${jenis.label} (${jenis.point} point)` : jenis.label
-            }))}
-            placeholder="Pilih Detail Pelanggaran"
+            options={jenisSelectOptions}
+            placeholder="Pilih Jenis Pelanggaran"
             isSearchable
             isClearable
             styles={{
@@ -573,6 +566,18 @@ function InputPelanggaran() {
           }}>
             {calculatedPoint}
           </span>
+        </div>
+        
+        <div className="form-group">
+          <label>Detail Pelanggaran</label>
+          <textarea
+            name="keterangan"
+            value={formData.keterangan}
+            onChange={handleChange}
+            placeholder="Jelaskan pelanggaran yang dilakukan"
+            rows="3"
+            required
+          />
         </div>
 
         <div className="form-group">
@@ -645,22 +650,19 @@ function InputPelanggaran() {
               value={editModal.editFormData.grha || ''} 
               onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, grha: e.target.value })}
             >
-              <option value="">Pilih Grha</option>
+              <option value="" disabled hidden>Pilih Grha</option>
               {grhaOptions.map(grha => (
                 <option key={grha} value={grha}>{grha}</option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label>Detail Pelanggaran</label>
+            <label>Jenis Pelanggaran</label>
             <Select
-              value={jenisOptions.find(jenis => jenis.value === editModal.editFormData.jenis_pelanggaran) || null}
+              value={jenisSelectOptions.find(jenis => jenis.value === editModal.editFormData.jenis_pelanggaran) || null}
               onChange={handleEditJenisSelect}
-              options={jenisOptions.map(jenis => ({
-                value: jenis.value,
-                label: jenis.point > 0 ? `${jenis.label} (${jenis.point} point)` : jenis.label
-              }))}
-              placeholder="Pilih Detail Pelanggaran"
+              options={jenisSelectOptions}
+              placeholder="Pilih Jenis Pelanggaran"
               isSearchable
               isClearable
               styles={{
@@ -674,7 +676,7 @@ function InputPelanggaran() {
         </div>
 
         <div className="form-group">
-          <label>Keterangan Pelanggaran</label>
+          <label>Detail Pelanggaran</label>
           <textarea
             value={editModal.editFormData.keterangan || ''}
             onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, keterangan: e.target.value })}
@@ -696,7 +698,7 @@ function InputPelanggaran() {
       {/* Submission History - Hidden for Superadmin */}
       {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
         <div style={{ marginTop: '30px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>📋 Riwayat Pengajuan Pelanggaran</h3>
+          <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Pelanggaran</h3>
           {submissions.length === 0 ? (
             <p className="text-muted">Belum ada pengajuan</p>
           ) : (
@@ -739,9 +741,9 @@ function InputPelanggaran() {
 
 function getStatusBadge(status) {
   const styles = {
-    pending: { background: '#ffc107', color: '#333', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500' },
-    approved: { background: '#28a745', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500' },
-    rejected: { background: '#dc3545', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500' }
+    pending: { background: 'var(--warning-color)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '6px' },
+    approved: { background: 'var(--success-color)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '6px' },
+    rejected: { background: 'var(--danger-color)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '6px' }
   };
 
   const labels = {
@@ -753,7 +755,7 @@ function getStatusBadge(status) {
   const style = styles[status] || styles.pending;
   const label = labels[status] || 'Menunggu';
 
-  return <span style={style}>{label}</span>;
+  return <span style={style}><StatusIcon status={status} /> {label}</span>;
 }
 
 export default InputPelanggaran;
