@@ -8,7 +8,7 @@ const {
     calculatePerilakuPointsFromFields,
     formatPerilakuKarakter
 } = require('../constants/points');
-const { resolveStudentIdByNis, applyPerilakuIpcChange } = require('../utils/ipc');
+const { resolveStudentIdByNis, applyPerilakuIpcChange, buildKeterangan } = require('../utils/ipc');
 const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
 
 // Get all perilaku (for approvals)
@@ -92,7 +92,7 @@ router.post('/', auth, checkPermission('perilaku'), async (req, res) => {
             await applyPerilakuIpcChange(
                 userId,
                 point,
-                `Perilaku: ${karakter}`,
+                buildKeterangan('perilaku', { karakter_siswa: karakter }),
                 result.insertId
             );
 
