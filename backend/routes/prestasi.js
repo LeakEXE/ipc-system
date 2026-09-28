@@ -20,6 +20,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 const { calculatePrestasiPoints } = require('../constants/points');
+const { buildKeterangan } = require('../utils/ipc');
 
 // Get all prestasi (for approvals)
 router.get('/all', auth, async (req, res) => {
@@ -137,7 +138,7 @@ router.put('/:id/approve', auth, superAdminOnly, async (req, res) => {
         // Log IPC history
         await db.query(
             'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-            [prestasiData.user_id, 'prestasi', prestasiData.point, ipcSebelum, ipcSesudah, `Prestasi: ${prestasiData.nama_lomba}`]
+            [prestasiData.user_id, 'prestasi', prestasiData.point, ipcSebelum, ipcSesudah, buildKeterangan('prestasi', prestasiData)]
         );
 
         // Log activity

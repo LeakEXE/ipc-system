@@ -20,6 +20,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 const { calculateEventPoints } = require('../constants/points');
+const { buildKeterangan } = require('../utils/ipc');
 
 // Get all event (for approvals)
 router.get('/all', auth, async (req, res) => {
@@ -121,7 +122,7 @@ router.put('/:id/approve', auth, superAdminOnly, async (req, res) => {
         
         await db.query(
             'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-            [eventData.user_id, 'event', eventData.point, ipcSebelum, ipcSesudah, `Event: ${eventData.nama_event}`]
+            [eventData.user_id, 'event', eventData.point, ipcSebelum, ipcSesudah, buildKeterangan('event', eventData)]
         );
 
         await db.query(

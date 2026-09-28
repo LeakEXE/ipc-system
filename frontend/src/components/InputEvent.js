@@ -619,41 +619,38 @@ function InputEvent() {
         isLoading={editModal.isLoading}
         photoPreview={editModal.editingItem?.foto ? `${API_BASE_URL.replace('/api', '')}/${editModal.editingItem.foto}` : null}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Nama</label>
-            <input
-              type="text"
-              value={editModal.editFormData.nama || ''}
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nama: e.target.value })}
-              placeholder="Nama siswa"
-            />
-          </div>
-          <div className="form-group">
-            <label>NIS</label>
-            <input
-              type="text"
-              value={editModal.editFormData.nis || ''}
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nis: e.target.value })}
-              placeholder="NIS"
-              disabled
-            />
-          </div>
+        <div className="form-group">
+          <label>Nama</label>
+          <input
+            type="text"
+            disabled
+            value={editModal.editFormData.nama || ''}
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nama: e.target.value })}
+            placeholder="Nama siswa"
+          />
+        </div>
+        <div className="form-group">
+          <label>NIS</label>
+          <input
+            type="text"
+            value={editModal.editFormData.nis || ''}
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nis: e.target.value })}
+            placeholder="NIS"
+            disabled
+          />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Kelas</label>
-            <input 
-              type="text" 
-              value={editModal.editFormData.kelas || ''} 
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, kelas: e.target.value })}
-              disabled
-              placeholder="Data diisi otomatis"
-              required
-              style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
-            />
-          </div>
+        <div className="form-group">
+          <label>Kelas</label>
+          <input 
+            type="text" 
+            value={editModal.editFormData.kelas || ''} 
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, kelas: e.target.value })}
+            disabled
+            placeholder="Data diisi otomatis"
+            required
+            style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+          />
         </div>
 
         <div className="form-group">
@@ -670,27 +667,25 @@ function InputEvent() {
           </select>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Nama Event</label>
-            <input
-              type="text"
-              value={editModal.editFormData.nama_event || ''}
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nama_event: e.target.value })}
-              placeholder="Nama event"
-            />
-          </div>
-          <div className="form-group">
-            <label>Tingkat</label>
-            <select 
-              value={editModal.editFormData.tingkat || ''} 
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, tingkat: e.target.value })}
-            >
-              {FIXED_TINGKAT_OPTIONS.map(tingkat => (
-                <option key={tingkat} value={tingkat}>{formatDisplayText(tingkat)}</option>
-              ))}
-            </select>
-          </div>
+        <div className="form-group">
+          <label>Nama Event</label>
+          <input
+            type="text"
+            value={editModal.editFormData.nama_event || ''}
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nama_event: e.target.value })}
+            placeholder="Nama event"
+          />
+        </div>
+        <div className="form-group">
+          <label>Tingkat</label>
+          <select 
+            value={editModal.editFormData.tingkat || ''} 
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, tingkat: e.target.value })}
+          >
+            {FIXED_TINGKAT_OPTIONS.map(tingkat => (
+              <option key={tingkat} value={tingkat}>{formatDisplayText(tingkat)}</option>
+            ))}
+          </select>
         </div>
 
         <div className="form-group">

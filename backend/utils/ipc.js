@@ -1,5 +1,29 @@
 const db = require('../config/database');
 
+// Single source of truth for ipc_history "keterangan" text on every
+// create/approve path (direct superadmin submit AND approval of
+// teacher/student submissions). All inputs must use this so history
+// reads identically in /wali-kelas, reports, and profile.
+function buildKeterangan(type, data) {
+    const d = data || {};
+    switch (type) {
+        case 'prestasi':
+            return `Prestasi: ${d.nama_lomba || '-'} - ${d.juara || '-'} ${d.kategori || ''}`.trim();
+        case 'event':
+            return `Event: ${d.nama_event || '-'} - ${d.tingkat || '-'}`;
+        case 'organisasi':
+            return `Organisasi: ${d.kategori_organisasi || '-'} - ${d.jabatan_organisasi || '-'}`;
+        case 'kepanitiaan':
+            return `Kepanitiaan: ${d.kategori_kepanitiaan || '-'} - ${d.jabatan_kepanitiaan || '-'}`;
+        case 'pelanggaran':
+            return `Pelanggaran: ${d.jenis_pelanggaran || '-'}`;
+        case 'perilaku':
+            return `Perilaku: ${d.karakter_siswa || d.karakter || '-'}`;
+        default:
+            return `${type}: ${d.keterangan || ''}`.trim();
+    }
+}
+
 async function resolveStudentIdByNis(nis, fallbackUserId) {
     if (!nis) {
         return fallbackUserId;
@@ -66,4 +90,4 @@ async function applyPerilakuIpcChange(userId, newPoint, keterangan, excludePeril
     return { netChange, supersededCount: previous.length };
 }
 
-module.exports = { resolveStudentIdByNis, applyIpcChange, applyPerilakuIpcChange };
+module.exports = { resolveStudentIdByNis, applyIpcChange, applyPerilakuIpcChange, buildKeterangan };

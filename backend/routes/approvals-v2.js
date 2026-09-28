@@ -12,7 +12,7 @@ const {
     calculateKepanitiaanPoints,
     calculatePelanggaranPoints
 } = require('../constants/points');
-const { resolveStudentIdByNis, applyIpcChange, applyPerilakuIpcChange } = require('../utils/ipc');
+const { resolveStudentIdByNis, applyIpcChange, applyPerilakuIpcChange, buildKeterangan } = require('../utils/ipc');
 const {
     getApprovalStatusColumn,
     getRowApprovalStatus,
@@ -106,7 +106,7 @@ router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.singl
                 [userId, nama, nis, nama_lomba, calculatedClass, pembina, grha, juara, kategori, finalFotoPath, point]
             );
             
-            await applyIpcChange(userId, 'prestasi', point, `Prestasi: ${nama_lomba} - ${juara} ${kategori}`);
+            await applyIpcChange(userId, 'prestasi', point, buildKeterangan('prestasi', { nama_lomba, juara, kategori }));
             
             console.log('Prestasi - Directly added by superadmin:', result.insertId);
             
@@ -186,7 +186,7 @@ router.post('/pelanggaran/submit', auth, checkInputAccess('pelanggaran'), upload
                 [userId, req.user.id, nama, nis, calculatedClass, grha, keterangan, finalFotoPath, jenis_pelanggaran, point]
             );
 
-            await applyIpcChange(userId, 'pelanggaran', point, `Pelanggaran: ${jenis_pelanggaran}`);
+            await applyIpcChange(userId, 'pelanggaran', point, buildKeterangan('pelanggaran', { jenis_pelanggaran }));
 
             // Log activity
             await logActivity(req.user.id, 'SUBMIT_PELANGGARAN', `SuperAdmin ${req.user.nama} submitted pelanggaran for ${nama} (${nis}): ${jenis_pelanggaran}`, req.ip);
@@ -256,7 +256,7 @@ router.post('/event/submit', auth, checkInputAccess('event'), upload.single('fot
                 [userId, nama, nis, calculatedClass, grha, nama_event, tingkat, finalFotoPath, point]
             );
             
-            await applyIpcChange(userId, 'event', point, `Event: ${nama_event} - ${tingkat}`);
+            await applyIpcChange(userId, 'event', point, buildKeterangan('event', { nama_event, tingkat }));
             
             console.log('Event - Directly added by superadmin:', result.insertId);
             
@@ -337,7 +337,7 @@ router.post('/organisasi/submit', auth, checkInputAccess('organisasi'), upload.s
                 userId,
                 'organisasi',
                 point,
-                `Organisasi: ${kategori_organisasi} - ${jabatan_organisasi}`
+                buildKeterangan('organisasi', { kategori_organisasi, jabatan_organisasi })
             );
             
             console.log('Organisasi - Directly added by superadmin:', result.insertId);
@@ -419,7 +419,7 @@ router.post('/kepanitiaan/submit', auth, checkInputAccess('kepanitiaan'), upload
                 userId,
                 'kepanitiaan',
                 point,
-                `Kepanitiaan: ${kategori_kepanitiaan} - ${jabatan_kepanitiaan}`
+                buildKeterangan('kepanitiaan', { kategori_kepanitiaan, jabatan_kepanitiaan })
             );
             
             console.log('Kepanitiaan - Directly added by superadmin:', result.insertId);
@@ -479,30 +479,26 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
             return handleLegacyApproval(type, id, status, notes, req.user.id, req.ip, res);
         }
 
-        let table, pointField, pointType, allowedColumns;
+        let table, pointField, allowedColumns;
         switch(type) {
             case 'prestasi':
                 table = 'prestasi_approvals';
                 pointField = 'juara';
-                pointType = 'Prestasi';
                 allowedColumns = ['id', 'user_id', 'nama', 'nis', 'nama_lomba', 'foto', 'kelas', 'pembina', 'grha', 'juara', 'kategori', 'superadmin_status', 'created_at'];
                 break;
             case 'event':
                 table = 'event_approvals';
                 pointField = 'tingkat';
-                pointType = 'Event';
                 allowedColumns = ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'pembina', 'nama_event', 'tingkat', 'foto', 'superadmin_status', 'created_at'];
                 break;
             case 'organisasi':
                 table = 'organisasi_approvals';
                 pointField = 'jabatan_organisasi';
-                pointType = 'Organisasi';
                 allowedColumns = ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'jabatan_organisasi', 'foto', 'kategori_organisasi', 'superadmin_status', 'created_at'];
                 break;
             case 'kepanitiaan':
                 table = 'kepanitiaan_approvals';
                 pointField = 'jabatan_kepanitiaan';
-                pointType = 'Kepanitiaan';
                 allowedColumns = ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'jabatan_kepanitiaan', 'foto', 'kategori_kepanitiaan', 'superadmin_status', 'created_at'];
                 break;
             default:
@@ -568,7 +564,7 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
                 data.user_id,
                 type,
                 pointChange,
-                `Poin dari ${pointType}: ${data[pointField]}`
+                buildKeterangan(type, data)
             );
 
             await approveSubmission(table, id, notes || 'Disetujui oleh SuperAdmin');

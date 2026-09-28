@@ -607,72 +607,67 @@ function InputPelanggaran() {
         isLoading={editModal.isLoading}
         photoPreview={editModal.editingItem?.foto ? `${API_BASE_URL.replace('/api', '')}/${editModal.editingItem.foto}` : null}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Nama</label>
-            <input
-              type="text"
-              value={editModal.editFormData.nama || ''}
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nama: e.target.value })}
-              placeholder="Nama siswa"
-            />
-          </div>
-          <div className="form-group">
-            <label>NIS</label>
-            <input
-              type="text"
-              value={editModal.editFormData.nis || ''}
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nis: e.target.value })}
-              placeholder="NIS"
-              disabled
-            />
-          </div>
+        <div className="form-group">
+          <label>Nama</label>
+          <input
+            type="text"
+            disabled
+            value={editModal.editFormData.nama || ''}
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nama: e.target.value })}
+            placeholder="Nama siswa"
+          />
+        </div>
+        <div className="form-group">
+          <label>NIS</label>
+          <input
+            type="text"
+            value={editModal.editFormData.nis || ''}
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nis: e.target.value })}
+            placeholder="NIS"
+            disabled
+          />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Kelas</label>
-            <input 
-              type="text" 
-              value={editModal.editFormData.kelas || ''} 
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, kelas: e.target.value })}
-              disabled
-              style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
-            />
-            <small style={{ color: '#666', fontSize: '12px' }}>Auto-filled from student data</small>
-          </div>
+        <div className="form-group">
+          <label>Kelas</label>
+          <input 
+            type="text" 
+            value={editModal.editFormData.kelas || ''} 
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, kelas: e.target.value })}
+            disabled
+            style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+          />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Grha</label>
-            <select 
-              value={editModal.editFormData.grha || ''} 
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, grha: e.target.value })}
-            >
-              <option value="" disabled hidden>Pilih Grha</option>
-              {grhaOptions.map(grha => (
-                <option key={grha} value={grha}>{grha}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Jenis Pelanggaran</label>
-            <Select
-              value={jenisSelectOptions.find(jenis => jenis.value === editModal.editFormData.jenis_pelanggaran) || null}
-              onChange={handleEditJenisSelect}
-              options={jenisSelectOptions}
-              placeholder="Pilih Jenis Pelanggaran"
-              isSearchable
-              isClearable
-              styles={{
-                control: (provided) => ({
-                  ...provided,
-                  minHeight: '40px'
-                })
-              }}
-            />
-          </div>
+        <div className="form-group">
+          <label>Grha</label>
+          <select 
+          disabled
+            value={editModal.editFormData.grha || ''} 
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, grha: e.target.value })}
+          >
+            <option value="" disabled hidden>Pilih Grha</option>
+            {grhaOptions.map(grha => (
+              <option key={grha} value={grha}>{grha}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Jenis Pelanggaran</label>
+          <Select
+            value={jenisSelectOptions.find(jenis => jenis.value === editModal.editFormData.jenis_pelanggaran) || null}
+            onChange={handleEditJenisSelect}
+            options={jenisSelectOptions}
+            placeholder="Pilih Jenis Pelanggaran"
+            isSearchable
+            isClearable
+            styles={{
+              control: (provided) => ({
+                ...provided,
+                minHeight: '40px'
+              })
+            }}
+          />
         </div>
 
         <div className="form-group">

@@ -603,41 +603,38 @@ function InputPerilaku() {
         onSave={handleUpdate}
         isLoading={editModal.isLoading}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Nama</label>
-            <input
-              type="text"
-              value={editModal.editFormData.nama || ''}
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nama: e.target.value })}
-              placeholder="Nama siswa"
-            />
-          </div>
-          <div className="form-group">
-            <label>NIS</label>
-            <input
-              type="text"
-              value={editModal.editFormData.nis || ''}
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nis: e.target.value })}
-              placeholder="NIS"
-              disabled
-            />
-          </div>
+        <div className="form-group">
+          <label>Nama</label>
+          <input
+            type="text"
+            value={editModal.editFormData.nama || ''}
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nama: e.target.value })}
+            placeholder="Nama siswa"
+            disabled
+          />
+        </div>
+        <div className="form-group">
+          <label>NIS</label>
+          <input
+            type="text"
+            value={editModal.editFormData.nis || ''}
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, nis: e.target.value })}
+            placeholder="NIS"
+            disabled
+          />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Kelas</label>
-            <input 
-              type="text" 
-              value={editModal.editFormData.kelas || ''} 
-              onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, kelas: e.target.value })}
-              disabled
-              required
-              placeholder="Data diisi otomatis"
-              style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
-            />
-          </div>
+        <div className="form-group">
+          <label>Kelas</label>
+          <input 
+            type="text" 
+            value={editModal.editFormData.kelas || ''} 
+            onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, kelas: e.target.value })}
+            disabled
+            required
+            placeholder="Data diisi otomatis"
+            style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+          />
         </div>
 
         <div className="form-group">
