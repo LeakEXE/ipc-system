@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
 import { Folder, FileText } from 'lucide-react';
+import { EvidenceViewer, isPdfPath } from './EvidenceViewer';
 
 function DriveViewer() {
   const [folders, setFolders] = useState([]);
@@ -352,9 +353,13 @@ function DriveViewer() {
             style={{
               maxWidth: '90%',
               maxHeight: '90%',
+              width: isPdfPath(previewImage) ? 'min(880px, 90vw)' : undefined,
               position: 'relative'
             }}
           >
+            {isPdfPath(previewImage) ? (
+              <EvidenceViewer src={previewImage} alt="Preview" pdfHeight="70vh" />
+            ) : (
             <img
               src={previewImage}
               alt="Preview"
@@ -369,6 +374,7 @@ function DriveViewer() {
                 setPreviewImage(null);
               }}
             />
+            )}
             <button
               onClick={() => setPreviewImage(null)}
               style={{

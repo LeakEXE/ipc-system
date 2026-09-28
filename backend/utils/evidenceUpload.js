@@ -1,0 +1,34 @@
+const path = require('path');
+
+// Shared upload policy for IPC record evidence (bukti) across all inputs.
+// Accepts images + PDF (NOT office docs). Avatars and school logos keep
+// their own image-only configs in profile.js / school-config.js.
+const EVIDENCE_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+const EVIDENCE_MIMETYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf'
+];
+
+const EVIDENCE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf'];
+
+function evidenceFileFilter(req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (EVIDENCE_MIMETYPES.includes(file.mimetype) && EVIDENCE_EXTENSIONS.includes(ext)) {
+        return cb(null, true);
+    }
+    cb(new Error('Hanya file gambar (JPG, PNG, GIF, WebP) dan PDF yang diizinkan (maks 10MB)'));
+}
+
+const EVIDENCE_LIMITS = { fileSize: EVIDENCE_MAX_SIZE };
+
+module.exports = {
+    EVIDENCE_MAX_SIZE,
+    EVIDENCE_MIMETYPES,
+    EVIDENCE_EXTENSIONS,
+    evidenceFileFilter,
+    EVIDENCE_LIMITS
+};

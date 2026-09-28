@@ -7,6 +7,7 @@ import useEditModal from '../hooks/useEditModal';
 import API_BASE_URL from '../config';
 import { StatusIcon } from './icons';
 import { ClipboardList, ShieldAlert } from 'lucide-react';
+import { validateEvidenceFile } from '../utils/evidence';
 
 function InputEvent() {
   const [formData, setFormData] = useState({
@@ -243,7 +244,19 @@ function InputEvent() {
   };
 
   const handleFileChange = (e) => {
-    setFoto(e.target.files[0]);
+    const file = e.target.files[0];
+    if (!file) {
+      setFoto(null);
+      return;
+    }
+    const err = validateEvidenceFile(file);
+    if (err) {
+      setMessage(err);
+      setFoto(null);
+      e.target.value = '';
+      return;
+    }
+    setFoto(file);
   };
 
   const handleSubmit = async (e) => {
@@ -308,7 +321,19 @@ function InputEvent() {
   };
 
   const handleEditFileChange = (e) => {
-    editModal.setEditFoto(e.target.files[0]);
+    const file = e.target.files[0];
+    if (!file) {
+      editModal.setEditFoto(null);
+      return;
+    }
+    const err = validateEvidenceFile(file);
+    if (err) {
+      setMessage(err);
+      editModal.setEditFoto(null);
+      e.target.value = '';
+      return;
+    }
+    editModal.setEditFoto(file);
   };
 
   const handleUpdate = async () => {
@@ -593,11 +618,11 @@ function InputEvent() {
         </div>
 
         <div className="form-group">
-          <label>Foto Bukti</label>
+          <label>Foto/Dokumen Bukti (JPG, PNG, GIF, WebP, PDF — maks 10MB)</label>
           <input
             type="file"
             onChange={handleFileChange}
-            accept="image/*"
+            accept="image/*,.pdf"
           />
         </div>
 
@@ -689,11 +714,11 @@ function InputEvent() {
         </div>
 
         <div className="form-group">
-          <label>Foto Bukti {editModal.editingItem?.foto && '(Pilih untuk ganti)'}</label>
+          <label>Foto/Dokumen Bukti {editModal.editingItem?.foto && '(Pilih untuk ganti)'} (JPG, PNG, GIF, WebP, PDF — maks 10MB)</label>
           <input
             type="file"
             onChange={handleEditFileChange}
-            accept="image/*"
+            accept="image/*,.pdf"
           />
         </div>
       </EditModal>

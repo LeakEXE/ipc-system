@@ -1,4 +1,5 @@
 import React from 'react';
+import { EvidenceViewer } from './EvidenceViewer';
 
 const EditModal = ({ isOpen, title, onClose, onSave, isLoading, children, photoPreview }) => {
     if (!isOpen) return null;
@@ -38,11 +39,12 @@ const EditModal = ({ isOpen, title, onClose, onSave, isLoading, children, photoP
 
                 {photoPreview && (
                     <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                        <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>Foto Saat Ini:</p>
-                        <img 
-                            src={photoPreview} 
-                            alt="preview" 
-                            style={{
+                        <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>Bukti Saat Ini:</p>
+                        <EvidenceViewer
+                            src={photoPreview}
+                            alt="bukti"
+                            pdfHeight={300}
+                            imgStyle={{
                                 maxWidth: '100%',
                                 maxHeight: '200px',
                                 borderRadius: '4px',

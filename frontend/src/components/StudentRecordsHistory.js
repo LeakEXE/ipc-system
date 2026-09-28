@@ -3,6 +3,7 @@ import { getRecordPhotoUrl } from '../utils/recordPhoto';
 import { toTitleCase } from '../utils/perilaku';
 import { formatDisplayText } from '../utils/formatDisplayText';
 import { FileText } from 'lucide-react';
+import { isPdfPath } from './EvidenceViewer';
 
 const TABS = [
     { key: 'prestasi', label: 'Prestasi' },
@@ -31,6 +32,35 @@ function RecordThumbnail({ path, type, alt }) {
                 color: 'var(--slate, #64748b)'
             }}>
                 <FileText size={28} />
+            </div>
+        );
+    }
+
+    if (isPdfPath(url)) {
+        return (
+            <div
+                style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 8,
+                    background: 'var(--danger-bg)',
+                    color: 'var(--danger-dark)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 2,
+                    flexShrink: 0,
+                    border: '1px solid #ddd',
+                    cursor: 'pointer',
+                    fontSize: 10,
+                    fontWeight: 800
+                }}
+                onClick={() => window.open(url, '_blank')}
+                title="Buka dokumen PDF"
+            >
+                <FileText size={26} />
+                <span>PDF</span>
             </div>
         );
     }
