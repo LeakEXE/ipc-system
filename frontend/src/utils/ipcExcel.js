@@ -227,7 +227,7 @@ export async function createIndividualIpcExcelBuffer({
   // Margin sesuai cetakan resmi: kiri 3,6 cm, kanan 0,2 cm.
   // ExcelJS memakai inci & hanya menulis pageSetup.margins ke file
   // (properti pageMargins polos diabaikan saat tulis).
-  sheet.pageSetup.margins = { left: 3.6 / 2.54, right: 0.2 / 2.54, top: 0.18, bottom: 0.3, header: 0.12, footer: 0.12 };
+  sheet.pageSetup.margins = { left: 2.8 / 2.54, right: 0.2 / 2.54, top: 0.18, bottom: 0.3, header: 0.12, footer: 0.12 };
   sheet.pageSetup.printArea = `A1:M${46 + delta}`;
 
   COL_WIDTHS.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
