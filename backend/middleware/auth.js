@@ -51,8 +51,8 @@ const checkPermission = (permissionType) => {
         return res.status(403).json({ message: 'Anda tidak memiliki izin untuk mengakses halaman ini.' });
       }
       
-      // For teachers, check individual permission
-      if (userRole === 'guru' && (permissionType === 'pelanggaran' || permissionType === 'perilaku')) {
+      // For teachers and pegawai, check individual permission
+      if ((userRole === 'guru' || userRole === 'pegawai') && (permissionType === 'pelanggaran' || permissionType === 'perilaku')) {
         const [permissions] = await db.query(
           `SELECT can_input_${permissionType} as has_permission FROM permissions WHERE user_id = ?`,
           [userId]
@@ -83,14 +83,14 @@ const superAdminOnly = (req, res, next) => {
 };
 
 const teacherOrSuperAdmin = (req, res, next) => {
-    if (req.user.role !== 'superadmin' && req.user.role !== 'guru') {
+    if (req.user.role !== 'superadmin' && req.user.role !== 'guru' && req.user.role !== 'pegawai') {
         return res.status(403).json({ message: 'Access denied. Teacher or Superadmin only.' });
     }
     next();
 };
 
 const teacherOnly = (req, res, next) => {
-    if (req.user.role !== 'guru') {
+    if (req.user.role !== 'guru' && req.user.role !== 'pegawai') {
         return res.status(403).json({ message: 'Access denied. Teachers only.' });
     }
     next();

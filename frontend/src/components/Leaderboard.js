@@ -12,7 +12,8 @@ const CATEGORIES = [
   { key: 'kepanitiaan', label: 'Kepanitiaan', icon: CATEGORY_ICONS.kepanitiaan },
   { key: 'event', label: 'Event', icon: CATEGORY_ICONS.event },
   { key: 'pelanggaran', label: 'Pelanggaran', icon: CATEGORY_ICONS.pelanggaran },
-  { key: 'perilaku', label: 'Perilaku', icon: CATEGORY_ICONS.perilaku }
+  { key: 'perilaku', label: 'Perilaku', icon: CATEGORY_ICONS.perilaku },
+  { key: 'pembina', label: 'Pembina', icon: CATEGORY_ICONS.pembina }
 ];
 
 function Leaderboard() {
@@ -33,6 +34,7 @@ function Leaderboard() {
     setError('');
     try {
       const res = await api.get(`/search/leaderboard/category/${category}`);
+      console.log(`Fetched ${category} data:`, res.data);
       setDataByCategory(prev => ({ ...prev, [category]: res.data }));
       setLastUpdated(new Date());
     } catch (err) {
@@ -64,6 +66,13 @@ function Leaderboard() {
   const superlative = activeCategory === 'pelanggaran' ? 'terendah' : 'tertinggi';
   const top3 = currentData.filter((s) => s.rank <= 3).sort((a, b) => a.rank - b.rank);
   const totalPoints = currentData.reduce((sum, s) => sum + (s.total_point || 0), 0);
+  const isPembina = activeCategory === 'pembina';
+
+  // Debug log untuk pembina data
+  if (isPembina && currentData.length > 0) {
+    console.log('Pembina currentData:', currentData);
+    console.log('First pembina entry:', currentData[0]);
+  }
 
   if (loading) {
     return (
@@ -347,6 +356,7 @@ function Leaderboard() {
         }
         .pill.kelas{background:var(--green-bg);color:var(--green-text);}
         .pill.grha{background:var(--amber-bg);color:var(--amber-text);}
+        .pill.jabatan{background:#e0f2fe;color:#0369a1;}
         .points-pill{
           display:inline-flex;
           align-items:center;
@@ -614,7 +624,7 @@ function Leaderboard() {
             <div className="card podium-card" style={{ marginBottom: '12px' }}>
               <div className="card-head">
                 <h2><Trophy size={16} /> Podium Top 3</h2>
-                <p>{title} — siswa dengan poin {superlative}</p>
+                <p>{title} — {isPembina ? 'guru' : 'siswa'} dengan {isPembina ? 'pembinaan' : 'poin'} {superlative}</p>
               </div>
               <div className="podium">
                 {[
@@ -638,8 +648,16 @@ function Leaderboard() {
                         )}
                       </div>
                       <div className="podium-name" title={s.nama}>{s.nama}</div>
-                      <div className="podium-meta">{s.kelas} · {s.grha || '-'}</div>
-                      <div className="podium-total"><Award size={13} /> {s.total_point} poin</div>
+                      <div className="podium-meta">
+                        {isPembina ? (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span className="pill jabatan" style={{ fontSize: '10px', padding: '2px 8px' }}>{s.jabatan || s.detail || 'Guru'}</span>
+                          </span>
+                        ) : (
+                          <>{s.kelas} · {s.grha || '-'}</>
+                        )}
+                      </div>
+                      <div className="podium-total"><Award size={13} /> {isPembina ? `${s.total_point} pembinaan` : `${s.total_point} poin`}</div>
                       <div className="podium-step">{s.rank}</div>
                     </div>
                   );
@@ -654,11 +672,11 @@ function Leaderboard() {
           <div className="stats-strip">
             <div className="stat-item">
               <div className="stat-value"><Users size={20} /> {currentData.length}</div>
-              <div className="stat-label">Siswa dalam peringkat</div>
+              <div className="stat-label">{isPembina ? 'Guru' : 'Siswa'} dalam peringkat</div>
             </div>
             <div className="stat-item">
               <div className="stat-value"><Award size={20} /> {totalPoints}</div>
-              <div className="stat-label">Total poin {activeLabel}</div>
+              <div className="stat-label">Total {isPembina ? 'pembinaan' : 'poin'} {activeLabel}</div>
             </div>
             <div className="stat-item">
               <div className="stat-value"><Clock size={20} /> {lastUpdated ? lastUpdated.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}</div>
@@ -680,9 +698,9 @@ function Leaderboard() {
                   <tr>
                     <th>Posisi</th>
                     <th>Nama</th>
-                    <th>Kelas</th>
-                    <th>Grha</th>
-                    <th>Total Poin</th>
+                    <th>{isPembina ? 'NIP' : 'Kelas'}</th>
+                    <th>{isPembina ? 'Jabatan' : 'Grha'}</th>
+                    <th>{isPembina ? 'Total Pembinaan' : 'Total Poin'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -710,13 +728,13 @@ function Leaderboard() {
                               </div>
                               <div>
                                 <div className="student-name">{s.nama}</div>
-                                <div className="student-nis">NIS {s.nis}</div>
+                                <div className="student-nis">{isPembina ? `NIP ${s.nip}` : `NIS ${s.nis}`}</div>
                               </div>
                             </div>
                           </td>
-                          <td><span className="pill kelas">{s.kelas}</span></td>
-                          <td><span className="pill grha">{s.grha || '-'}</span></td>
-                          <td><span className="points-pill"><Award size={13} /> {s.total_point} poin</span></td>
+                          <td><span className="pill kelas">{isPembina ? (s.nip || '-') : s.kelas}</span></td>
+                          <td><span className={`pill ${isPembina ? 'jabatan' : 'grha'}`}>{isPembina ? (s.jabatan || s.detail || 'Guru') : (s.grha || '-')}</span></td>
+                          <td><span className="points-pill"><Award size={13} /> {isPembina ? `${s.total_point} pembinaan` : `${s.total_point} poin`}</span></td>
                         </tr>
                       );
                     })
@@ -749,15 +767,15 @@ function Leaderboard() {
                           </div>
                           <div>
                             <div className="student-name">{s.nama}</div>
-                            <div className="student-nis">NIS {s.nis}</div>
+                            <div className="student-nis">{isPembina ? `NIP ${s.nip}` : `NIS ${s.nis}`}</div>
                           </div>
                         </div>
                       </div>
                       <div className="m-tags">
-                        <span className="pill kelas">{s.kelas}</span>
-                        <span className="pill grha">{s.grha || '-'}</span>
+                        <span className="pill kelas">{isPembina ? (s.nip || '-') : s.kelas}</span>
+                        <span className={`pill ${isPembina ? 'jabatan' : 'grha'}`}>{isPembina ? (s.jabatan || s.detail || 'Guru') : (s.grha || '-')}</span>
                       </div>
-                      <div className="m-total"><ClipboardList size={13} /> Total poin: <span className="points-pill"><Award size={13} /> {s.total_point} poin</span></div>
+                      <div className="m-total"><ClipboardList size={13} /> {isPembina ? 'Total pembinaan:' : 'Total poin:'} <span className="points-pill"><Award size={13} /> {isPembina ? `${s.total_point} pembinaan` : `${s.total_point} poin`}</span></div>
                     </div>
                   );
                 })

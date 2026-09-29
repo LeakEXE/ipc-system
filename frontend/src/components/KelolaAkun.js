@@ -29,6 +29,7 @@ function KelolaAkun() {
   const [userRole, setUserRole] = useState(null);
   const [filters, setFilters] = useState({
     role: '',
+    jabatan: '',
     kelas: '',
     grha: '',
     jurusan: '',
@@ -63,7 +64,7 @@ function KelolaAkun() {
   };
 
   const resetFilters = () => {
-    setFilters({ role: '', kelas: '', grha: '', jurusan: '', tahun_pelajaran: '' });
+    setFilters({ role: '', jabatan: '', kelas: '', grha: '', jurusan: '', tahun_pelajaran: '' });
   };
 
   const fetchUsers = useCallback(async (page = 1) => {
@@ -76,6 +77,11 @@ function KelolaAkun() {
       });
 
       if (filters.role) params.append('role', filters.role);
+      if (filters.jabatan) params.append('jabatan', filters.jabatan);
+      if (filters.kelas) params.append('kelas', filters.kelas);
+      if (filters.grha) params.append('grha', filters.grha);
+      if (filters.jurusan) params.append('jurusan', filters.jurusan);
+      if (filters.tahun_pelajaran) params.append('tahun_pelajaran', filters.tahun_pelajaran);
 
       const response = await api.get(`/users?${params.toString()}`);
 
@@ -91,7 +97,7 @@ function KelolaAkun() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit, searchQuery, filters.role]);
+  }, [pagination.limit, searchQuery, filters.role, filters.jabatan, filters.kelas, filters.grha, filters.jurusan, filters.tahun_pelajaran]);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
@@ -106,7 +112,7 @@ function KelolaAkun() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, filters.role, fetchUsers]);
+  }, [searchQuery, filters.role, filters.jabatan, filters.kelas, filters.grha, filters.jurusan, filters.tahun_pelajaran, fetchUsers]);
 
   const handleCreateStudent = async (e) => {
     e.preventDefault();
@@ -152,7 +158,7 @@ function KelolaAkun() {
       return;
     }
 
-    const label = selectionRole === 'guru' ? 'guru' : 'siswa';
+    const label = selectionRole === 'guru' ? 'guru/pegawai' : selectionRole === 'pegawai' ? 'pegawai/guru' : 'siswa';
     if (!window.confirm(`Apakah Anda yakin ingin menghapus ${selectedIds.length} akun ${label}?\n\nData terkait (pengajuan/notifications) juga akan ikut terhapus.`)) {
       return;
     }
@@ -183,11 +189,22 @@ function KelolaAkun() {
     }
 
     if (selectionRole && user.role !== selectionRole) {
-      setMessage('Tidak bisa memilih siswa dan guru sekaligus. Kosongkan pilihan terlebih dahulu.');
-      return;
+      // Allow selecting both guru and pegawai together
+      if ((selectionRole === 'guru' && user.role === 'pegawai') || (selectionRole === 'pegawai' && user.role === 'guru')) {
+        // Allow mixing guru and pegawai
+      } else {
+        setMessage('Tidak bisa memilih role berbeda sekaligus. Kosongkan pilihan terlebih dahulu.');
+        return;
+      }
     }
 
-    setSelectionRole(user.role);
+    // Set selection role - if adding guru or pegawai, set to 'guru' to represent both
+    if (user.role === 'guru' || user.role === 'pegawai') {
+      setSelectionRole('guru');
+    } else {
+      setSelectionRole(user.role);
+    }
+    
     setSelectedIds([...selectedIds, user.id]);
   };
 
@@ -204,7 +221,18 @@ function KelolaAkun() {
 
     // Allow selecting all regardless of role mixing
     setSelectedIds(selectable.map((u) => u.id));
-    setSelectionRole(null); // Reset selection role to allow mixed selection
+    // Set selection role based on what's selected - if mixed guru/pegawai, set to 'guru' as default
+    const hasGuru = selectable.some(u => u.role === 'guru');
+    const hasPegawai = selectable.some(u => u.role === 'pegawai');
+    const hasSiswa = selectable.some(u => u.role === 'siswa');
+    
+    if (hasSiswa && (hasGuru || hasPegawai)) {
+      setSelectionRole(null); // Mixed with siswa, allow all
+    } else if (hasGuru || hasPegawai) {
+      setSelectionRole('guru'); // Use 'guru' to represent both guru and pegawai
+    } else {
+      setSelectionRole('siswa');
+    }
   };
 
   const isUserSelectable = (user) => user.role !== 'superadmin';
@@ -213,6 +241,12 @@ function KelolaAkun() {
     // Only disable if selectionRole is set and user role doesn't match
     // If selectionRole is null, allow mixed selection
     if (!selectionRole) return false;
+    
+    // Allow mixing guru and pegawai
+    if (selectionRole === 'guru' && (user.role === 'guru' || user.role === 'pegawai')) {
+      return false;
+    }
+    
     return user.role !== selectionRole;
   };
 
@@ -635,7 +669,13 @@ function KelolaAkun() {
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#666', marginBottom: '6px' }}>Role</label>
                 <select
                   value={filters.role}
-                  onChange={(e) => handleFilterChange('role', e.target.value)}
+                  onChange={(e) => {
+                    handleFilterChange('role', e.target.value);
+                    // Reset jabatan filter when role changes
+                    if (e.target.value !== 'guru' && e.target.value !== 'pegawai') {
+                      handleFilterChange('jabatan', '');
+                    }
+                  }}
                   style={{
                     width: '100%', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
                     fontSize: '13px', background: 'white', color: '#333', transition: 'all 0.3s ease'
@@ -646,7 +686,28 @@ function KelolaAkun() {
                   <option value="">Semua Role</option>
                   <option value="superadmin">Superadmin</option>
                   <option value="guru">Guru</option>
+                  <option value="pegawai">Pegawai</option>
                   <option value="siswa">Siswa</option>
+                </select>
+              </div>
+            )}
+            {userRole === 'superadmin' && (filters.role === 'guru' || filters.role === 'pegawai') && (
+              <div style={{ flex: '1', minWidth: '160px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#666', marginBottom: '6px' }}>Jabatan</label>
+                <select
+                  value={filters.jabatan}
+                  onChange={(e) => handleFilterChange('jabatan', e.target.value)}
+                  style={{
+                    width: '100%', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                    fontSize: '13px', background: 'white', color: '#333', transition: 'all 0.3s ease'
+                  }}
+                  onFocus={(e) => { e.target.style.borderColor = 'var(--blue)'; e.target.style.boxShadow = '0 0 0 2px rgba(30, 136, 229, 0.1)'; }}
+                  onBlur={(e) => { e.target.style.borderColor = '#d0d0d0'; e.target.style.boxShadow = 'none'; }}
+                >
+                  <option value="">Semua Jabatan</option>
+                  {JABATAN_OPTIONS.map((jabatan) => (
+                    <option key={jabatan} value={jabatan}>{jabatan}</option>
+                  ))}
                 </select>
               </div>
             )}
@@ -752,10 +813,10 @@ function KelolaAkun() {
               <tr>
                 {userRole === 'superadmin' && <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '30px' }}></th>}
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0' }}>Nama</th>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '90px' }}>{userRole === 'guru' ? 'NIS' : 'NIS/NIP'}</th>
-                {userRole !== 'guru' && <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '80px' }}>NISN</th>}
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '90px' }}>NIS/NIP</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '80px' }}>Role</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '100px' }}>Kelas</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '90px' }}>Grha</th>
                 {userRole === 'superadmin' && (
                   <>
                     <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '100px' }}>Jurusan</th>
@@ -792,14 +853,13 @@ function KelolaAkun() {
                   )}
                   <td style={{ padding: '10px 12px', color: '#333', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>{user.nama}</td>
                   <td style={{ padding: '10px 12px', color: '#333', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>{user.nis || user.nip || '-'}</td>
-                  {userRole !== 'guru' && <td style={{ padding: '10px 12px', color: '#333', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>{user.nisn || '-'}</td>}
                   <td style={{ padding: '10px 12px', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>
                     <span style={{ 
                       display: 'inline-block', padding: '4px 8px', borderRadius: '3px', fontSize: '11px', fontWeight: '500', textAlign: 'center', minWidth: '50px',
-                      background: user.role === 'superadmin' ? 'var(--danger-color)' : user.role === 'guru' ? 'var(--warning-color)' : 'var(--blue-light)',
-                      color: user.role === 'superadmin' ? 'white' : user.role === 'guru' ? 'white' : 'var(--blue)'
+                      background: user.role === 'superadmin' ? 'var(--danger-color)' : (user.role === 'guru' || user.role === 'pegawai') ? 'var(--warning-color)' : 'var(--blue-light)',
+                      color: user.role === 'superadmin' ? 'white' : (user.role === 'guru' || user.role === 'pegawai') ? 'white' : 'var(--blue)'
                     }}>
-                      {user.role.toUpperCase()}
+                      {(user.role === 'guru' || user.role === 'pegawai') ? (user.detail || user.jabatan || user.role.toUpperCase()) : user.role.toUpperCase()}
                     </span>
                   </td>
                   <td style={{ padding: '10px 12px', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>
@@ -808,6 +868,15 @@ function KelolaAkun() {
                     ) : (
                       user.kelas || '-'
                     )}
+                  </td>
+                  <td style={{ padding: '10px 12px', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>
+                    {user.grha ? (
+                      <span style={{ 
+                        fontSize: '11px', backgroundColor: '#e3f2fd', color: '#1976d2', padding: '2px 6px', borderRadius: '4px'
+                      }}>
+                        {user.grha}
+                      </span>
+                    ) : '-'}
                   </td>
                   {userRole === 'superadmin' && (
                     <>
@@ -999,7 +1068,7 @@ function KelolaAkun() {
         </div>
         {userRole === 'superadmin' && selectionRole && (
           <p style={{ fontSize: '13px', color: '#666', marginTop: '12px' }}>
-            Mode pilihan: <strong>{selectionRole === 'siswa' ? 'Siswa' : 'Guru'}</strong> — hanya role yang sama yang bisa dipilih.
+            Mode pilihan: <strong>{selectionRole === 'siswa' ? 'Siswa' : 'Guru & Pegawai'}</strong> — hanya role yang sama yang bisa dipilih.
           </p>
         )}
       </div>

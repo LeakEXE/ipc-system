@@ -200,9 +200,46 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
         let query = 'SELECT id, nama, nis, nip, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, created_at, tahun_pelajaran, is_graduated, jurusan, detail, alamat, no_hp FROM users WHERE 1=1';
         let params = [];
 
+        // Get filter values from query
+        const jabatanFilter = req.query.jabatan;
+        const grhaFilter = req.query.grha;
+        const jurusanFilter = req.query.jurusan;
+        const tahunPelajaranFilter = req.query.tahun_pelajaran;
+        const kelasFilter = req.query.kelas;
+
         if (roleFilter) {
             query += ' AND role = ?';
             params.push(roleFilter);
+        }
+
+        // Add jabatan filter for guru and pegawai roles
+        if (jabatanFilter && (roleFilter === 'guru' || roleFilter === 'pegawai')) {
+            query += ' AND detail = ?';
+            params.push(jabatanFilter);
+        }
+
+        // Add grha filter
+        if (grhaFilter) {
+            query += ' AND grha = ?';
+            params.push(grhaFilter);
+        }
+
+        // Add jurusan filter
+        if (jurusanFilter) {
+            query += ' AND jurusan = ?';
+            params.push(jurusanFilter);
+        }
+
+        // Add tahun_pelajaran filter
+        if (tahunPelajaranFilter) {
+            query += ' AND tahun_pelajaran = ?';
+            params.push(tahunPelajaranFilter);
+        }
+
+        // Add kelas filter
+        if (kelasFilter) {
+            query += ' AND kelas = ?';
+            params.push(kelasFilter);
         }
 
         if (search) {
@@ -222,6 +259,36 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
         if (roleFilter) {
             countQuery += ' AND role = ?';
             countParams.push(roleFilter);
+        }
+
+        // Add jabatan filter for count query
+        if (jabatanFilter && (roleFilter === 'guru' || roleFilter === 'pegawai')) {
+            countQuery += ' AND detail = ?';
+            countParams.push(jabatanFilter);
+        }
+
+        // Add grha filter for count query
+        if (grhaFilter) {
+            countQuery += ' AND grha = ?';
+            countParams.push(grhaFilter);
+        }
+
+        // Add jurusan filter for count query
+        if (jurusanFilter) {
+            countQuery += ' AND jurusan = ?';
+            countParams.push(jurusanFilter);
+        }
+
+        // Add tahun_pelajaran filter for count query
+        if (tahunPelajaranFilter) {
+            countQuery += ' AND tahun_pelajaran = ?';
+            countParams.push(tahunPelajaranFilter);
+        }
+
+        // Add kelas filter for count query
+        if (kelasFilter) {
+            countQuery += ' AND kelas = ?';
+            countParams.push(kelasFilter);
         }
 
         if (search) {
@@ -521,9 +588,12 @@ router.post('/create-teacher', auth, superAdminOnly, async (req, res) => {
 
         const hashedPassword = bcrypt.hashSync(password, 10);
 
+        // Set role based on jabatan to ensure proper filtering
+        const userRole = teacherJabatan === 'Pegawai' ? 'pegawai' : 'guru';
+
         const [result] = await db.query(
             'INSERT INTO users (nama, nip, password, role, detail, alamat, no_hp, wali_kelas, ipc_total, ipc_awal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [nama, nip, hashedPassword, 'guru', teacherJabatan, alamat, no_hp, wali_kelas, 0, 0]
+            [nama, nip, hashedPassword, userRole, teacherJabatan, alamat, no_hp, wali_kelas, 0, 0]
         );
 
         // Create default permissions
@@ -557,7 +627,7 @@ router.put('/:id', auth, async (req, res) => {
         }
 
         // Teachers can only edit their own biodata, not superadmin
-        if (currentUser.role === 'guru') {
+        if (currentUser.role === 'guru' || currentUser.role === 'pegawai') {
             const [targetUser] = await db.query('SELECT role FROM users WHERE id = ?', [userId]);
             if (targetUser.length > 0 && targetUser[0].role === 'superadmin') {
                 return res.status(403).json({ message: 'Cannot edit superadmin account' });
@@ -581,9 +651,18 @@ router.put('/:id', auth, async (req, res) => {
             return res.status(400).json({ message: `Jabatan tidak valid. Gunakan: ${VALID_TEACHER_JABATAN.join(', ')}` });
         }
 
+        // Update role based on jabatan change
+        const targetUserRole = targetUserData[0]?.role;
+        let newRole = targetUserRole;
+        if (teacherJabatan === 'Pegawai' && targetUserRole === 'guru') {
+            newRole = 'pegawai';
+        } else if (teacherJabatan === 'Guru' && targetUserRole === 'pegawai') {
+            newRole = 'guru';
+        }
+
         await db.query(
-            'UPDATE users SET nama = ?, alamat = ?, no_hp = ?, detail = ? WHERE id = ?',
-            [nama, alamat, no_hp, teacherJabatan, userId]
+            'UPDATE users SET nama = ?, alamat = ?, no_hp = ?, detail = ?, role = ? WHERE id = ?',
+            [nama, alamat, no_hp, teacherJabatan, newRole, userId]
         );
 
         // Propagate renamed biodata into record snapshots, pembina names, logs.

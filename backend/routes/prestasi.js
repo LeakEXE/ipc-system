@@ -43,8 +43,8 @@ router.get('/all', auth, async (req, res) => {
 router.get('/teachers', auth, async (req, res) => {
     try {
         const [teachers] = await db.query(
-            'SELECT id, nama, nip FROM users WHERE role = ? ORDER BY nama ASC',
-            ['guru']
+            'SELECT id, nama, nip FROM users WHERE role = ? OR role = ? ORDER BY nama ASC',
+            ['guru', 'pegawai']
         );
         res.json(teachers);
     } catch (error) {

@@ -9,7 +9,8 @@ import {
   CircleCheck,
   CircleX,
   Clock,
-  Medal
+  Medal,
+  GraduationCap
 } from 'lucide-react';
 
 // Single icon language for the app (lucide, stroke-based, currentColor).
@@ -21,7 +22,8 @@ export const CATEGORY_ICONS = {
   kepanitiaan: Handshake,
   event: CalendarDays,
   pelanggaran: TriangleAlert,
-  perilaku: Star
+  perilaku: Star,
+  pembina: GraduationCap
 };
 
 export function CategoryIcon({ name, size = 16, ...rest }) {
