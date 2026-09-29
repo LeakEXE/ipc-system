@@ -13,16 +13,16 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
   console.log('Navbar - User:', user);
   console.log('Navbar - User Role:', user?.role);
 
-  // Fetch pending approvals count for superadmin
+  // Fetch pending approvals count for superadmin + approved approvers
   useEffect(() => {
-    if (user?.role === 'superadmin') {
+    if (user?.role === 'superadmin' || permissions?.can_approve) {
       fetchPendingCount();
 
       // Refresh count every 30 seconds
       const interval = setInterval(fetchPendingCount, 30000);
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, permissions]);
 
   // Fetch unread notifications count for siswa/guru
   useEffect(() => {
@@ -111,8 +111,8 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
     { path: '/konfigurasi-ipc', label: 'Konfigurasi IPC', show: user?.role === 'superadmin' },
     { path: '/school-config', label: 'Konfigurasi Sekolah', show: user?.role === 'superadmin' },
     { path: '/izin-akun', label: 'Izin Akun', show: user?.role === 'superadmin' },
-    // Approvals for superadmin only
-    { path: '/approvals', label: 'Approvals', show: user?.role === 'superadmin' },
+    // Approvals for superadmin + users granted approval permission
+    { path: '/approvals', label: 'Approvals', show: user?.role === 'superadmin' || permissions?.can_approve },
     { path: '/drive-viewer', label: 'File Manager', show: user?.role === 'superadmin' },
     { path: '/notifications', label: 'Notifikasi', show: user?.role === 'siswa' || user?.role === 'guru' },
     { path: '/logs', label: 'Logs', show: user?.role === 'superadmin' },

@@ -760,9 +760,6 @@ function Profile() {
                 </button>
               )}
             </div>
-            <p style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Foto dipotong 1:1 agar pas di bingkai lingkaran.
-            </p>
           </div>
         </div>
       </div>

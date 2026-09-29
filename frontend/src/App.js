@@ -169,7 +169,7 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/approvals" element={
-          <ProtectedRoute allowedRoles={['superadmin']}>
+          <ProtectedRoute>
             {(user) => <MainLayout user={user}><ApprovalsV2 /></MainLayout>}
           </ProtectedRoute>
         } />

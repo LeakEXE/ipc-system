@@ -113,12 +113,14 @@ router.post('/', auth, checkPermission('perilaku'), async (req, res) => {
         // Log activity
         await logActivity(req.user.id, 'SUBMIT_PERILAKU', `User ${req.user.nama} (${req.user.role}) submitted perilaku for ${nama} (${nis}): ${karakter}`, req.ip);
 
-        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
-        for (const admin of superadmins) {
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
+        for (const recipient of recipients) {
             await db.query(
                 `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
                  VALUES (?, 'approval_needed', 'Persetujuan Perilaku', ?, ?, 'perilaku')`,
-                [admin.id, `${nama} (${nis}) mengajukan perilaku`, result.insertId]
+                [recipient.id, `${nama} (${nis}) mengajukan perilaku`, result.insertId]
             );
         }
 

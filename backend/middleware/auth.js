@@ -82,6 +82,32 @@ const superAdminOnly = (req, res, next) => {
     next();
 };
 
+// Superadmin OR guru explicitly granted approval permission
+// (permissions.can_approve, managed by superadmin in Izin Akun).
+// Siswa can never approve, even if a flag were ever set.
+const approverOnly = async (req, res, next) => {
+    try {
+        if (req.user.role === 'superadmin') {
+            return next();
+        }
+        if (req.user.role === 'siswa') {
+            return res.status(403).json({ message: 'Access denied. Approval permission required.' });
+        }
+        const [rows] = await db.query(
+            'SELECT can_approve FROM permissions WHERE user_id = ?',
+            [req.user.id]
+        );
+        const allowed = rows.length > 0 && (rows[0].can_approve === true || rows[0].can_approve === 1);
+        if (!allowed) {
+            return res.status(403).json({ message: 'Access denied. Approval permission required.' });
+        }
+        next();
+    } catch (error) {
+        console.error('Error checking approval permission:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 const teacherOrSuperAdmin = (req, res, next) => {
     if (req.user.role !== 'superadmin' && req.user.role !== 'guru') {
         return res.status(403).json({ message: 'Access denied. Teacher or Superadmin only.' });
@@ -175,4 +201,4 @@ const checkInputAccess = (jenisInput) => {
   };
 };
 
-module.exports = { auth, superAdminOnly, teacherOrSuperAdmin, teacherOnly, checkInputAccess, checkPermission };
+module.exports = { auth, superAdminOnly, approverOnly, teacherOrSuperAdmin, teacherOnly, checkInputAccess, checkPermission };

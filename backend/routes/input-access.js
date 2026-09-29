@@ -273,11 +273,15 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
 
         // Pelanggaran & Perilaku are guru-only: force them off for non-guru users
         // so students can never hold these flags (also heals previously mis-granted rows).
+        // Approval permission is guru-only too: students can never approve.
         const sanitizedPermissions = { ...permissions };
         if (userInfo[0].role !== 'guru') {
             sanitizedPermissions.can_input_pelanggaran = false;
             sanitizedPermissions.can_input_perilaku = false;
+            sanitizedPermissions.can_approve = false;
         }
+        // Approval permission is a plain boolean flag (any non-superadmin role may hold it).
+        sanitizedPermissions.can_approve = sanitizedPermissions.can_approve === true || sanitizedPermissions.can_approve === 1;
         
         // Check if permission record exists
         const [existingPerm] = await db.query('SELECT id FROM permissions WHERE user_id = ?', [user_id]);
@@ -291,7 +295,8 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
                     can_input_kepanitiaan = ?,
                     can_input_event = ?,
                     can_input_pelanggaran = ?,
-                    can_input_perilaku = ?
+                    can_input_perilaku = ?,
+                    can_approve = ?
                  WHERE user_id = ?`,
                 [
                     sanitizedPermissions.can_input_prestasi,
@@ -300,14 +305,15 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
                     sanitizedPermissions.can_input_event,
                     sanitizedPermissions.can_input_pelanggaran,
                     sanitizedPermissions.can_input_perilaku,
+                    sanitizedPermissions.can_approve,
                     user_id
                 ]
             );
         } else {
             // Insert new
             await db.query(
-                `INSERT INTO permissions (user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO permissions (user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_approve)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     user_id,
                     sanitizedPermissions.can_input_prestasi,
@@ -315,7 +321,8 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
                     sanitizedPermissions.can_input_kepanitiaan,
                     sanitizedPermissions.can_input_event,
                     sanitizedPermissions.can_input_pelanggaran,
-                    sanitizedPermissions.can_input_perilaku
+                    sanitizedPermissions.can_input_perilaku,
+                    sanitizedPermissions.can_approve
                 ]
             );
         }
@@ -329,7 +336,8 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
             'can_input_kepanitiaan': 'kepanitiaan',
             'can_input_event': 'event',
             'can_input_pelanggaran': 'pelanggaran',
-            'can_input_perilaku': 'perilaku'
+            'can_input_perilaku': 'perilaku',
+            'can_approve': 'approval'
         };
         
         for (const [key, value] of Object.entries(sanitizedPermissions)) {
@@ -491,7 +499,7 @@ router.get('/admin/users', auth, superAdminOnly, async (req, res) => {
         const [users] = await db.query(
             `SELECT u.id, u.nama, u.nis, u.nip, u.role, u.kelas,
                     p.can_input_prestasi, p.can_input_organisasi, p.can_input_kepanitiaan, p.can_input_event, 
-                    p.can_input_pelanggaran, p.can_input_perilaku
+                    p.can_input_pelanggaran, p.can_input_perilaku, p.can_approve
              FROM users u
              LEFT JOIN permissions p ON u.id = p.user_id
              WHERE u.role IN ('siswa', 'guru')

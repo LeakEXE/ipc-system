@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const { evidenceFileFilter, EVIDENCE_LIMITS } = require('../utils/evidenceUpload');
 const path = require('path');
-const { auth, superAdminOnly, checkInputAccess } = require('../middleware/auth');
+const { auth, approverOnly, checkInputAccess } = require('../middleware/auth');
 const db = require('../config/database');
 const { logActivity } = require('../utils/logger');
 const {
@@ -129,15 +129,18 @@ router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.singl
         await logActivity(req.user.id, 'SUBMIT_PRESTASI', `User ${req.user.nama} (${req.user.role}) submitted prestasi for ${nama} (${nis}): ${nama_lomba}`, req.ip);
 
         // Create notification for superadmin only
-        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
+        // Notify superadmins AND users granted approval permission
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
         console.log('Prestasi - Superadmins found:', superadmins.length);
-        for (const admin of superadmins) {
+        for (const recipient of recipients) {
             await db.query(
                 `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
                  VALUES (?, 'approval_needed', 'Persetujuan Prestasi', ?, ?, 'prestasi')`,
-                [admin.id, `${nama} (${nis}) mengajukan prestasi: ${nama_lomba}`, result.insertId]
+                [recipient.id, `${nama} (${nis}) mengajukan prestasi: ${nama_lomba}`, result.insertId]
             );
-            console.log('Prestasi - Notification sent to superadmin:', admin.id);
+            console.log('Prestasi - Notification sent to approver:', recipient.id);
         }
 
         res.status(201).json({
@@ -279,15 +282,18 @@ router.post('/event/submit', auth, checkInputAccess('event'), upload.single('fot
         await logActivity(req.user.id, 'SUBMIT_EVENT', `User ${req.user.nama} (${req.user.role}) submitted event for ${nama} (${nis}): ${nama_event}`, req.ip);
 
         // Create notification for superadmin only
-        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
+        // Notify superadmins AND users granted approval permission
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
         console.log('Event - Superadmins found:', superadmins.length);
-        for (const admin of superadmins) {
+        for (const recipient of recipients) {
             await db.query(
                 `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
                  VALUES (?, 'approval_needed', 'Persetujuan Event', ?, ?, 'event')`,
-                [admin.id, `${nama} (${nis}) mengajukan event: ${nama_event}`, result.insertId]
+                [recipient.id, `${nama} (${nis}) mengajukan event: ${nama_event}`, result.insertId]
             );
-            console.log('Event - Notification sent to superadmin:', admin.id);
+            console.log('Event - Notification sent to approver:', recipient.id);
         }
 
         res.status(201).json({
@@ -361,15 +367,18 @@ router.post('/organisasi/submit', auth, checkInputAccess('organisasi'), upload.s
         await logActivity(req.user.id, 'SUBMIT_ORGANISASI', `User ${req.user.nama} (${req.user.role}) submitted organisasi for ${nama} (${nis}): ${kategori_organisasi}`, req.ip);
 
         // Create notification for superadmin only
-        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
+        // Notify superadmins AND users granted approval permission
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
         console.log('Organisasi - Superadmins found:', superadmins.length);
-        for (const admin of superadmins) {
+        for (const recipient of recipients) {
             await db.query(
                 `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
                  VALUES (?, 'approval_needed', 'Persetujuan Organisasi', ?, ?, 'organisasi')`,
-                [admin.id, `${nama} (${nis}) mengajukan organisasi: ${kategori_organisasi}`, result.insertId]
+                [recipient.id, `${nama} (${nis}) mengajukan organisasi: ${kategori_organisasi}`, result.insertId]
             );
-            console.log('Organisasi - Notification sent to superadmin:', admin.id);
+            console.log('Organisasi - Notification sent to approver:', recipient.id);
         }
 
         res.status(201).json({
@@ -443,15 +452,18 @@ router.post('/kepanitiaan/submit', auth, checkInputAccess('kepanitiaan'), upload
         await logActivity(req.user.id, 'SUBMIT_KEPANITIAAN', `User ${req.user.nama} (${req.user.role}) submitted kepanitiaan for ${nama} (${nis}): ${kategori_kepanitiaan}`, req.ip);
 
         // Create notification for superadmin only
-        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
+        // Notify superadmins AND users granted approval permission
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
         console.log('Kepanitiaan - Superadmins found:', superadmins.length);
-        for (const admin of superadmins) {
+        for (const recipient of recipients) {
             await db.query(
                 `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
                  VALUES (?, 'approval_needed', 'Persetujuan Kepanitiaan', ?, ?, 'kepanitiaan')`,
-                [admin.id, `${nama} (${nis}) mengajukan kepanitiaan: ${kategori_kepanitiaan}`, result.insertId]
+                [recipient.id, `${nama} (${nis}) mengajukan kepanitiaan: ${kategori_kepanitiaan}`, result.insertId]
             );
-            console.log('Kepanitiaan - Notification sent to superadmin:', admin.id);
+            console.log('Kepanitiaan - Notification sent to approver:', recipient.id);
         }
 
         res.status(201).json({
@@ -469,7 +481,7 @@ router.post('/kepanitiaan/submit', auth, checkInputAccess('kepanitiaan'), upload
 // REMOVED: Pembina approval route - now only superadmin approval
 
 // SuperAdmin Approve/Reject (single-step approval)
-router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
+router.put('/superadmin/:type/:id', auth, approverOnly, async (req, res) => {
     try {
         const { type, id } = req.params;
         const { status, notes } = req.body;
@@ -477,7 +489,7 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
         console.log(`SuperAdmin ${status} request: type=${type}, id=${id}`);
 
         if (type === 'pelanggaran' || type === 'perilaku') {
-            return handleLegacyApproval(type, id, status, notes, req.user.id, req.ip, res);
+            return handleLegacyApproval(type, id, status, notes, req.user.id, req.user.role, req.ip, res);
         }
 
         let table, pointField, allowedColumns;
@@ -485,22 +497,22 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
             case 'prestasi':
                 table = 'prestasi_approvals';
                 pointField = 'juara';
-                allowedColumns = ['id', 'user_id', 'nama', 'nis', 'nama_lomba', 'foto', 'kelas', 'pembina', 'grha', 'juara', 'kategori', 'jenis_lomba', 'kategori_lomba', 'superadmin_status', 'created_at'];
+                allowedColumns = ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'nama_lomba', 'foto', 'kelas', 'pembina', 'grha', 'juara', 'kategori', 'jenis_lomba', 'kategori_lomba', 'superadmin_status', 'created_at'];
                 break;
             case 'event':
                 table = 'event_approvals';
                 pointField = 'tingkat';
-                allowedColumns = ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'pembina', 'nama_event', 'tingkat', 'foto', 'superadmin_status', 'created_at'];
+                allowedColumns = ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'pembina', 'nama_event', 'tingkat', 'foto', 'superadmin_status', 'created_at'];
                 break;
             case 'organisasi':
                 table = 'organisasi_approvals';
                 pointField = 'jabatan_organisasi';
-                allowedColumns = ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'jabatan_organisasi', 'foto', 'kategori_organisasi', 'superadmin_status', 'created_at'];
+                allowedColumns = ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'jabatan_organisasi', 'foto', 'kategori_organisasi', 'superadmin_status', 'created_at'];
                 break;
             case 'kepanitiaan':
                 table = 'kepanitiaan_approvals';
                 pointField = 'jabatan_kepanitiaan';
-                allowedColumns = ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'jabatan_kepanitiaan', 'foto', 'kategori_kepanitiaan', 'superadmin_status', 'created_at'];
+                allowedColumns = ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'jabatan_kepanitiaan', 'foto', 'kategori_kepanitiaan', 'superadmin_status', 'created_at'];
                 break;
             default:
                 return res.status(400).json({ message: 'Invalid type' });
@@ -519,6 +531,13 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
         if (approvalStatus !== 'pending') {
             return res.status(400).json({ message: 'Pengajuan ini sudah diproses' });
         }
+
+        // Approvers cannot decide on their own submissions (superadmin excluded)
+        if (req.user.role !== 'superadmin' && data.submitted_by !== null && data.submitted_by !== undefined && Number(data.submitted_by) === Number(req.user.id)) {
+            return res.status(403).json({ message: 'Anda tidak dapat menyetujui pengajuan sendiri' });
+        }
+
+        const actorLabel = req.user.role === 'superadmin' ? 'SuperAdmin' : 'Approver';
 
         if (status === 'approved') {
             // Calculate points
@@ -571,7 +590,7 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
             await approveSubmission(table, id, notes || 'Disetujui oleh SuperAdmin');
 
             // Log activity
-            await logActivity(req.user.id, `APPROVE_${type.toUpperCase()}`, `SuperAdmin ${req.user.nama} approved ${type} for ${data.nama} (${data.nis}): ${data[pointField]}`, req.ip);
+            await logActivity(req.user.id, `APPROVE_${type.toUpperCase()}`, `${actorLabel} ${req.user.nama} approved ${type} for ${data.nama} (${data.nis}): ${data[pointField]}`, req.ip);
 
             // Notify student
             await db.query(
@@ -584,7 +603,7 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
             await rejectSubmission(table, id, notes || 'Ditolak oleh SuperAdmin');
 
             // Log activity
-            await logActivity(req.user.id, `REJECT_${type.toUpperCase()}`, `SuperAdmin ${req.user.nama} rejected ${type} for ${data.nama} (${data.nis}): ${notes || 'No reason'}`, req.ip);
+            await logActivity(req.user.id, `REJECT_${type.toUpperCase()}`, `${actorLabel} ${req.user.nama} rejected ${type} for ${data.nama} (${data.nis}): ${notes || 'No reason'}`, req.ip);
 
             // Notify student of rejection
             await db.query(
@@ -600,8 +619,9 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
     }
 });
 
-async function handleLegacyApproval(type, id, status, notes, approverId, ipAddress, res) {
+async function handleLegacyApproval(type, id, status, notes, approverId, approverRole, ipAddress, res) {
     const table = type;
+    const actorLabel = approverRole === 'superadmin' ? 'SuperAdmin' : 'Approver';
     try {
         // Define allowed columns for each table type
         const tableColumns = {
@@ -609,8 +629,8 @@ async function handleLegacyApproval(type, id, status, notes, approverId, ipAddre
             'event': ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'pembina', 'nama_event', 'tingkat', 'foto', 'point', 'status', 'rejection_reason', 'created_at'],
             'organisasi': ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'jabatan_organisasi', 'foto', 'kategori_organisasi', 'point', 'status', 'rejection_reason', 'created_at'],
             'kepanitiaan': ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'jabatan_kepanitiaan', 'foto', 'point', 'status', 'rejection_reason', 'created_at'],
-            'pelanggaran': ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'keterangan', 'foto', 'jenis_pelanggaran', 'point_dikurangi', 'status', 'rejection_reason', 'created_at'],
-            'perilaku': ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'karakter_siswa', 'point', 'status', 'rejection_reason', 'created_at']
+            'pelanggaran': ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'keterangan', 'foto', 'jenis_pelanggaran', 'point_dikurangi', 'status', 'rejection_reason', 'created_at'],
+            'perilaku': ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'karakter_siswa', 'point', 'status', 'rejection_reason', 'created_at']
         };
 
         const allowedColumns = tableColumns[table] || ['id', 'user_id', 'nama', 'status', 'created_at'];
@@ -623,6 +643,11 @@ async function handleLegacyApproval(type, id, status, notes, approverId, ipAddre
 
         if (data.status !== 'pending') {
             return res.status(400).json({ message: 'Pengajuan ini sudah diproses' });
+        }
+
+        // Approvers cannot decide on their own submissions (superadmin excluded)
+        if (approverRole !== 'superadmin' && data.submitted_by !== null && data.submitted_by !== undefined && Number(data.submitted_by) === Number(approverId)) {
+            return res.status(403).json({ message: 'Anda tidak dapat menyetujui pengajuan sendiri' });
         }
 
         if (status === 'approved') {
@@ -647,7 +672,7 @@ async function handleLegacyApproval(type, id, status, notes, approverId, ipAddre
             }
 
             // Log activity
-            await logActivity(approverId, `APPROVE_${type.toUpperCase()}`, `SuperAdmin approved ${type} for ${data.nama} (${data.nis})`, ipAddress);
+            await logActivity(approverId, `APPROVE_${type.toUpperCase()}`, `${actorLabel} approved ${type} for ${data.nama} (${data.nis})`, ipAddress);
 
             await db.query(
                 `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) VALUES (?, 'approved', 'Pengajuan Disetujui', ?, ?, ?)`,
@@ -663,7 +688,7 @@ async function handleLegacyApproval(type, id, status, notes, approverId, ipAddre
         );
 
         // Log activity
-        await logActivity(approverId, `REJECT_${type.toUpperCase()}`, `SuperAdmin rejected ${type} for ${data.nama} (${data.nis}): ${notes || 'No reason'}`, ipAddress);
+        await logActivity(approverId, `REJECT_${type.toUpperCase()}`, `${actorLabel} rejected ${type} for ${data.nama} (${data.nis}): ${notes || 'No reason'}`, ipAddress);
 
         await db.query(
             `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) VALUES (?, 'rejected', 'Pengajuan Ditolak', ?, ?, ?)`,
@@ -680,7 +705,7 @@ async function handleLegacyApproval(type, id, status, notes, approverId, ipAddre
 // ==================== GET APPROVALS ====================
 
 // Get pending approvals count for SuperAdmin
-router.get('/pending-count', auth, superAdminOnly, async (req, res) => {
+router.get('/pending-count', auth, approverOnly, async (req, res) => {
     try {
         const col = await getApprovalStatusColumn();
 
@@ -726,7 +751,7 @@ router.get('/pending-count', auth, superAdminOnly, async (req, res) => {
 });
 
 // Get all approvals for SuperAdmin
-router.get('/all', auth, superAdminOnly, async (req, res) => {
+router.get('/all', auth, approverOnly, async (req, res) => {
     try {
         const [prestasi, event, organisasi, kepanitiaan] = await Promise.all([
             fetchPendingApprovals('prestasi_approvals', 'p'),

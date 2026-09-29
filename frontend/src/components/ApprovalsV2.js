@@ -37,6 +37,9 @@ function ApprovalsV2() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState('');
+  // Access gating: superadmin always; others need can_approve permission.
+  // Non-superadmin approvers only see IPC tabs (biodata/student-creation stay superadmin-only).
+  const [hasAccess, setHasAccess] = useState(false);
   // Enlarged photo popup (same pattern as DriveViewer: URL string or null)
   const [previewImage, setPreviewImage] = useState(null);
   const [previewError, setPreviewError] = useState(false);
@@ -47,10 +50,33 @@ function ApprovalsV2() {
 
   const fetchApprovals = async () => {
     try {
+      let storedRole = '';
+      try {
+        storedRole = JSON.parse(localStorage.getItem('user') || '{}').role || '';
+      } catch {
+        storedRole = '';
+      }
+      const superadmin = storedRole === 'superadmin';
+
+      let canApprove = superadmin;
+      if (!superadmin) {
+        try {
+          const permRes = await api.get('/permissions/my-permissions');
+          canApprove = !!(permRes.data && (permRes.data.can_approve === true || permRes.data.can_approve === 1));
+        } catch {
+          canApprove = false;
+        }
+      }
+      setHasAccess(canApprove);
+      if (!canApprove) {
+        return;
+      }
+
       const [approvalsRes, biodataRes, studentCreationRes] = await Promise.all([
         api.get('/approvals-v2/all'),
-        api.get('/users/biodata-approvals'),
-        api.get('/users/student-creation-approvals')
+        // Biodata & account-creation approvals stay superadmin-only
+        superadmin ? api.get('/users/biodata-approvals') : Promise.resolve({ data: [] }),
+        superadmin ? api.get('/users/student-creation-approvals') : Promise.resolve({ data: [] })
       ]);
       setApprovals({
         ...approvalsRes.data,
@@ -59,7 +85,11 @@ function ApprovalsV2() {
       });
     } catch (error) {
       console.error('Error fetching approvals:', error);
-      setMessage('Gagal memuat data approvals');
+      if (error.response?.status === 403) {
+        setHasAccess(false);
+      } else {
+        setMessage('Gagal memuat data approvals');
+      }
     } finally {
       setLoading(false);
     }
@@ -997,6 +1027,21 @@ function ApprovalsV2() {
         padding: "4px 4px 40px"
       }}>
         <div className="inline-loading"><div className="spinner" style={{ margin: '0 auto 12px' }}></div><strong>Memuat data...</strong></div>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div style={{
+        fontFamily: "var(--font-sans)",
+        background: PAGE_BG,
+        padding: "4px 4px 40px"
+      }}>
+        <div className="card" style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <h2 style={{ margin: '0 0 8px' }}>Akses Ditolak</h2>
+          <p style={{ color: MUTED, margin: 0 }}>Anda tidak memiliki Izin Approval. Silakan hubungi SuperAdmin.</p>
+        </div>
       </div>
     );
   }

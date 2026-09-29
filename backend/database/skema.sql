@@ -61,6 +61,7 @@ CREATE TABLE permissions (
     can_input_pelanggaran BOOLEAN DEFAULT FALSE,
     can_input_perilaku BOOLEAN DEFAULT FALSE,
     can_view_all_data BOOLEAN DEFAULT FALSE,
+    can_approve BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
