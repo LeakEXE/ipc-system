@@ -30,6 +30,9 @@ function InputEvent() {
   const [showForm, setShowForm] = useState(false);
   const [allEvent, setAllEvent] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const editModal = useEditModal();
   const [ipcConfig, setIpcConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
@@ -314,10 +317,67 @@ function InputEvent() {
     try {
       await api.delete(`/event/${id}`);
       setMessage('Event berhasil dihapus!');
+      setSelectedIndexIds((prev) => prev.filter((selectedId) => selectedId !== id));
       fetchAllEvent();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menghapus event');
     }
+  };
+
+  const filteredEvent = allEvent.filter((item) => {
+    const query = indexSearch.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      String(item.nama || '').toLowerCase().includes(query) ||
+      String(item.nis || '').toLowerCase().includes(query) ||
+      String(item.nama_event || '').toLowerCase().includes(query) ||
+      String(item.tingkat || '').toLowerCase().includes(query) ||
+      String(item.point ?? '').toLowerCase().includes(query) ||
+      String(item.status || '').toLowerCase().includes(query)
+    );
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds((prev) =>
+      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredEvent.map((item) => item.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIndexIds.includes(id));
+    if (allSelected) {
+      setSelectedIndexIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds((prev) => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data event? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/event/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(ok + ' data event berhasil dihapus!');
+    } else {
+      setMessage(ok + ' data event berhasil dihapus, ' + failed.length + ' gagal dihapus.');
+    }
+    fetchAllEvent();
   };
 
   const handleEditFileChange = (e) => {
@@ -427,6 +487,36 @@ function InputEvent() {
       {(userRole === 'superadmin' && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Event</h3>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={indexSearch}
+              onChange={(e) => setIndexSearch(e.target.value)}
+              placeholder="Cari nama, NIS, event, tingkat..."
+              style={{ padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', minWidth: '240px' }}
+            />
+            {selectedIndexIds.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', color: '#666' }}>{selectedIndexIds.length} dipilih</span>
+                <button
+                  className="btn btn-danger"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                >
+                  {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setSelectedIndexIds([])}
+                  disabled={bulkDeleting}
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                >
+                  Batal
+                </button>
+              </div>
+            )}
+          </div>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -434,6 +524,19 @@ function InputEvent() {
               <table className="table">
                 <thead>
                   <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={filteredEvent.length > 0 && filteredEvent.every((item) => selectedIndexIds.includes(item.id))}
+                        ref={(el) => {
+                          if (el) {
+                            const filteredIds = filteredEvent.map((item) => item.id);
+                            el.indeterminate = filteredIds.some((id) => selectedIndexIds.includes(id)) && !filteredIds.every((id) => selectedIndexIds.includes(id));
+                          }
+                        }}
+                        onChange={toggleSelectAllFiltered}
+                      />
+                    </th>
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -445,8 +548,15 @@ function InputEvent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allEvent.map(item => (
+                  {filteredEvent.map(item => (
                     <tr key={item.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIndexIds.includes(item.id)}
+                          onChange={() => toggleSelectIndex(item.id)}
+                        />
+                      </td>
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -474,9 +584,11 @@ function InputEvent() {
                   ))}
                 </tbody>
               </table>
-              {allEvent.length === 0 && (
+              {allEvent.length === 0 ? (
                 <p className="text-muted">Belum ada data event</p>
-              )}
+              ) : filteredEvent.length === 0 ? (
+                <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+              ) : null}
             </div>
           )}
         </div>

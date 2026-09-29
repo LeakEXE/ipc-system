@@ -77,7 +77,7 @@ const saveFileLocally = (filePath) => {
 router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.single('foto'), async (req, res) => {
     try {
         const userRole = req.user.role;
-        const { nama, nis, nama_lomba, pembina, grha, juara, kategori } = req.body;
+        const { nama, nis, nama_lomba, pembina, grha, juara, kategori, jenis_lomba = 'akademik', kategori_lomba = 'individu' } = req.body;
         const userId = await resolveStudentIdByNis(nis, req.user.id);
         let fotoPath = req.file ? saveFileLocally(req.file.path) : null;
         console.log('Prestasi - Using local path:', fotoPath);
@@ -102,9 +102,9 @@ router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.singl
             
             const [result] = await db.query(
                 `INSERT INTO prestasi 
-                (user_id, nama, nis, nama_lomba, kelas, pembina, grha, juara, kategori, foto, point, status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
-                [userId, nama, nis, nama_lomba, calculatedClass, pembina, grha, juara, kategori, finalFotoPath, point]
+                (user_id, nama, nis, nama_lomba, kelas, pembina, grha, juara, kategori, jenis_lomba, kategori_lomba, foto, point, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
+                [userId, nama, nis, nama_lomba, calculatedClass, pembina, grha, juara, kategori, jenis_lomba, kategori_lomba, finalFotoPath, point]
             );
             
             await applyIpcChange(userId, 'prestasi', point, buildKeterangan('prestasi', { nama_lomba, juara, kategori }));
@@ -120,9 +120,9 @@ router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.singl
         // SISWA/GURU: Submit for approval (superadmin only)
         const [result] = await db.query(
             `INSERT INTO prestasi_approvals
-            (user_id, submitted_by, nama, nis, nama_lomba, kelas, pembina, grha, juara, kategori, foto)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [userId, req.user.id, nama, nis, nama_lomba, calculatedClass, pembina, grha, juara, kategori, fotoPath]
+            (user_id, submitted_by, nama, nis, nama_lomba, kelas, pembina, grha, juara, kategori, jenis_lomba, kategori_lomba, foto)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [userId, req.user.id, nama, nis, nama_lomba, calculatedClass, pembina, grha, juara, kategori, jenis_lomba, kategori_lomba, fotoPath]
         );
 
         // Log activity
@@ -485,7 +485,7 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
             case 'prestasi':
                 table = 'prestasi_approvals';
                 pointField = 'juara';
-                allowedColumns = ['id', 'user_id', 'nama', 'nis', 'nama_lomba', 'foto', 'kelas', 'pembina', 'grha', 'juara', 'kategori', 'superadmin_status', 'created_at'];
+                allowedColumns = ['id', 'user_id', 'nama', 'nis', 'nama_lomba', 'foto', 'kelas', 'pembina', 'grha', 'juara', 'kategori', 'jenis_lomba', 'kategori_lomba', 'superadmin_status', 'created_at'];
                 break;
             case 'event':
                 table = 'event_approvals';
@@ -546,8 +546,8 @@ router.put('/superadmin/:type/:id', auth, superAdminOnly, async (req, res) => {
             // Insert to actual table
             let insertQuery, insertParams;
             if (type === 'prestasi') {
-                insertQuery = `INSERT INTO prestasi (user_id, nama, nis, nama_lomba, kelas, pembina, grha, juara, kategori, foto, point, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`;
-                insertParams = [data.user_id, data.nama || 'Unknown', data.nis || '', data.nama_lomba || '', data.kelas || '', data.pembina || '', data.grha || '', data.juara || '', data.kategori || '', finalFotoPath || null, pointChange];
+                insertQuery = `INSERT INTO prestasi (user_id, nama, nis, nama_lomba, kelas, pembina, grha, juara, kategori, jenis_lomba, kategori_lomba, foto, point, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`;
+                insertParams = [data.user_id, data.nama || 'Unknown', data.nis || '', data.nama_lomba || '', data.kelas || '', data.pembina || '', data.grha || '', data.juara || '', data.kategori || '', data.jenis_lomba || 'akademik', data.kategori_lomba || 'individu', finalFotoPath || null, pointChange];
             } else if (type === 'event') {
                 insertQuery = `INSERT INTO event (user_id, nama, nis, kelas, grha, nama_event, tingkat, foto, point, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`;
                 insertParams = [data.user_id, data.nama || 'Unknown', data.nis || '', data.kelas || '', data.grha || '', data.nama_event || '', data.tingkat || '', finalFotoPath || null, pointChange];

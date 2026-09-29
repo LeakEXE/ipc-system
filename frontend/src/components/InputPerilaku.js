@@ -27,6 +27,9 @@ function InputPerilaku() {
   const [showForm, setShowForm] = useState(false);
   const [allPerilaku, setAllPerilaku] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [userRole, setUserRole] = useState('');
   const [hasPermission, setHasPermission] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(true);
@@ -314,6 +317,81 @@ function InputPerilaku() {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+      return;
+    }
+
+    try {
+      await api.delete('/perilaku/' + id);
+      setMessage('Perilaku berhasil dihapus!');
+      setSelectedIndexIds(prev => prev.filter(selectedId => selectedId !== id));
+      fetchAllPerilaku();
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Gagal menghapus perilaku');
+    }
+  };
+
+  const filteredPerilaku = allPerilaku.filter((item) => {
+    const q = indexSearch.trim().toLowerCase();
+    if (!q) return true;
+    const fields = [
+      item.nama,
+      item.nis,
+      item.tanggung_jawab,
+      item.disiplin,
+      item.kepedulian,
+      item.kemandirian,
+      item.spiritual,
+      item.kejujuran,
+      item.kepercayaan_diri
+    ];
+    return fields.some((field) => String(field ?? '').toLowerCase().includes(q));
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds(prev => (
+      prev.includes(id) ? prev.filter(selectedId => selectedId !== id) : [...prev, id]
+    ));
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredPerilaku.map(item => item.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIndexIds.includes(id));
+    if (allSelected) {
+      setSelectedIndexIds(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds(prev => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data perilaku? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/perilaku/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(ok + ' data perilaku berhasil dihapus!');
+    } else {
+      setMessage(ok + ' data perilaku berhasil dihapus! ' + failed.length + ' gagal dihapus.');
+    }
+    fetchAllPerilaku();
+  };
+
   if (permissionLoading) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -351,10 +429,56 @@ function InputPerilaku() {
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
+            <>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Cari nama, NIS..."
+                value={indexSearch}
+                onChange={(e) => setIndexSearch(e.target.value)}
+                style={{ padding: '6px 10px', fontSize: '13px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '260px' }}
+              />
+              {selectedIndexIds.length > 0 && (
+                <>
+                  <span style={{ fontSize: '13px' }}>{selectedIndexIds.length} dipilih</span>
+                  <button
+                    className="btn btn-danger"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                    style={{ padding: '5px 10px', fontSize: '12px' }}
+                  >
+                    {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => setSelectedIndexIds([])}
+                    disabled={bulkDeleting}
+                    style={{ padding: '5px 10px', fontSize: '12px' }}
+                  >
+                    Batal
+                  </button>
+                </>
+              )}
+            </div>
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               <table className="table">
                 <thead>
                   <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        ref={(el) => {
+                          if (el) {
+                            const filteredIds = filteredPerilaku.map(item => item.id);
+                            el.indeterminate = filteredIds.length > 0
+                              && filteredIds.some(id => selectedIndexIds.includes(id))
+                              && !filteredIds.every(id => selectedIndexIds.includes(id));
+                          }
+                        }}
+                        checked={filteredPerilaku.length > 0 && filteredPerilaku.every(item => selectedIndexIds.includes(item.id))}
+                        onChange={toggleSelectAllFiltered}
+                      />
+                    </th>
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -369,8 +493,15 @@ function InputPerilaku() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allPerilaku.map(item => (
+                  {filteredPerilaku.map(item => (
                     <tr key={item.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIndexIds.includes(item.id)}
+                          onChange={() => toggleSelectIndex(item.id)}
+                        />
+                      </td>
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -389,6 +520,13 @@ function InputPerilaku() {
                         >
                           Edit
                         </button>
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => handleDelete(item.id)}
+                          style={{ padding: '3px 8px', fontSize: '12px', marginLeft: '5px' }}
+                        >
+                          Hapus
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -397,7 +535,11 @@ function InputPerilaku() {
               {allPerilaku.length === 0 && (
                 <p className="text-muted">Belum ada data perilaku</p>
               )}
+              {allPerilaku.length > 0 && filteredPerilaku.length === 0 && (
+                <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+              )}
             </div>
+            </>
           )}
         </div>
       )}

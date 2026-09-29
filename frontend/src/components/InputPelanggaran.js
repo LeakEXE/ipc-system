@@ -24,6 +24,9 @@ function InputPelanggaran() {
   const [showForm, setShowForm] = useState(false);
   const [allPelanggaran, setAllPelanggaran] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [userRole, setUserRole] = useState('');
   const [hasPermission, setHasPermission] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(true);
@@ -324,10 +327,61 @@ function InputPelanggaran() {
     try {
       await api.delete(`/pelanggaran/${id}`);
       setMessage('Pelanggaran berhasil dihapus!');
+      setSelectedIndexIds((prev) => prev.filter((selectedId) => selectedId !== id));
       fetchAllPelanggaran();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menghapus pelanggaran');
     }
+  };
+
+  const filteredPelanggaran = allPelanggaran.filter((item) => {
+    const query = indexSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [item.nama, item.nis, item.keterangan, item.jenis_pelanggaran, item.point_dikurangi]
+      .some((value) => String(value ?? '').toLowerCase().includes(query));
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds((prev) => (
+      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
+    ));
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredPelanggaran.map((item) => item.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIndexIds.includes(id));
+    if (allSelected) {
+      setSelectedIndexIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds((prev) => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data pelanggaran? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/pelanggaran/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(`${ok} data pelanggaran berhasil dihapus!`);
+    } else {
+      setMessage(`${ok} data pelanggaran berhasil dihapus, ${failed.length} gagal dihapus.`);
+    }
+    fetchAllPelanggaran();
   };
 
   const handleEditFileChange = (e) => {
@@ -408,6 +462,36 @@ function InputPelanggaran() {
       {(userRole === 'superadmin' && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Pelanggaran</h3>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={indexSearch}
+              onChange={(e) => setIndexSearch(e.target.value)}
+              placeholder="Cari nama, NIS, detail, jenis..."
+              style={{ flex: '1', minWidth: '200px', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px' }}
+            />
+            {selectedIndexIds.length > 0 && (
+              <>
+                <span style={{ fontSize: '13px', color: '#666' }}>{selectedIndexIds.length} dipilih</span>
+                <button
+                  className="btn btn-danger"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                >
+                  {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setSelectedIndexIds([])}
+                  disabled={bulkDeleting}
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                >
+                  Batal
+                </button>
+              </>
+            )}
+          </div>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -415,6 +499,20 @@ function InputPelanggaran() {
               <table className="table">
                 <thead>
                   <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={filteredPelanggaran.length > 0 && filteredPelanggaran.every((item) => selectedIndexIds.includes(item.id))}
+                        ref={(el) => {
+                          if (el) {
+                            const filteredIds = filteredPelanggaran.map((item) => item.id);
+                            const selectedCount = filteredIds.filter((id) => selectedIndexIds.includes(id)).length;
+                            el.indeterminate = selectedCount > 0 && selectedCount < filteredIds.length;
+                          }
+                        }}
+                        onChange={toggleSelectAllFiltered}
+                      />
+                    </th>
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -425,9 +523,15 @@ function InputPelanggaran() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allPelanggaran.map(item => (
+                  {filteredPelanggaran.map(item => (
                     <tr key={item.id}>
-                      <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIndexIds.includes(item.id)}
+                          onChange={() => toggleSelectIndex(item.id)}
+                        />
+                      </td><td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
                       <td>{item.keterangan}</td>
@@ -453,9 +557,11 @@ function InputPelanggaran() {
                   ))}
                 </tbody>
               </table>
-              {allPelanggaran.length === 0 && (
+              {allPelanggaran.length === 0 ? (
                 <p className="text-muted">Belum ada data pelanggaran</p>
-              )}
+              ) : filteredPelanggaran.length === 0 ? (
+                <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+              ) : null}
             </div>
           )}
         </div>

@@ -29,6 +29,9 @@ function InputOrganisasi() {
   const [showForm, setShowForm] = useState(false);
   const [allOrganisasi, setAllOrganisasi] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const editModal = useEditModal();
   const [ipcConfig, setIpcConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
@@ -324,10 +327,65 @@ function InputOrganisasi() {
     try {
       await api.delete(`/organisasi/${id}`);
       setMessage('Organisasi berhasil dihapus!');
+      setSelectedIndexIds(prev => prev.filter(selectedId => selectedId !== id));
       fetchAllOrganisasi();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menghapus organisasi');
     }
+  };
+
+  const filteredOrganisasi = allOrganisasi.filter((item) => {
+    const q = indexSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      String(item.nama || '').toLowerCase().includes(q) ||
+      String(item.nis || '').toLowerCase().includes(q) ||
+      String(item.kategori_organisasi || '').toLowerCase().includes(q) ||
+      String(item.jabatan_organisasi || '').toLowerCase().includes(q) ||
+      String(item.point ?? '').toLowerCase().includes(q) ||
+      String(item.status || '').toLowerCase().includes(q)
+    );
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds(prev => prev.includes(id) ? prev.filter(selectedId => selectedId !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredOrganisasi.map(item => item.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIndexIds.includes(id));
+    if (allSelected) {
+      setSelectedIndexIds(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds(prev => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data organisasi? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/organisasi/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(ok + ' data organisasi berhasil dihapus!');
+    } else {
+      setMessage(ok + ' data organisasi berhasil dihapus! ' + failed.length + ' gagal dihapus.');
+    }
+    fetchAllOrganisasi();
   };
 
   const handleEditFileChange = (e) => {
@@ -440,10 +498,49 @@ function InputOrganisasi() {
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
+            <>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                value={indexSearch}
+                onChange={(e) => setIndexSearch(e.target.value)}
+                placeholder="Cari nama, NIS, kategori, jabatan..."
+                style={{ flex: 1, minWidth: '200px', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px' }}
+              />
+              {selectedIndexIds.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', color: '#555' }}>{selectedIndexIds.length} dipilih</span>
+                  <button
+                    className="btn btn-danger"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                    style={{ padding: '6px 12px', fontSize: '13px' }}
+                  >
+                    {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setSelectedIndexIds([])}
+                    disabled={bulkDeleting}
+                    style={{ padding: '6px 12px', fontSize: '13px' }}
+                  >
+                    Batal
+                  </button>
+                </div>
+              )}
+            </div>
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               <table className="table">
                 <thead>
                   <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={filteredOrganisasi.length > 0 && filteredOrganisasi.every(item => selectedIndexIds.includes(item.id))}
+                        ref={(el) => { if (el) el.indeterminate = filteredOrganisasi.some(item => selectedIndexIds.includes(item.id)) && !filteredOrganisasi.every(item => selectedIndexIds.includes(item.id)); }}
+                        onChange={toggleSelectAllFiltered}
+                      />
+                    </th>
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -455,8 +552,15 @@ function InputOrganisasi() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allOrganisasi.map(item => (
+                  {filteredOrganisasi.map(item => (
                     <tr key={item.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIndexIds.includes(item.id)}
+                          onChange={() => toggleSelectIndex(item.id)}
+                        />
+                      </td>
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -484,10 +588,13 @@ function InputOrganisasi() {
                   ))}
                 </tbody>
               </table>
-              {allOrganisasi.length === 0 && (
+              {allOrganisasi.length === 0 ? (
                 <p className="text-muted">Belum ada data organisasi</p>
-              )}
+              ) : filteredOrganisasi.length === 0 ? (
+                <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+              ) : null}
             </div>
+            </>
           )}
         </div>
       )}

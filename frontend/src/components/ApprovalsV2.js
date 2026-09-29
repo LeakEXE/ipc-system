@@ -160,7 +160,7 @@ function ApprovalsV2() {
     }
 
     const columns = {
-      prestasi: ['Diajukan Oleh', 'Nama', 'NIS', 'Lomba', 'Juara', 'Kategori', 'Foto', 'Status', 'Aksi'],
+      prestasi: ['Diajukan Oleh', 'Nama', 'NIS', 'Lomba', 'Jenis Lomba', 'Kategori Lomba', 'Juara', 'Kategori', 'Foto', 'Status', 'Aksi'],
       event: ['Diajukan Oleh', 'Nama', 'NIS', 'Event', 'Tingkat', 'Foto', 'Status', 'Aksi'],
       organisasi: ['Diajukan Oleh', 'Nama', 'NIS', 'Organisasi', 'Jabatan', 'Foto', 'Status', 'Aksi'],
       kepanitiaan: ['Diajukan Oleh', 'Nama', 'NIS', 'Kepanitiaan', 'Jabatan', 'Foto', 'Status', 'Aksi'],
@@ -215,6 +215,8 @@ function ApprovalsV2() {
     const getFieldLabel = (col) => {
       const labelMap = {
         'Lomba': 'Lomba',
+        'Jenis Lomba': 'Jenis',
+        'Kategori Lomba': 'Kategori Lomba',
         'Juara': 'Juara',
         'Kategori': 'Kategori',
         'Event': 'Event',
@@ -232,6 +234,8 @@ function ApprovalsV2() {
     const getFieldValue = (item, col, type) => {
       if (type === 'prestasi') {
         if (col === 'Lomba') return item.nama_lomba;
+        if (col === 'Jenis Lomba') return formatDisplayText(item.jenis_lomba || 'akademik');
+        if (col === 'Kategori Lomba') return formatDisplayText(item.kategori_lomba || 'individu');
         if (col === 'Juara') return formatDisplayText(item.juara);
         if (col === 'Kategori') return formatDisplayText(item.kategori);
       }
@@ -540,6 +544,18 @@ function ApprovalsV2() {
                       verticalAlign: "middle",
                       color: TEXT
                     }}>{item.nama_lomba}</td>
+                    <td style={{
+                      padding: "16px 18px",
+                      borderBottom: `1px solid ${BORDER}`,
+                      verticalAlign: "middle",
+                      color: TEXT
+                    }}>{formatDisplayText(item.jenis_lomba || 'akademik')}</td>
+                    <td style={{
+                      padding: "16px 18px",
+                      borderBottom: `1px solid ${BORDER}`,
+                      verticalAlign: "middle",
+                      color: TEXT
+                    }}>{formatDisplayText(item.kategori_lomba || 'individu')}</td>
                     <td style={{
                       padding: "16px 18px",
                       borderBottom: `1px solid ${BORDER}`,
