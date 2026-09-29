@@ -91,7 +91,8 @@ const LEADERBOARD_CATEGORIES = {
     kepanitiaan: { table: 'kepanitiaan', pointCol: 'point' },
     event: { table: 'event', pointCol: 'point' },
     pelanggaran: { table: 'pelanggaran', pointCol: 'point_dikurangi', order: 'ASC' },
-    perilaku: { table: 'perilaku', pointCol: 'point' }
+    perilaku: { table: 'perilaku', pointCol: 'point' },
+    pembina: { table: 'pembina', special: true } // Special case for pembina leaderboard
 };
 
 // Get leaderboard for one IPC category — GET /search/leaderboard/category/:category
@@ -102,6 +103,37 @@ router.get('/leaderboard/category/:category', auth, async (req, res) => {
         if (!config) {
             return res.status(400).json({ message: 'Kategori tidak valid' });
         }
+
+        // Special case for pembina leaderboard
+        if (config.special) {
+            const [teachers] = await db.query(`
+                SELECT
+                    u.id,
+                    u.nama,
+                    u.nip,
+                    u.role,
+                    u.foto,
+                    u.detail as jabatan,
+                    COUNT(p.id) as total_point
+                FROM users u
+                LEFT JOIN prestasi p ON p.pembina = u.nama AND p.status = 'approved'
+                WHERE u.role = 'guru' OR u.role = 'pegawai'
+                GROUP BY u.id, u.nama, u.nip, u.role, u.foto, u.detail
+                HAVING COUNT(p.id) > 0
+                ORDER BY total_point DESC, u.nama ASC
+                LIMIT 20
+            `);
+
+            console.log('Pembina leaderboard data:', teachers);
+
+            return res.json(teachers.map((teacher, index) => ({
+                ...teacher,
+                jabatan: teacher.jabatan || 'Guru', // Default to 'Guru' if empty
+                total_point: Number(teacher.total_point) || 0,
+                rank: index + 1
+            })));
+        }
+
         const order = config.order === 'ASC' ? 'ASC' : 'DESC';
 
         const [students] = await db.query(`

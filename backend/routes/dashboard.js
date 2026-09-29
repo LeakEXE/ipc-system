@@ -23,7 +23,7 @@ router.get('/stats', auth, async (req, res) => {
             db.query("SELECT COUNT(*) as count FROM users WHERE role = 'siswa'"),
 
             // Total teachers
-            db.query("SELECT COUNT(*) as count FROM users WHERE role = 'guru'"),
+            db.query("SELECT COUNT(*) as count FROM users WHERE role = 'guru' OR role = 'pegawai'"),
 
             // Total by grha
             db.query(`

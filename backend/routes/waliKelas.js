@@ -480,8 +480,17 @@ router.post('/', auth, superAdminOnly, async (req, res) => {
             return res.status(400).json({ message: `Guru tersebut sudah menjadi Wali Kelas untuk tahun ajaran ${tahun_ajaran}` });
         }
 
-        // Get guru info for notification
-        const [guru] = await db.query('SELECT nama, nip FROM users WHERE id = ?', [guru_id]);
+        // Get guru info for notification and validate role
+        const [guru] = await db.query('SELECT nama, nip, role FROM users WHERE id = ?', [guru_id]);
+        if (guru.length === 0) {
+            return res.status(404).json({ message: 'Guru tidak ditemukan' });
+        }
+        
+        // Only teachers with role 'guru' can be wali kelas
+        if (guru[0].role !== 'guru') {
+            return res.status(400).json({ message: 'Hanya guru dengan role Guru yang dapat menjadi Wali Kelas' });
+        }
+        
         const guruNama = guru[0]?.nama || 'Guru';
 
         const [result] = await db.query(
@@ -499,8 +508,8 @@ router.post('/', auth, superAdminOnly, async (req, res) => {
             [req.user.id, 'ASSIGN_WALI_KELAS', `Assigned teacher ${guruNama} as wali kelas for ${kelas}`]
         );
 
-        // Notify all pembina (gurus)
-        const [pembinas] = await db.query("SELECT id FROM users WHERE role = 'guru'");
+        // Notify all pembina (gurus and pegawai)
+        const [pembinas] = await db.query("SELECT id FROM users WHERE role = 'guru' OR role = 'pegawai'");
         for (const pembina of pembinas) {
             await db.query(
                 `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) 

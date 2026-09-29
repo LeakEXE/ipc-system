@@ -645,7 +645,7 @@ function Profile() {
               </div>
             </>
           )}
-          {user.role === 'guru' && (
+          {(user.role === 'guru' || user.role === 'pegawai') && (
             <>
               <div className="form-group">
                 <label>No HP</label>
@@ -694,7 +694,7 @@ function Profile() {
             <p><strong>Wali Kelas:</strong> {profile?.wali_kelas_nama || profile?.wali_kelas || '-'}</p>
           </>
         )}
-        {user.role === 'guru' && (
+        {(user.role === 'guru' || user.role === 'pegawai') && (
           <>
             <p><strong>NIP:</strong> {profile?.nip || '-'}</p>
             <p><strong>Jabatan:</strong> {profile?.jabatan || profile?.detail || '-'}</p>
