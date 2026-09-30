@@ -1,8 +1,8 @@
 /**
- * Branding for Individual Point Card (IPC) print — uses school config dynamically.
- * Values mirror the reference PDF (Hasil_Cetak_IPC.pdf).
+ * Branding for Individual Point Talent (IPT) print — uses school config dynamically.
+ * Values mirror the reference PDF (Hasil_Cetak_IPT.pdf).
  */
-export const getIpcPrintBranding = (schoolConfig = {}) => {
+export const getIptPrintBranding = (schoolConfig = {}) => {
   const schoolName = schoolConfig.school_name || 'SMK Negeri Bali Mandara';
   const principalName = schoolConfig.principal_name || '';
   const principalNip = schoolConfig.principal_nip || '';

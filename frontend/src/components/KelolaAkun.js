@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import StudentDetail from './StudentDetail';
@@ -20,7 +20,7 @@ const KELAS_OPTIONS = [
 ];
 
 function KelolaAkun() {
-  const minIpc = useMinIpcPerGrade();
+  const minIpt = useMinIptPerGrade();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({});
@@ -825,7 +825,7 @@ function KelolaAkun() {
                     <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '100px' }}>Tahun Pelajaran</th>
                   </>
                 )}
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '90px' }}>IPC Total</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '90px' }}>IPT Total</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', width: '80px' }}>Aksi</th>
               </tr>
             </thead>
@@ -909,10 +909,10 @@ function KelolaAkun() {
                   )}
                   <td style={{ padding: '10px 12px', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>
                     <span style={{ 
-                      color: (user.ipc_total ?? 0) < 0 || isBelowMinIpc(user.ipc_total ?? 0, minIpcFor(minIpc, user.kelas)) ? '#dc2626' : 'inherit',
-                      fontWeight: (user.ipc_total ?? 0) < 0 || isBelowMinIpc(user.ipc_total ?? 0, minIpcFor(minIpc, user.kelas)) ? 'bold' : 'normal'
+                      color: (user.ipt_total ?? 0) < 0 || isBelowMinIpt(user.ipt_total ?? 0, minIptFor(minIpt, user.kelas)) ? '#dc2626' : 'inherit',
+                      fontWeight: (user.ipt_total ?? 0) < 0 || isBelowMinIpt(user.ipt_total ?? 0, minIptFor(minIpt, user.kelas)) ? 'bold' : 'normal'
                     }}>
-                      {(user.ipc_total ?? 0) < 0 ? `${user.ipc_total ?? 0} (MINUS)` : (user.ipc_total ?? 0)}
+                      {(user.ipt_total ?? 0) < 0 ? `${user.ipt_total ?? 0} (MINUS)` : (user.ipt_total ?? 0)}
                     </span>
                   </td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #e0e0e0' }}>

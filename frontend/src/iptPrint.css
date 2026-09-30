@@ -1,6 +1,6 @@
-/* Individual Point Card — screen preview & print layout (matches IPC PDF) */
+/* Individual Point Talent — screen preview & print layout (matches IPT PDF) */
 
-.ipc-print-toolbar {
+.ipt-print-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -8,19 +8,19 @@
   margin-bottom: 20px;
 }
 
-.ipc-print-toolbar label {
+.ipt-print-toolbar label {
   font-weight: 600;
   margin-right: 4px;
 }
 
-.ipc-print-toolbar select {
+.ipt-print-toolbar select {
   padding: 8px 12px;
   border-radius: 5px;
   border: 1px solid var(--border-color);
   min-width: 260px;
 }
 
-.ipc-print-toolbar button {
+.ipt-print-toolbar button {
   padding: 10px 20px;
   background: var(--secondary-color);
   color: #fff;
@@ -30,12 +30,12 @@
   font-size: 14px;
 }
 
-.ipc-print-toolbar button:disabled {
+.ipt-print-toolbar button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.ipc-print-preview-wrap {
+.ipt-print-preview-wrap {
   background: #fff;
   padding: 20px;
   border-radius: 8px;
@@ -43,7 +43,7 @@
   overflow-x: auto;
 }
 
-.ipc-print-sheet {
+.ipt-print-sheet {
   width: 210mm;
   min-height: auto;
   margin: 0 auto;
@@ -125,18 +125,18 @@
   color: #333;
 }
 
-/* IPC Table */
-.ipc-table-container {
+/* IPT Table */
+.ipt-table-container {
   margin: 10px 0;
 }
 
-.ipc-table {
+.ipt-table {
   width: 100%;
   border-collapse: collapse;
   border: 2px solid #000;
 }
 
-.ipc-table thead tr th {
+.ipt-table thead tr th {
   background: #000;
   color: white;
   padding: 4px 6px;
@@ -146,18 +146,18 @@
   border: 1px solid #000;
 }
 
-.ipc-table tbody tr td {
+.ipt-table tbody tr td {
   padding: 3px 6px;
   border: 1px solid #000;
   font-size: 9pt;
 }
 
-.ipc-table tbody tr td:first-child {
+.ipt-table tbody tr td:first-child {
   width: 70%;
   padding-left: 15px;
 }
 
-.ipc-table tbody tr td:last-child {
+.ipt-table tbody tr td:last-child {
   width: 30%;
   text-align: center;
   font-weight: bold;
@@ -260,18 +260,18 @@
 }
 
 @media print {
-  body.ipc-print-active .mobile-menu-toggle,
-  body.ipc-print-active .sidebar,
-  body.ipc-print-active .ipc-print-no-print,
-  body.ipc-print-active .ipc-print-toolbar,
-  body.ipc-print-active .laporan-cetak-bulk,
-  body.ipc-print-active .laporan-cetak-title {
+  body.ipt-print-active .mobile-menu-toggle,
+  body.ipt-print-active .sidebar,
+  body.ipt-print-active .ipt-print-no-print,
+  body.ipt-print-active .ipt-print-toolbar,
+  body.ipt-print-active .laporan-cetak-bulk,
+  body.ipt-print-active .laporan-cetak-title {
     display: none !important;
   }
 
-  body.ipc-print-active .main-layout,
-  body.ipc-print-active .content,
-  body.ipc-print-active .container {
+  body.ipt-print-active .main-layout,
+  body.ipt-print-active .content,
+  body.ipt-print-active .container {
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -279,14 +279,14 @@
     max-width: none !important;
   }
 
-  body.ipc-print-active .ipc-print-preview-wrap {
+  body.ipt-print-active .ipt-print-preview-wrap {
     box-shadow: none;
     padding: 0;
     border-radius: 0;
     overflow: visible;
   }
 
-  body.ipc-print-active .ipc-print-sheet {
+  body.ipt-print-active .ipt-print-sheet {
     width: 100%;
     min-height: auto;
     margin: 0;

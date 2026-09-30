@@ -35,7 +35,7 @@ function InputPerilaku() {
   const [permissionLoading, setPermissionLoading] = useState(true);
   const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoints, setCalculatedPoints] = useState({});
   const [students, setStudents] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -80,7 +80,7 @@ function InputPerilaku() {
       fetchStudents();
     }
 
-    fetchIpcConfig();
+    fetchIptConfig();
     fetchPerilakuRatings();
     fetchUserSubmissions();
     if (user.role === 'superadmin') {
@@ -108,18 +108,18 @@ function InputPerilaku() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
   const fetchPerilakuRatings = async () => {
     try {
-      const response = await api.get('/ipc-config/perilaku-ratings');
+      const response = await api.get('/ipt-config/perilaku-ratings');
       if (!Array.isArray(response.data)) {
         throw new Error('Invalid perilaku rating response');
       }
@@ -151,7 +151,7 @@ function InputPerilaku() {
   // Point perilaku hanya bergantung pada tingkat penilaian (shared semua karakter).
   // Cocokkan field1 (format baru) atau field2 (format lama, sebelum migrasi).
   const calculatePoint = (karakter, tingkat) => {
-    const perilakuConfigs = ipcConfig['perilaku'] || [];
+    const perilakuConfigs = iptConfig['perilaku'] || [];
     const config = perilakuConfigs.find(
       c => c.field1 === tingkat || c.field2 === tingkat
     );
@@ -321,7 +321,7 @@ function InputPerilaku() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
@@ -371,7 +371,7 @@ function InputPerilaku() {
   const handleBulkDelete = async () => {
     const ids = [...selectedIndexIds];
     if (ids.length === 0) return;
-    if (!window.confirm(`Hapus ${ids.length} data perilaku? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+    if (!window.confirm(`Hapus ${ids.length} data perilaku? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
       return;
     }
     setBulkDeleting(true);
@@ -728,7 +728,7 @@ function InputPerilaku() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Total Point IPC yang akan didapatkan:
+            Total Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 

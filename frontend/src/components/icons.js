@@ -15,7 +15,7 @@ import {
 
 // Single icon language for the app (lucide, stroke-based, currentColor).
 // Category icons — same six everywhere (Dashboard, Leaderboard,
-// IzinAkun, KonfigurasiIPC, WaliKelas history).
+// IzinAkun, KonfigurasiIPT, WaliKelas history).
 export const CATEGORY_ICONS = {
   prestasi: Trophy,
   organisasi: Users,

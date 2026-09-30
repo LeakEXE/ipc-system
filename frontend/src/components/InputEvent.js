@@ -35,7 +35,7 @@ function InputEvent() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const [students, setStudents] = useState([]);
 
@@ -72,7 +72,7 @@ function InputEvent() {
 
     fetchUserSubmissions();
     checkAccess();
-    fetchIpcConfig();
+    fetchIptConfig();
     if (user.role === 'superadmin') {
       fetchAllEvent();
     } else if (user.role === 'guru' || user.role === 'pegawai') {
@@ -128,10 +128,10 @@ function InputEvent() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
       const firstTingkat = response.data.event?.[0]?.field1;
       if (firstTingkat) {
         setFormData(prev => {
@@ -141,7 +141,7 @@ function InputEvent() {
         setCalculatedPoint(response.data.event[0].point_value || 0);
       }
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
@@ -156,7 +156,7 @@ function InputEvent() {
   };
 
   const calculatePoint = (tingkat) => {
-    const eventConfigs = ipcConfig['event'] || [];
+    const eventConfigs = iptConfig['event'] || [];
     const config = eventConfigs.find(
       c => c.field1 === tingkat
     );
@@ -313,7 +313,7 @@ function InputEvent() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
@@ -359,7 +359,7 @@ function InputEvent() {
   const handleBulkDelete = async () => {
     const ids = [...selectedIndexIds];
     if (ids.length === 0) return;
-    if (!window.confirm(`Hapus ${ids.length} data event? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+    if (!window.confirm(`Hapus ${ids.length} data event? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
       return;
     }
     setBulkDeleting(true);
@@ -729,7 +729,7 @@ function InputEvent() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan didapatkan:
+            Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 

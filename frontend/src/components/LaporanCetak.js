@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import ExcelJS from 'exceljs';
-import { createIndividualIpcExcelBuffer, fetchKopImage, IPC_SHEET_PASSWORD } from '../utils/ipcExcel';
-import { fetchMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
-import '../ipcPrint.css';
+import { createIndividualIptExcelBuffer, fetchKopImage, IPT_SHEET_PASSWORD } from '../utils/iptExcel';
+import { fetchMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
+import '../iptPrint.css';
 
 // ------------------------------------------------------------------
 // KONFIGURASI WARNA
@@ -32,7 +32,7 @@ const THIN_BORDER = {
 // Helper: Calculate totals - MUST MATCH BACKEND CALCULATION
 function hitungTotal(s) {
   // Point awal (default 80 if not specified)
-  const ipcAwal = s.ipc_awal || 80;
+  const iptAwal = s.ipt_awal || 80;
   
   // Prestasi (single category — no more akademik/non-akademik split)
   const totalPrestasi = Number(s.prestasi) || 0;
@@ -62,15 +62,15 @@ function hitungTotal(s) {
   const totalPelanggaran = pelanggaranRingan + pelanggaranSedang + pelanggaranBerat + pelanggaranLainnya;
   
   // Pelanggaran bernilai negatif (pengurangan) -> cukup dijumlahkan.
-  const ipcTotal = ipcAwal + totalPrestasi + totalKarakter + totalKeaktifan + totalPelanggaran;
+  const iptTotal = iptAwal + totalPrestasi + totalKarakter + totalKeaktifan + totalPelanggaran;
   
   return {
-    ipcAwal,
+    iptAwal,
     totalPrestasi,
     totalKarakter,
     totalKeaktifan,
     totalPelanggaran,
-    ipcTotal
+    iptTotal
   };
 }
 
@@ -113,7 +113,7 @@ const COLUMN_DEFS = [
   { key: "pelanggaran_berat", header2: "Berat", group: "pelanggaran", width: 9 },
   { key: "jumlahPelanggaran", header2: "Jumlah", group: "pelanggaran", width: 10, jumlahFill: "jumlahPelanggaran" },
 
-  { key: "totalIPC", header1: "Total IPC", merge: "v", width: 10, jumlahFill: "total" },
+  { key: "totalIPT", header1: "Total IPT", merge: "v", width: 10, jumlahFill: "total" },
 ];
 
 function buildRowValues(s) {
@@ -124,7 +124,7 @@ function buildRowValues(s) {
     nis: s.nis,
     kelas: s.kelas,
     ghra: s.ghra || "-",
-    pointAwal: t.ipcAwal, // ipc_awal siswa
+    pointAwal: t.iptAwal, // ipt_awal siswa
     prestasi: Number(s.prestasi) ?? 0,
     tanggung_jawab: Number(s.tanggung_jawab) ?? 0,
     disiplin: Number(s.disiplin) ?? 0,
@@ -142,7 +142,7 @@ function buildRowValues(s) {
     pelanggaran_sedang: Number(s.pelanggaran_sedang) ?? 0,
     pelanggaran_berat: Number(s.pelanggaran_berat) ?? 0,
     jumlahPelanggaran: t.totalPelanggaran,
-    totalIPC: t.ipcTotal,
+    totalIPT: t.iptTotal,
   };
 }
 
@@ -158,7 +158,7 @@ function LaporanCetak({ user }) {
   const [isWaliKelas, setIsWaliKelas] = useState(false);
   const [waliKelasInfo, setWaliKelasInfo] = useState(null);
   const [schoolConfig, setSchoolConfig] = useState(null);
-  // Semester & tahun pelajaran untuk cetakan IPC individual
+  // Semester & tahun pelajaran untuk cetakan IPT individual
   const currentYear = new Date().getFullYear();
   const [semester, setSemester] = useState('Ganjil');
   const [tahunPelajaran, setTahunPelajaran] = useState(`${currentYear}/${currentYear + 1}`);
@@ -205,7 +205,7 @@ function LaporanCetak({ user }) {
       
       if (isWaliKelas && waliKelasInfo) {
         // For wali kelas, fetch only their class students
-        response = await api.get(`/reports/class-ipc/${waliKelasInfo.kelas}`);
+        response = await api.get(`/reports/class-ipt/${waliKelasInfo.kelas}`);
         setStudents(response.data);
         setClasses([waliKelasInfo.kelas]); // Only show their class
       } else {
@@ -229,18 +229,18 @@ function LaporanCetak({ user }) {
     return students.filter(s => s.kelas === selectedClass);
   };
 
-  const fetchIpcCard = async (userId) => {
+  const fetchIptCard = async (userId) => {
     // Teruskan semester & tahun pelajaran agar breakdown (dan total) hanya
     // mencakup point sampai periode terpilih (cutoff di backend).
     const response = await api.get(
-      `/reports/ipc-card/${userId}?semester=${encodeURIComponent(semester)}&tahun_pelajaran=${encodeURIComponent(tahunPelajaran)}`
+      `/reports/ipt-card/${userId}?semester=${encodeURIComponent(semester)}&tahun_pelajaran=${encodeURIComponent(tahunPelajaran)}`
     );
     return response.data;
   };
 
   const fetchClassStudents = async () => {
     try {
-      const response = await api.get(`/reports/class-ipc/${selectedClass}`);
+      const response = await api.get(`/reports/class-ipt/${selectedClass}`);
       setClassStudents(response.data);
     } catch (error) {
       console.error('Error fetching class students:', error);
@@ -256,7 +256,7 @@ function LaporanCetak({ user }) {
       // Use default values if fetch fails
       setSchoolConfig({
         school_name: 'SMK Negeri Bali Mandara',
-        school_description: 'Sistem Individual Point Card (IPC) • Panel Admin',
+        school_description: 'Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) • Panel Admin',
         principal_name: 'Nama Kepala Sekolah',
         principal_nip: '',
         logo_url: null
@@ -274,7 +274,7 @@ function LaporanCetak({ user }) {
     } else if (reportType === 'class') {
       // For class report, generate Excel with leger format using ExcelJS
       try {
-        const minIpc = await fetchMinIpcPerGrade();
+        const minIpt = await fetchMinIptPerGrade();
         // Prepare student data in the format expected by the Excel generator
         const formattedStudents = classStudents.map((student, index) => {
           const points = student.points || {};
@@ -300,12 +300,12 @@ function LaporanCetak({ user }) {
             pelanggaran_sedang: Number(points.pelanggaran_sedang) || 0,
             pelanggaran_berat: Number(points.pelanggaran_berat) || 0,
             pelanggaran_lainnya: Number(points.pelanggaran_lainnya) || 0,
-            ipc_awal: Number(points.point_awal) || Number(student.ipc_awal) || 80,
+            ipt_awal: Number(points.point_awal) || Number(student.ipt_awal) || 80,
           };
         });
 
         const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet("Laporan IPC", {
+        const sheet = workbook.addWorksheet("Laporan IPT", {
           pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 },
         });
         sheet.properties.defaultRowHeight = 20;
@@ -315,7 +315,7 @@ function LaporanCetak({ user }) {
 
         // ---- Judul di atas tabel ----
         sheet.mergeCells(1, 1, 1, totalCols);
-        sheet.getCell(1, 1).value = "LAPORAN IPC PER KELAS";
+        sheet.getCell(1, 1).value = "LAPORAN IPT PER KELAS";
         sheet.getCell(1, 1).font = { bold: true, size: 13 };
         sheet.getCell(1, 1).alignment = { horizontal: "center" };
 
@@ -413,7 +413,7 @@ function LaporanCetak({ user }) {
             cell.value = values[def.key];
 
             const isNegative = typeof values[def.key] === "number" && values[def.key] < 0;
-            const isBelowMin = def.key === "totalIPC" && isBelowMinIpc(values[def.key], minIpcFor(minIpc, s.kelas));
+            const isBelowMin = def.key === "totalIPT" && isBelowMinIpt(values[def.key], minIptFor(minIpt, s.kelas));
 
             styleCell(cell, {
               fill: def.jumlahFill ? EXCEL_COLORS[def.jumlahFill] : undefined,
@@ -429,8 +429,8 @@ function LaporanCetak({ user }) {
 
         // ---- Proteksi tulis: dokumen resmi — seluruh sel terkunci,
         // pengguna hanya boleh menyeleksi (lihat/salin). Password sama
-        // dengan kartu individual (lihat IPC_SHEET_PASSWORD).
-        await sheet.protect(IPC_SHEET_PASSWORD, { selectLockedCells: true, selectUnlockedCells: true });
+        // dengan kartu individual (lihat IPT_SHEET_PASSWORD).
+        await sheet.protect(IPT_SHEET_PASSWORD, { selectLockedCells: true, selectUnlockedCells: true });
 
         // ---- Trigger download ----
         const buffer = await workbook.xlsx.writeBuffer();
@@ -453,7 +453,7 @@ function LaporanCetak({ user }) {
     }
   };
 
-  // Download Excel Individual Point Card (layout Raport IPC resmi sekolah)
+  // Download Excel Individual Point Talent (layout Raport IPT resmi sekolah)
   const handleDownloadIndividualExcel = async () => {
     if (!selectedStudentId) {
       alert('Pilih siswa terlebih dahulu');
@@ -461,26 +461,26 @@ function LaporanCetak({ user }) {
     }
     try {
       setExcelLoading(true);
-      const cardData = await fetchIpcCard(selectedStudentId);
+      const cardData = await fetchIptCard(selectedStudentId);
       const school = await getFreshSchoolConfig();
       const kopImage = await fetchKopImage(['/header.png']);
-      const minIpc = await fetchMinIpcPerGrade();
-      const buffer = await createIndividualIpcExcelBuffer({
+      const minIpt = await fetchMinIptPerGrade();
+      const buffer = await createIndividualIptExcelBuffer({
         student: cardData.student,
         wali: cardData.wali,
         points: cardData.points,
-        ipcTotal: cardData.ipc_total,
+        iptTotal: cardData.ipt_total,
         school,
         semester,
         tahunPelajaran,
         kopImage,
-        minIpc: minIpcFor(minIpc, cardData.student?.kelas),
+        minIpt: minIptFor(minIpt, cardData.student?.kelas),
       });
       const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const link = document.createElement('a');
       link.href = url;
       const safeName = String(cardData.student?.nama || 'SISWA').replace(/[\\/:*?"<>|]/g, '_');
-      link.download = `IPC_${safeName}_${cardData.student?.nis || ''}.xlsx`;
+      link.download = `IPT_${safeName}_${cardData.student?.nis || ''}.xlsx`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -492,7 +492,7 @@ function LaporanCetak({ user }) {
   };
 
   const handleDownloadExcel = async () => {
-    const filename = `Laporan_IPC_Kelas_${selectedClass || 'SEMUA'}.xlsx`;
+    const filename = `Laporan_IPT_Kelas_${selectedClass || 'SEMUA'}.xlsx`;
 
     try {
       setExcelLoading(true);
@@ -523,17 +523,17 @@ function LaporanCetak({ user }) {
 
   return (
     <div className="container" style={{ padding: '20px' }}>
-      <h2 className="ipc-print-no-print laporan-cetak-title" style={{ marginBottom: '20px' }}>
+      <h2 className="ipt-print-no-print laporan-cetak-title" style={{ marginBottom: '20px' }}>
         {isWaliKelas ? `Laporan & Cetak - Wali Kelas ${waliKelasInfo?.kelas}` : 'Laporan & Cetak'}
       </h2>
 
       {isWaliKelas && (
-        <div className="alert alert-info ipc-print-no-print" style={{ marginBottom: '20px' }}>
+        <div className="alert alert-info ipt-print-no-print" style={{ marginBottom: '20px' }}>
           <strong>Mode Wali Kelas:</strong> Anda hanya dapat melihat dan mencetak laporan untuk kelas {waliKelasInfo?.kelas} dengan {waliKelasInfo?.totalSiswa} siswa.
         </div>
       )}
 
-      <div className="ipc-print-no-print" style={{ marginBottom: '20px' }}>
+      <div className="ipt-print-no-print" style={{ marginBottom: '20px' }}>
         <label style={{ marginRight: '10px' }}>Filter Kelas:</label>
         <select
           value={selectedClass}
@@ -554,8 +554,8 @@ function LaporanCetak({ user }) {
         </select>
       </div>
 
-      <div className="ipc-print-no-print" style={{ marginBottom: '24px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        <h3 style={{ marginBottom: '12px' }}>Cetak Laporan IPC</h3>
+      <div className="ipt-print-no-print" style={{ marginBottom: '24px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        <h3 style={{ marginBottom: '12px' }}>Cetak Laporan IPT</h3>
         <p style={{ marginBottom: '14px', color: 'var(--text-secondary)', fontSize: '14px' }}>
           Pilih jenis laporan yang ingin dicetak.
         </p>
@@ -567,23 +567,23 @@ function LaporanCetak({ user }) {
             onChange={(e) => setReportType(e.target.value)}
             style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ddd', minWidth: '200px' }}
           >
-            <option value="individual">Individual Point Card (IPC)</option>
-            <option value="class">Laporan IPC Per Kelas</option>
+            <option value="individual">Individual Point Talent (IPT)</option>
+            <option value="class">Laporan IPT Per Kelas</option>
           </select>
         </div>
 
         {reportType === 'individual' ? (
           <>
             <p style={{ marginBottom: '14px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-              Format cetak mengikuti lembar IPC resmi sekolah (satu siswa per halaman A4).
+              Format cetak mengikuti lembar IPT resmi sekolah (satu siswa per halaman A4).
               Hanya point yang tercatat sampai Semester {semester} TP {tahunPelajaran} yang dihitung.
             </p>
 
             <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', flexWrap: 'wrap' }}>
               <div>
-                <label htmlFor="ipc-semester-select" style={{ marginRight: '8px', fontWeight: 'bold' }}>Semester:</label>
+                <label htmlFor="ipt-semester-select" style={{ marginRight: '8px', fontWeight: 'bold' }}>Semester:</label>
                 <select
-                  id="ipc-semester-select"
+                  id="ipt-semester-select"
                   value={semester}
                   onChange={(e) => setSemester(e.target.value)}
                   style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ddd', minWidth: '120px' }}
@@ -593,9 +593,9 @@ function LaporanCetak({ user }) {
                 </select>
               </div>
               <div>
-                <label htmlFor="ipc-tahun-select" style={{ marginRight: '8px', fontWeight: 'bold' }}>Tahun Pelajaran:</label>
+                <label htmlFor="ipt-tahun-select" style={{ marginRight: '8px', fontWeight: 'bold' }}>Tahun Pelajaran:</label>
                 <select
-                  id="ipc-tahun-select"
+                  id="ipt-tahun-select"
                   value={tahunPelajaran}
                   onChange={(e) => setTahunPelajaran(e.target.value)}
                   style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ddd', minWidth: '140px' }}
@@ -607,11 +607,11 @@ function LaporanCetak({ user }) {
               </div>
             </div>
 
-            <div className="ipc-print-toolbar">
+            <div className="ipt-print-toolbar">
               <div>
-                <label htmlFor="ipc-student-select">Siswa:</label>
+                <label htmlFor="ipt-student-select">Siswa:</label>
                 <select
-                  id="ipc-student-select"
+                  id="ipt-student-select"
                   value={selectedStudentId}
                   onChange={(e) => setSelectedStudentId(e.target.value)}
                   disabled={!selectedClass}
@@ -630,10 +630,10 @@ function LaporanCetak({ user }) {
         ) : (
           <>
             <p style={{ marginBottom: '14px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-              Format cetak menampilkan Leger IPC Individual Point Card dengan format tabel lengkap termasuk NIS, Nama, Kelas, GHRA, breakdown IPC (Prestasi, Perkembangan Karakter, Keaktifan, Pelanggaran), dan Total IPC dalam format landscape yang rapi dan profesional.
+              Format cetak menampilkan Leger IPT Individual Point Talent dengan format tabel lengkap termasuk NIS, Nama, Kelas, GHRA, breakdown IPT (Prestasi, Perkembangan Karakter, Keaktifan, Pelanggaran), dan Total IPT dalam format landscape yang rapi dan profesional.
             </p>
 
-            <div className="ipc-print-toolbar">
+            <div className="ipt-print-toolbar">
               <div>
                 <span style={{ marginRight: '10px' }}>
                   {selectedClass ? `${classStudents.length} siswa di kelas ${selectedClass}` : 'Pilih kelas terlebih dahulu'}

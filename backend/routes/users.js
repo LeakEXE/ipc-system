@@ -7,20 +7,20 @@ const db = require('../config/database');
 const { getStudentRecords } = require('../utils/studentRecords');
 const { validateTahunPelajaran, calculateCurrentClass, shouldGraduate, getClassInfo, calculateFullClass, getCurrentAcademicYear } = require('../utils/academicYear');
 const { logActivity } = require('../utils/logger');
-const { gradePrefixFromKelas, getIpcAwalForGrade } = require('../utils/ipcConfig');
+const { gradePrefixFromKelas, getIptAwalForGrade } = require('../utils/iptConfig');
 const { syncBiodataChange } = require('../utils/biodataSync');
 const { generateUsername } = require('../utils/username');
 
-async function applyIpcAwalUpdate(userId, newIpcAwal, adminId) {
-    const parsedAwal = parseInt(newIpcAwal, 10);
+async function applyIptAwalUpdate(userId, newIptAwal, adminId) {
+    const parsedAwal = parseInt(newIptAwal, 10);
     if (Number.isNaN(parsedAwal) || parsedAwal < 0) {
-        const error = new Error('IPC awal tidak valid');
+        const error = new Error('IPT awal tidak valid');
         error.statusCode = 400;
         throw error;
     }
 
     const [users] = await db.query(
-        'SELECT id, role, ipc_awal, ipc_total FROM users WHERE id = ?',
+        'SELECT id, role, ipt_awal, ipt_total FROM users WHERE id = ?',
         [userId]
     );
 
@@ -32,60 +32,60 @@ async function applyIpcAwalUpdate(userId, newIpcAwal, adminId) {
 
     const user = users[0];
     if (user.role === 'superadmin') {
-        const error = new Error('Tidak dapat mengubah IPC superadmin');
+        const error = new Error('Tidak dapat mengubah IPT superadmin');
         error.statusCode = 400;
         throw error;
     }
 
-    const oldAwal = user.ipc_awal ?? 0;
+    const oldAwal = user.ipt_awal ?? 0;
     const delta = parsedAwal - oldAwal;
-    let newTotal = (user.ipc_total ?? 0) + delta;
+    let newTotal = (user.ipt_total ?? 0) + delta;
     if (newTotal < 0) {
         newTotal = 0;
     }
 
     await db.query(
-        'UPDATE users SET ipc_awal = ?, ipc_total = ? WHERE id = ?',
+        'UPDATE users SET ipt_awal = ?, ipt_total = ? WHERE id = ?',
         [parsedAwal, newTotal, userId]
     );
 
     if (delta !== 0) {
         await db.query(
-            `INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan)
+            `INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan)
              VALUES (?, 'manual', ?, ?, ?, ?)`,
-            [userId, delta, user.ipc_total ?? 0, newTotal, 'Penyesuaian IPC awal oleh superadmin']
+            [userId, delta, user.ipt_total ?? 0, newTotal, 'Penyesuaian IPT awal oleh superadmin']
         );
 
         await db.query(
             'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-            [adminId, 'UPDATE_IPC_AWAL', `Updated IPC awal for user ID ${userId} to ${parsedAwal}`]
+            [adminId, 'UPDATE_IPT_AWAL', `Updated IPT awal for user ID ${userId} to ${parsedAwal}`]
         );
     }
 
-    return { ipc_awal: parsedAwal, ipc_total: newTotal };
+    return { ipt_awal: parsedAwal, ipt_total: newTotal };
 }
 
-// Bulk update IPC awal for multiple users
-router.post('/bulk-update-ipc-awal', auth, superAdminOnly, async (req, res) => {
+// Bulk update IPT awal for multiple users
+router.post('/bulk-update-ipt-awal', auth, superAdminOnly, async (req, res) => {
     try {
-        const { userIds, ipcAwal } = req.body;
+        const { userIds, iptAwal } = req.body;
         
         if (!Array.isArray(userIds) || userIds.length === 0) {
             return res.status(400).json({ message: 'User IDs array is required' });
         }
         
-        const parsedAwal = parseInt(ipcAwal, 10);
+        const parsedAwal = parseInt(iptAwal, 10);
         if (Number.isNaN(parsedAwal) || parsedAwal < 0) {
-            return res.status(400).json({ message: 'IPC awal harus angka valid (min 0)' });
+            return res.status(400).json({ message: 'IPT awal harus angka valid (min 0)' });
         }
         
-        // Note: IPC awal should stay >= 0, but IPC total can go negative due to pelanggaran
+        // Note: IPT awal should stay >= 0, but IPT total can go negative due to pelanggaran
 
         const results = [];
         
         for (const userId of userIds) {
             try {
-                const result = await applyIpcAwalUpdate(userId, parsedAwal, req.user.id);
+                const result = await applyIptAwalUpdate(userId, parsedAwal, req.user.id);
                 results.push({ userId, success: true, ...result });
             } catch (error) {
                 results.push({ userId, success: false, message: error.message });
@@ -94,11 +94,11 @@ router.post('/bulk-update-ipc-awal', auth, superAdminOnly, async (req, res) => {
 
         const successCount = results.filter(r => r.success).length;
         res.json({ 
-            message: `IPC awal berhasil diupdate untuk ${successCount} dari ${userIds.length} pengguna`,
+            message: `IPT awal berhasil diupdate untuk ${successCount} dari ${userIds.length} pengguna`,
             results 
         });
     } catch (error) {
-        console.error('Bulk update IPC awal error:', error);
+        console.error('Bulk update IPT awal error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -155,7 +155,7 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
 
         // If guru/pegawai, only return students (excluding graduated)
         if (req.user.role === 'guru' || req.user.role === 'pegawai') {
-            let query = 'SELECT id, nama, nis, nip, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, created_at, tahun_pelajaran, is_graduated, jurusan, detail, alamat, no_hp FROM users WHERE role = ? AND (is_graduated = 0 OR is_graduated IS NULL)';
+            let query = 'SELECT id, nama, nis, nip, role, kelas, grha, wali_kelas, ipt_total, ipt_awal, created_at, tahun_pelajaran, is_graduated, jurusan, detail, alamat, no_hp FROM users WHERE role = ? AND (is_graduated = 0 OR is_graduated IS NULL)';
             let params = ['siswa'];
 
             if (search) {
@@ -198,7 +198,7 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
         }
 
         // If superadmin, return all users (including graduated)
-        let query = 'SELECT id, nama, nis, nip, username, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, created_at, tahun_pelajaran, is_graduated, jurusan, detail, alamat, no_hp FROM users WHERE 1=1';
+        let query = 'SELECT id, nama, nis, nip, username, role, kelas, grha, wali_kelas, ipt_total, ipt_awal, created_at, tahun_pelajaran, is_graduated, jurusan, detail, alamat, no_hp FROM users WHERE 1=1';
         let params = [];
 
         // Get filter values from query
@@ -362,10 +362,10 @@ router.get('/student-creation-approvals', auth, superAdminOnly, async (req, res)
     }
 });
 
-// Bulk update IPC awal (Superadmin only) - MUST BE BEFORE /:id
-router.put('/bulk/ipc-awal', auth, superAdminOnly, async (req, res) => {
+// Bulk update IPT awal (Superadmin only) - MUST BE BEFORE /:id
+router.put('/bulk/ipt-awal', auth, superAdminOnly, async (req, res) => {
     try {
-        const { user_ids: userIds, ipc_awal: ipcAwal } = req.body;
+        const { user_ids: userIds, ipt_awal: iptAwal } = req.body;
 
         if (!Array.isArray(userIds) || userIds.length === 0) {
             return res.status(400).json({ message: 'Pilih minimal satu pengguna' });
@@ -377,12 +377,12 @@ router.put('/bulk/ipc-awal', auth, superAdminOnly, async (req, res) => {
             if (Number.isNaN(userId)) {
                 continue;
             }
-            const updated = await applyIpcAwalUpdate(userId, ipcAwal, req.user.id);
+            const updated = await applyIptAwalUpdate(userId, iptAwal, req.user.id);
             results.push({ userId, ...updated });
         }
 
         res.json({
-            message: `IPC awal berhasil diupdate untuk ${results.length} pengguna`,
+            message: `IPT awal berhasil diupdate untuk ${results.length} pengguna`,
             updated: results.length,
             results
         });
@@ -415,7 +415,7 @@ router.get('/lookup', auth, teacherOrSuperAdmin, async (req, res) => {
             grha_exclude = '',
             tahun_pelajaran = '',
             status = '',
-            ipc_status = '',
+            ipt_status = '',
             page = 1,
             limit = 20
         } = req.query;
@@ -430,17 +430,17 @@ router.get('/lookup', auth, teacherOrSuperAdmin, async (req, res) => {
         const grhaExc = splitList(grha_exclude, LOOKUP_GRHA_OPTIONS);
         const tahunFilter = validateTahunPelajaran(tahun_pelajaran) ? tahun_pelajaran : '';
 
-        // Min IPC thresholds per grade (same source as /ipc-config/min-ipc-per-grade).
+        // Min IPT thresholds per grade (same source as /ipt-config/min-ipt-per-grade).
         // Inlined as validated integers (never raw user input).
         const [minRows] = await db.query(
-            `SELECT field1, point_value FROM ipc_config
-             WHERE category = 'pengaturan' AND field1 IN ('min_ipc', 'min_ipc_X', 'min_ipc_XI', 'min_ipc_XII')`
+            `SELECT field1, point_value FROM ipt_config
+             WHERE category = 'pengaturan' AND field1 IN ('min_ipt', 'min_ipt_X', 'min_ipt_XI', 'min_ipt_XII')`
         );
         const byField = {};
         for (const row of minRows || []) byField[row.field1] = parseInt(row.point_value, 10);
-        const legacy = Number.isFinite(byField.min_ipc) && byField.min_ipc > 0 ? byField.min_ipc : 0;
+        const legacy = Number.isFinite(byField.min_ipt) && byField.min_ipt > 0 ? byField.min_ipt : 0;
         const pickThr = (grade) => {
-            const value = byField[`min_ipc_${grade}`];
+            const value = byField[`min_ipt_${grade}`];
             return Number.isInteger(value) && value >= 0 ? value : legacy;
         };
         const thrCase = `(CASE WHEN (u.kelas LIKE 'XII %' OR u.kelas = 'XII') THEN ${pickThr('XII')} WHEN (u.kelas LIKE 'XI %' OR u.kelas = 'XI') THEN ${pickThr('XI')} WHEN (u.kelas LIKE 'X %' OR u.kelas = 'X') THEN ${pickThr('X')} ELSE 0 END)`;
@@ -479,10 +479,10 @@ router.get('/lookup', auth, teacherOrSuperAdmin, async (req, res) => {
         } else if (status === 'lulus') {
             where.push('u.is_graduated = 1');
         }
-        if (ipc_status === 'below') {
-            where.push(`(${thrCase} > 0 AND u.ipc_total IS NOT NULL AND u.ipc_total < ${thrCase})`);
-        } else if (ipc_status === 'normal') {
-            where.push(`NOT (${thrCase} > 0 AND u.ipc_total IS NOT NULL AND u.ipc_total < ${thrCase})`);
+        if (ipt_status === 'below') {
+            where.push(`(${thrCase} > 0 AND u.ipt_total IS NOT NULL AND u.ipt_total < ${thrCase})`);
+        } else if (ipt_status === 'normal') {
+            where.push(`NOT (${thrCase} > 0 AND u.ipt_total IS NOT NULL AND u.ipt_total < ${thrCase})`);
         }
 
         const whereSql = `WHERE ${where.join(' AND ')}`;
@@ -492,7 +492,7 @@ router.get('/lookup', auth, teacherOrSuperAdmin, async (req, res) => {
         const currentYear = getCurrentAcademicYear();
 
         const [rows] = await db.query(
-            `SELECT u.id, u.nama, u.nis, u.username, u.kelas, u.grha, u.foto, u.ipc_total, u.ipc_awal,
+            `SELECT u.id, u.nama, u.nis, u.username, u.kelas, u.grha, u.foto, u.ipt_total, u.ipt_awal,
                     u.tahun_pelajaran, u.is_graduated, u.jurusan, g.nama AS wali_kelas_nama
              FROM users u
              LEFT JOIN wali_kelas_assignment wka ON wka.kelas = u.kelas AND wka.tahun_ajaran = ?
@@ -545,8 +545,8 @@ router.get('/:id/records', auth, teacherOrSuperAdmin, async (req, res) => {
     }
 });
 
-// Get student IPC history (Guru/Superadmin)
-router.get('/:id/ipc-history', auth, teacherOrSuperAdmin, async (req, res) => {
+// Get student IPT history (Guru/Superadmin)
+router.get('/:id/ipt-history', auth, teacherOrSuperAdmin, async (req, res) => {
     try {
         const userId = parseInt(req.params.id, 10);
         const [user] = await db.query('SELECT id, role FROM users WHERE id = ?', [userId]);
@@ -556,7 +556,7 @@ router.get('/:id/ipc-history', auth, teacherOrSuperAdmin, async (req, res) => {
         }
 
         const [history] = await db.query(
-            'SELECT id, user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan, created_at FROM ipc_history WHERE user_id = ? ORDER BY created_at DESC',
+            'SELECT id, user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan, created_at FROM ipt_history WHERE user_id = ? ORDER BY created_at DESC',
             [userId]
         );
         res.json(history);
@@ -582,7 +582,7 @@ router.get('/:id', auth, async (req, res) => {
         }
 
         const [users] = await db.query(
-            'SELECT id, nama, nis, nip, role, kelas, grha, wali_kelas, ipc_total, alamat, no_hp, detail, detail AS jabatan, created_at FROM users WHERE id = ?',
+            'SELECT id, nama, nis, nip, role, kelas, grha, wali_kelas, ipt_total, alamat, no_hp, detail, detail AS jabatan, created_at FROM users WHERE id = ?',
             [requestedUserId]
         );
         
@@ -656,10 +656,10 @@ router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
 
         // If SuperAdmin, create directly
         if (req.user.role === 'superadmin') {
-            const ipc_awal = await getIpcAwalForGrade(gradePrefixFromKelas(calculatedClass));
+            const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(calculatedClass));
             const [result] = await db.query(
-                'INSERT INTO users (nama, nis, username, password, role, kelas, wali_kelas, grha, jurusan, ipc_total, ipc_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [nama, nis, username, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipc_awal, ipc_awal, tahun_pelajaran]
+                'INSERT INTO users (nama, nis, username, password, role, kelas, wali_kelas, grha, jurusan, ipt_total, ipt_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [nama, nis, username, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipt_awal, ipt_awal, tahun_pelajaran]
             );
 
             // Create default permissions
@@ -668,10 +668,10 @@ router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
                 [result.insertId]
             );
 
-            // Log IPC history
+            // Log IPT history
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [result.insertId, 'initial', ipc_awal, 0, ipc_awal, 'IPC awal diberikan']
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [result.insertId, 'initial', ipt_awal, 0, ipt_awal, 'IPT awal diberikan']
             );
 
             // Log activity
@@ -734,7 +734,7 @@ router.post('/create-teacher', auth, superAdminOnly, async (req, res) => {
         const username = await generateUsername(nama);
 
         const [result] = await db.query(
-            'INSERT INTO users (nama, nip, username, password, role, detail, alamat, no_hp, wali_kelas, ipc_total, ipc_awal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO users (nama, nip, username, password, role, detail, alamat, no_hp, wali_kelas, ipt_total, ipt_awal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [nama, nip, username, hashedPassword, userRole, teacherJabatan, alamat, no_hp, wali_kelas, 0, 0]
         );
 
@@ -943,14 +943,14 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
     }
 });
 
-// Update IPC awal (Superadmin only)
-router.put('/:id/ipc', auth, superAdminOnly, async (req, res) => {
+// Update IPT awal (Superadmin only)
+router.put('/:id/ipt', auth, superAdminOnly, async (req, res) => {
     try {
         const userId = parseInt(req.params.id, 10);
-        const { ipc_awal: ipcAwal } = req.body;
+        const { ipt_awal: iptAwal } = req.body;
 
-        const updated = await applyIpcAwalUpdate(userId, ipcAwal, req.user.id);
-        res.json({ message: 'IPC awal berhasil diupdate', ...updated });
+        const updated = await applyIptAwalUpdate(userId, iptAwal, req.user.id);
+        res.json({ message: 'IPT awal berhasil diupdate', ...updated });
     } catch (error) {
         console.error(error);
         res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
@@ -1184,12 +1184,12 @@ router.put('/student-creation-approvals/:id', auth, superAdminOnly, async (req, 
         const data = approval[0];
         
         if (status === 'approved') {
-            // Create student account (IPC awal follows the grade default)
-            const ipc_awal = await getIpcAwalForGrade(gradePrefixFromKelas(data.kelas));
+            // Create student account (IPT awal follows the grade default)
+            const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(data.kelas));
             const username = await generateUsername(data.nama);
             const [result] = await db.query(
-                'INSERT INTO users (nama, nis, username, password, role, kelas, grha, jurusan, ipc_total, ipc_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [data.nama, data.nis, username, data.password, 'siswa', data.kelas, data.grha, data.jurusan, ipc_awal, ipc_awal, data.tahun_pelajaran]
+                'INSERT INTO users (nama, nis, username, password, role, kelas, grha, jurusan, ipt_total, ipt_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [data.nama, data.nis, username, data.password, 'siswa', data.kelas, data.grha, data.jurusan, ipt_awal, ipt_awal, data.tahun_pelajaran]
             );
             
             // Create default permissions
@@ -1198,10 +1198,10 @@ router.put('/student-creation-approvals/:id', auth, superAdminOnly, async (req, 
                 [result.insertId]
             );
             
-            // Log IPC history
+            // Log IPT history
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [result.insertId, 'initial', ipc_awal, 0, ipc_awal, 'IPC awal diberikan']
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [result.insertId, 'initial', ipt_awal, 0, ipt_awal, 'IPT awal diberikan']
             );
             
             // Update approval status

@@ -8,7 +8,7 @@ const {
     calculatePerilakuPointsFromFields,
     formatPerilakuKarakter
 } = require('../constants/points');
-const { resolveStudentIdByNis, applyPerilakuIpcChange, buildKeterangan } = require('../utils/ipc');
+const { resolveStudentIdByNis, applyPerilakuIptChange, buildKeterangan } = require('../utils/ipt');
 const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
 
 // Get all perilaku (for approvals)
@@ -89,7 +89,7 @@ router.post('/', auth, checkPermission('perilaku'), async (req, res) => {
                 [userId, req.user.id, nama, nis, kelas, grha, karakter, point]
             );
 
-            await applyPerilakuIpcChange(
+            await applyPerilakuIptChange(
                 userId,
                 point,
                 buildKeterangan('perilaku', { karakter_siswa: karakter }),
@@ -151,7 +151,7 @@ router.put('/:id/approve', auth, superAdminOnly, async (req, res) => {
             ['approved', perilakuId, 'pending']
         );
         
-        await applyPerilakuIpcChange(
+        await applyPerilakuIptChange(
             perilakuData.user_id,
             perilakuData.point,
             `Perilaku: ${perilakuData.karakter_siswa}`,
@@ -232,19 +232,19 @@ router.put('/:id', auth, async (req, res) => {
             [nama, nis, kelas, grha, karakter, point, perilakuId]
         );
 
-        // If status is approved and point changed, update user IPC
+        // If status is approved and point changed, update user IPT
         if (perilakuData.status === 'approved' && perilakuData.point !== point) {
             const pointDiff = point - perilakuData.point;
-            const [userBefore] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [perilakuData.user_id]);
-            const ipcSebelum = userBefore[0].ipc_total;
-            const ipcSesudah = ipcSebelum + pointDiff;
+            const [userBefore] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [perilakuData.user_id]);
+            const iptSebelum = userBefore[0].ipt_total;
+            const iptSesudah = iptSebelum + pointDiff;
             
-            // Update user IPC (can go negative due to pelanggaran, can recover with perilaku)
-            await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, perilakuData.user_id]);
+            // Update user IPT (can go negative due to pelanggaran, can recover with perilaku)
+            await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, perilakuData.user_id]);
             
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [perilakuData.user_id, 'perilaku_update', pointDiff, ipcSebelum, ipcSesudah, `Update Perilaku: ${karakter}`]
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [perilakuData.user_id, 'perilaku_update', pointDiff, iptSebelum, iptSesudah, `Update Perilaku: ${karakter}`]
             );
         }
 
@@ -270,18 +270,18 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
 
         const perilakuData = perilaku[0];
 
-        // If approved, revert IPC change
+        // If approved, revert IPT change
         if (perilakuData.status === 'approved') {
-            const [user] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [perilakuData.user_id]);
-            const ipcSebelum = user[0].ipc_total;
-            const ipcSesudah = ipcSebelum - perilakuData.point;
+            const [user] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [perilakuData.user_id]);
+            const iptSebelum = user[0].ipt_total;
+            const iptSesudah = iptSebelum - perilakuData.point;
             
-            await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, perilakuData.user_id]);
+            await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, perilakuData.user_id]);
             
-            // Log IPC history
+            // Log IPT history
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [perilakuData.user_id, 'perilaku_delete', -perilakuData.point, ipcSebelum, ipcSesudah, `Delete Perilaku: ${perilakuData.karakter_siswa}`]
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [perilakuData.user_id, 'perilaku_delete', -perilakuData.point, iptSebelum, iptSesudah, `Delete Perilaku: ${perilakuData.karakter_siswa}`]
             );
         }
 

@@ -13,7 +13,7 @@ const {
     calculateKepanitiaanPoints,
     calculatePelanggaranPoints
 } = require('../constants/points');
-const { resolveStudentIdByNis, resolvePembina, applyIpcChange, applyPerilakuIpcChange, buildKeterangan } = require('../utils/ipc');
+const { resolveStudentIdByNis, resolvePembina, applyIptChange, applyPerilakuIptChange, buildKeterangan } = require('../utils/ipt');
 const {
     getApprovalStatusColumn,
     getRowApprovalStatus,
@@ -128,7 +128,7 @@ router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.singl
             }
         }
         
-        // STAFF DIRECT (superadmin/guru/pegawai): approved rows + IPC, skips approval queue
+        // STAFF DIRECT (superadmin/guru/pegawai): approved rows + IPT, skips approval queue
         if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
             console.log('Prestasi - Superadmin direct submission');
             const point = await calculatePrestasiPoints(juara, kategori);
@@ -141,7 +141,7 @@ router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.singl
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
                     [m.id, m.nama, m.nis, nama_lomba, m.kelas || '', resolvedPembinaName, resolvedPembinaId, m.grha || '', juara, kategori, jenis_lomba, kategori_lomba, grupLomba, sharedFotoPath, point]
                 );
-                await applyIpcChange(m.id, 'prestasi', point, buildKeterangan('prestasi', { nama_lomba, juara, kategori }));
+                await applyIptChange(m.id, 'prestasi', point, buildKeterangan('prestasi', { nama_lomba, juara, kategori }));
                 insertedIds.push(result.insertId);
             }
 
@@ -211,7 +211,7 @@ router.post('/pelanggaran/submit', auth, checkInputAccess('pelanggaran'), upload
         const [studentData] = await db.query('SELECT kelas FROM users WHERE id = ?', [userId]);
         const calculatedClass = studentData[0]?.kelas || '';
 
-        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPC change, skips approval queue
+        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPT change, skips approval queue
         if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
             console.log('Pelanggaran - Superadmin direct submission');
 
@@ -231,7 +231,7 @@ router.post('/pelanggaran/submit', auth, checkInputAccess('pelanggaran'), upload
                 [userId, req.user.id, nama, nis, calculatedClass, grha, keterangan, finalFotoPath, jenis_pelanggaran, point]
             );
 
-            await applyIpcChange(userId, 'pelanggaran', point, buildKeterangan('pelanggaran', { jenis_pelanggaran }));
+            await applyIptChange(userId, 'pelanggaran', point, buildKeterangan('pelanggaran', { jenis_pelanggaran }));
 
             // Log activity
             await logActivity(req.user.id, 'SUBMIT_PELANGGARAN', `${req.user.nama} (${req.user.role}) directly added pelanggaran for ${nama} (${nis}): ${jenis_pelanggaran}`, req.ip);
@@ -280,7 +280,7 @@ router.post('/event/submit', auth, checkInputAccess('event'), upload.single('fot
         const [studentData] = await db.query('SELECT kelas FROM users WHERE id = ?', [userId]);
         const calculatedClass = studentData[0]?.kelas || '';
         
-        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPC change, skips approval queue
+        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPT change, skips approval queue
         if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
             console.log('Event - Superadmin direct submission');
             const point = await calculateEventPoints(tingkat);
@@ -301,7 +301,7 @@ router.post('/event/submit', auth, checkInputAccess('event'), upload.single('fot
                 [userId, nama, nis, calculatedClass, grha, nama_event, tingkat, finalFotoPath, point]
             );
             
-            await applyIpcChange(userId, 'event', point, buildKeterangan('event', { nama_event, tingkat }));
+            await applyIptChange(userId, 'event', point, buildKeterangan('event', { nama_event, tingkat }));
             
             console.log('Event - Directly added by superadmin:', result.insertId);
             
@@ -360,7 +360,7 @@ router.post('/organisasi/submit', auth, checkInputAccess('organisasi'), upload.s
         const [studentData] = await db.query('SELECT kelas FROM users WHERE id = ?', [userId]);
         const calculatedClass = studentData[0]?.kelas || '';
         
-        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPC change, skips approval queue
+        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPT change, skips approval queue
         if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
             console.log('Organisasi - Superadmin direct submission');
             const point = await calculateOrganisasiPoints(kategori_organisasi, jabatan_organisasi);
@@ -381,7 +381,7 @@ router.post('/organisasi/submit', auth, checkInputAccess('organisasi'), upload.s
                 [userId, nama, nis, calculatedClass, grha, jabatan_organisasi, finalFotoPath, kategori_organisasi, point]
             );
             
-            await applyIpcChange(
+            await applyIptChange(
                 userId,
                 'organisasi',
                 point,
@@ -445,7 +445,7 @@ router.post('/kepanitiaan/submit', auth, checkInputAccess('kepanitiaan'), upload
         const [studentData] = await db.query('SELECT kelas FROM users WHERE id = ?', [userId]);
         const calculatedClass = studentData[0]?.kelas || '';
         
-        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPC change, skips approval queue
+        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPT change, skips approval queue
         if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
             console.log('Kepanitiaan - Superadmin direct submission');
             const point = await calculateKepanitiaanPoints(jabatan_kepanitiaan);
@@ -466,7 +466,7 @@ router.post('/kepanitiaan/submit', auth, checkInputAccess('kepanitiaan'), upload
                 [userId, nama, nis, calculatedClass, grha, jabatan_kepanitiaan, finalFotoPath, kategori_kepanitiaan, point]
             );
             
-            await applyIpcChange(
+            await applyIptChange(
                 userId,
                 'kepanitiaan',
                 point,
@@ -582,7 +582,7 @@ router.put('/superadmin/:type/:id', auth, approverOnly, async (req, res) => {
 
         // Kelompok prestasi: one decision covers the whole group. Collect
         // still-pending sibling rows sharing this grup_lomba (each keeps its
-        // own row, IPC entry, and notification — full points per member).
+        // own row, IPT entry, and notification — full points per member).
         let targetRows = [data];
         if (type === 'prestasi' && data.grup_lomba) {
             const [siblings] = await db.query(
@@ -666,7 +666,7 @@ router.put('/superadmin/:type/:id', auth, approverOnly, async (req, res) => {
                 await db.query(`UPDATE ${table} SET foto = ? WHERE id = ?`, [finalFotoPath, row.id]);
             }
 
-            await applyIpcChange(
+            await applyIptChange(
                 data.user_id,
                 type,
                 pointChange,
@@ -744,7 +744,7 @@ async function handleLegacyApproval(type, id, status, notes, approverId, approve
             await db.query(`UPDATE ${table} SET status = 'approved' WHERE id = ? AND status = 'pending'`, [id]);
 
             if (type === 'pelanggaran') {
-                await applyIpcChange(
+                await applyIptChange(
                     data.user_id,
                     'pelanggaran',
                     // point_dikurangi sudah negatif (hasil calculatePelanggaranPoints),
@@ -753,7 +753,7 @@ async function handleLegacyApproval(type, id, status, notes, approverId, approve
                     `Pelanggaran: ${data.jenis_pelanggaran}`
                 );
             } else {
-                await applyPerilakuIpcChange(
+                await applyPerilakuIptChange(
                     data.user_id,
                     data.point,
                     `Perilaku: ${data.karakter_siswa}`,

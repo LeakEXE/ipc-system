@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import {
   BarChart,
   Bar,
@@ -49,7 +49,7 @@ function StudentAvatar({ foto, nama, className }) {
 }
 
 function Dashboard() {
-  const minIpc = useMinIpcPerGrade();
+  const minIpt = useMinIptPerGrade();
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +106,7 @@ function Dashboard() {
       console.error('Error fetching school config:', error);
       setSchoolConfig({
         school_name: 'SMK Negeri Bali Mandara',
-        school_description: 'Sistem Individual Point Card (IPC) • Panel Admin',
+        school_description: 'Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) • Panel Admin',
         principal_name: 'Nama Kepala Sekolah',
         principal_nip: '',
         logo_url: null
@@ -146,7 +146,7 @@ function Dashboard() {
     { name: 'Event', value: stats?.points_event || 0, fill: '#f59e0b' }
   ]), [stats]);
 
-  const topStudents = useMemo(() => stats?.top_ipc_students || [], [stats]);
+  const topStudents = useMemo(() => stats?.top_ipt_students || [], [stats]);
   const top3 = useMemo(() => topStudents.slice(0, 3), [topStudents]);
 
   if (loading) {
@@ -168,9 +168,9 @@ function Dashboard() {
   const roleInitial = user?.role === 'superadmin' ? 'SA' : user?.role === 'guru' ? 'G' : user?.role === 'pegawai' ? 'P' : user?.role === 'siswa' ? 'S' : 'U';
   const valueCls = showLabels ? '' : 'is-blurred';
 
-  const studentMin = user?.role === 'siswa' ? minIpcFor(minIpc, user?.kelas) : 0;
-  const studentTotal = Number(user?.ipc_total ?? 0);
-  const studentIsLow = user?.role === 'siswa' ? isBelowMinIpc(user?.ipc_total ?? 0, studentMin) : false;
+  const studentMin = user?.role === 'siswa' ? minIptFor(minIpt, user?.kelas) : 0;
+  const studentTotal = Number(user?.ipt_total ?? 0);
+  const studentIsLow = user?.role === 'siswa' ? isBelowMinIpt(user?.ipt_total ?? 0, studentMin) : false;
   const studentPct = studentMin > 0 ? Math.max(0, Math.min(100, (studentTotal / studentMin) * 100)) : 100;
 
   return (
@@ -194,7 +194,7 @@ function Dashboard() {
           </div>
           <div style={{ minWidth: 0 }}>
             <div className="dash-school-name">{schoolConfig?.school_name || 'SMK Negeri Bali Mandara'}</div>
-            <div className="dash-school-desc">{schoolConfig?.school_description || 'Sistem Individual Point Card (IPC) · Panel Admin'}</div>
+            <div className="dash-school-desc">{schoolConfig?.school_description || 'Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) · Panel Admin'}</div>
           </div>
         </div>
         <div className="dash-header-right">
@@ -218,7 +218,7 @@ function Dashboard() {
           {[0, 1].map((i) => (
             <div className="dash-notice-group" key={i}>
               <Megaphone size={14} style={{ marginRight: '8px', flexShrink: 0 }} />
-              <span>Selamat datang di Website IPC — Sistem Individual Point Card SMK Negeri Bali Mandara</span>
+              <span>Selamat datang di Mandara Talenta — Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) SMK Negeri Bali Mandara</span>
               <span className="dash-notice-dot" />
             </div>
           ))}
@@ -229,7 +229,7 @@ function Dashboard() {
       <div className="dash-title-row">
         <div>
           <h1 className="dash-title">Dashboard</h1>
-          <p className="dash-subtitle">Selamat datang, {roleLabel}! Berikut ringkasan data IPC terkini.</p>
+          <p className="dash-subtitle">Selamat datang, {roleLabel}! Berikut ringkasan data IPT terkini.</p>
         </div>
         <div className="dash-actions">
           <button className="dash-btn" onClick={() => setShowLabels(!showLabels)}>
@@ -252,12 +252,12 @@ function Dashboard() {
         <div className="student-hero">
           <div className="student-hero-top">
             <div>
-              <div className="student-hero-ipc-label"><Target size={13} /> IPC Anda</div>
-              <div className={`student-hero-ipc ${studentIsLow ? 'is-low' : ''} ${valueCls}`}>{user?.ipc_total ?? 0}</div>
+              <div className="student-hero-ipt-label"><Target size={13} /> IPT Anda</div>
+              <div className={`student-hero-ipt ${studentIsLow ? 'is-low' : ''} ${valueCls}`}>{user?.ipt_total ?? 0}</div>
               <div className="student-hero-sub">
                 {studentMin > 0
                   ? (studentIsLow ? `Di bawah batas minimum ${studentMin} untuk ${user?.kelas || 'kelas Anda'}` : `Di atas batas minimum ${studentMin}`)
-                  : 'Point Individual Point Card'}
+                  : 'Point Individual Point Talent'}
               </div>
             </div>
             <div style={{ fontSize: '12.5px', color: '#64748b' }}>
@@ -293,8 +293,8 @@ function Dashboard() {
             {[
               { label: 'Total Siswa', value: stats.total_students || 0, sub: 'Siswa aktif terdaftar', icon: Users, mod: 'is-blue' },
               { label: 'Total Guru', value: stats.total_teachers || 0, sub: 'Guru terdaftar', icon: GraduationCap, mod: 'is-teal' },
-              { label: 'Rata-rata IPC', value: stats.ipc_stats?.rata_rata || 0, sub: 'Rata-rata seluruh siswa', icon: BarChart3, mod: 'is-green' },
-              { label: 'IPC Tertinggi', value: stats.ipc_stats?.tertinggi || 0, sub: 'Poin tertinggi', icon: Trophy, mod: 'is-amber' }
+              { label: 'Rata-rata IPT', value: stats.ipt_stats?.rata_rata || 0, sub: 'Rata-rata seluruh siswa', icon: BarChart3, mod: 'is-green' },
+              { label: 'IPT Tertinggi', value: stats.ipt_stats?.tertinggi || 0, sub: 'Poin tertinggi', icon: Trophy, mod: 'is-amber' }
             ].map((k) => (
               <div className={`kpi-card ${k.mod}`} key={k.label}>
                 <div className="kpi-top">
@@ -315,7 +315,7 @@ function Dashboard() {
               ['Kepanitiaan', stats.total_kepanitiaan || 0],
               ['Event', stats.total_event || 0],
               ['Perilaku', stats.total_perilaku || 0],
-              ['IPC Terendah', stats.ipc_stats?.terendah || 0]
+              ['IPT Terendah', stats.ipt_stats?.terendah || 0]
             ].map(([label, value]) => (
               <div className="kpi-mini" key={label}>
                 <div className="kpi-mini-label">{label}</div>
@@ -331,9 +331,9 @@ function Dashboard() {
                 <span className="card-head-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15 8.5 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 8.5 12 2" /></svg>
                 </span>
-                Top 5 Siswa dengan IPC Tertinggi
+                Top 5 Siswa dengan IPT Tertinggi
               </h3>
-              <p>Siswa dengan perolehan poin IPC tertinggi yang masih aktif</p>
+              <p>Siswa dengan perolehan poin IPT tertinggi yang masih aktif</p>
             </div>
 
             {top3.length > 0 && (
@@ -343,14 +343,14 @@ function Dashboard() {
                   { s: top3[0], cls: 'first', rank: 1 },
                   { s: top3[2], cls: 'third', rank: 3 }
                 ].filter((x) => x.s).map(({ s, cls, rank }) => {
-                  const low = isBelowMinIpc(s.ipc_total, minIpcFor(minIpc, s.kelas));
+                  const low = isBelowMinIpt(s.ipt_total, minIptFor(minIpt, s.kelas));
                   return (
                     <div key={s.id || s.nis || rank} className={`podium-slot ${cls}`}>
                       <div className="podium-medal"><MedalIcon rank={rank} /></div>
                       <div className="podium-avatar"><StudentAvatar foto={s.foto} nama={s.nama} /></div>
                       <div className="podium-name" title={s.nama}>{s.nama}</div>
                       <div className="podium-meta">{s.kelas || '-'} · {s.grha || '-'}</div>
-                      <div className={`podium-total ${low ? 'is-low' : ''} ${valueCls}`}><Award size={14} /> {s.ipc_total} poin</div>
+                      <div className={`podium-total ${low ? 'is-low' : ''} ${valueCls}`}><Award size={14} /> {s.ipt_total} poin</div>
                       <div className="podium-step">{rank}</div>
                     </div>
                   );
@@ -367,12 +367,12 @@ function Dashboard() {
                     <th>NIS</th>
                     <th>Kelas</th>
                     <th>Grha</th>
-                    <th>IPC</th>
+                    <th>IPT</th>
                   </tr>
                 </thead>
                 <tbody>
                   {topStudents.map((student, index) => {
-                    const low = isBelowMinIpc(student.ipc_total, minIpcFor(minIpc, student.kelas));
+                    const low = isBelowMinIpt(student.ipt_total, minIptFor(minIpt, student.kelas));
                     return (
                       <tr key={student.id || index} style={{ animationDelay: `${index * 0.06}s` }}>
                         <td><div className={`pos-badge ${index === 0 ? 'p1' : index === 1 ? 'p2' : index === 2 ? 'p3' : ''}`}>{index + 1}</div></td>
@@ -388,7 +388,7 @@ function Dashboard() {
                         <td>{student.nis || '-'}</td>
                         <td>{student.kelas || '-'}</td>
                         <td>{student.grha || '-'}</td>
-                        <td className={`ipc-cell ${low ? 'is-low' : ''} ${valueCls}`}>{student.ipc_total}</td>
+                        <td className={`ipt-cell ${low ? 'is-low' : ''} ${valueCls}`}>{student.ipt_total}</td>
                       </tr>
                     );
                   })}
@@ -482,7 +482,7 @@ function Dashboard() {
             </div>
 
             <div className="chart-box chart-span" style={{ animationDelay: '0.25s' }}>
-              <h4>Ringkasan IPC</h4>
+              <h4>Ringkasan IPT</h4>
               <p className="chart-sub">Total preolehan poin seluruh siswa per kategori</p>
               <div className="chart-body">
                 <ResponsiveContainer width="100%" height="100%">

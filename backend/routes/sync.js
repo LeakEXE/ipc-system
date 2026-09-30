@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { auth, superAdminOnly } = require('../middleware/auth');
-const { buildIpcCardBreakdown } = require('../utils/ipcCardBreakdown');
+const { buildIptCardBreakdown } = require('../utils/iptCardBreakdown');
 const db = require('../config/database');
 
 /**
- * IPC Synchronization Routes
- * These routes allow for manual and automatic IPC recalculation
+ * IPT Synchronization Routes
+ * These routes allow for manual and automatic IPT recalculation
  */
 
-// Sync IPC for a single student
+// Sync IPT for a single student
 router.post('/student/:userId', auth, superAdminOnly, async (req, res) => {
     try {
         const userId = parseInt(req.params.userId, 10);
@@ -19,53 +19,53 @@ router.post('/student/:userId', auth, superAdminOnly, async (req, res) => {
         }
 
         // Get the accurate breakdown from database
-        const cardData = await buildIpcCardBreakdown(userId);
+        const cardData = await buildIptCardBreakdown(userId);
         
         if (!cardData) {
             return res.status(404).json({ message: 'Student not found' });
         }
         
         const calculatedTotal = cardData.breakdown_total;
-        const currentTotal = cardData.student.ipc_total;
+        const currentTotal = cardData.student.ipt_total;
         
         // Update if different
         if (calculatedTotal !== currentTotal) {
             await db.query(
-                'UPDATE users SET ipc_total = ? WHERE id = ?',
+                'UPDATE users SET ipt_total = ? WHERE id = ?',
                 [calculatedTotal, userId]
             );
             
-            // Log the sync in ipc_history
+            // Log the sync in ipt_history
             await db.query(
-                `INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan)
+                `INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan)
                  VALUES (?, 'sync', ?, ?, ?, ?)`,
-                [userId, calculatedTotal - currentTotal, currentTotal, calculatedTotal, 'Manual IPC Synchronization']
+                [userId, calculatedTotal - currentTotal, currentTotal, calculatedTotal, 'Manual IPT Synchronization']
             );
             
             return res.json({
-                message: 'IPC synchronized successfully',
+                message: 'IPT synchronized successfully',
                 previous_total: currentTotal,
                 new_total: calculatedTotal,
                 difference: calculatedTotal - currentTotal
             });
         } else {
             return res.json({
-                message: 'IPC already synchronized',
+                message: 'IPT already synchronized',
                 current_total: currentTotal
             });
         }
     } catch (error) {
-        console.error('Error syncing student IPC:', error);
+        console.error('Error syncing student IPT:', error);
         res.status(500).json({ message: 'Server error during synchronization' });
     }
 });
 
-// Sync IPC for all students
+// Sync IPT for all students
 router.post('/all', auth, superAdminOnly, async (req, res) => {
     try {
         // Get all students
         const [students] = await db.query(
-            "SELECT id, nama, nis, kelas, ipc_total FROM users WHERE role = 'siswa' AND (is_graduated = 0 OR is_graduated IS NULL)"
+            "SELECT id, nama, nis, kelas, ipt_total FROM users WHERE role = 'siswa' AND (is_graduated = 0 OR is_graduated IS NULL)"
         );
         
         let updatedCount = 0;
@@ -75,27 +75,27 @@ router.post('/all', auth, superAdminOnly, async (req, res) => {
         for (const student of students) {
             try {
                 // Get the accurate breakdown from database
-                const cardData = await buildIpcCardBreakdown(student.id);
+                const cardData = await buildIptCardBreakdown(student.id);
                 
                 if (!cardData) {
                     continue;
                 }
                 
                 const calculatedTotal = cardData.breakdown_total;
-                const currentTotal = cardData.student.ipc_total;
+                const currentTotal = cardData.student.ipt_total;
                 
                 // Update if different
                 if (calculatedTotal !== currentTotal) {
                     await db.query(
-                        'UPDATE users SET ipc_total = ? WHERE id = ?',
+                        'UPDATE users SET ipt_total = ? WHERE id = ?',
                         [calculatedTotal, student.id]
                     );
                     
-                    // Log the sync in ipc_history
+                    // Log the sync in ipt_history
                     await db.query(
-                        `INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan)
+                        `INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan)
                          VALUES (?, 'sync', ?, ?, ?, ?)`,
-                        [student.id, calculatedTotal - currentTotal, currentTotal, calculatedTotal, 'Bulk IPC Synchronization']
+                        [student.id, calculatedTotal - currentTotal, currentTotal, calculatedTotal, 'Bulk IPT Synchronization']
                     );
                     
                     updatedCount++;
@@ -116,14 +116,14 @@ router.post('/all', auth, superAdminOnly, async (req, res) => {
         }
         
         res.json({
-            message: 'Bulk IPC synchronization completed',
+            message: 'Bulk IPT synchronization completed',
             total_students: students.length,
             updated_count: updatedCount,
             already_synced_count: alreadySyncedCount,
             details: updatedCount > 0 ? details : undefined
         });
     } catch (error) {
-        console.error('Error during bulk IPC sync:', error);
+        console.error('Error during bulk IPT sync:', error);
         res.status(500).json({ message: 'Server error during bulk synchronization' });
     }
 });
@@ -133,21 +133,21 @@ router.get('/status', auth, superAdminOnly, async (req, res) => {
     try {
         // Get all students
         const [students] = await db.query(
-            "SELECT id, nama, nis, kelas, ipc_total FROM users WHERE role = 'siswa' AND (is_graduated = 0 OR is_graduated IS NULL)"
+            "SELECT id, nama, nis, kelas, ipt_total FROM users WHERE role = 'siswa' AND (is_graduated = 0 OR is_graduated IS NULL)"
         );
         
         const discrepancies = [];
         
         for (const student of students) {
             try {
-                const cardData = await buildIpcCardBreakdown(student.id);
+                const cardData = await buildIptCardBreakdown(student.id);
                 
                 if (!cardData) {
                     continue;
                 }
                 
                 const calculatedTotal = cardData.breakdown_total;
-                const currentTotal = cardData.student.ipc_total;
+                const currentTotal = cardData.student.ipt_total;
                 
                 if (calculatedTotal !== currentTotal) {
                     discrepancies.push({

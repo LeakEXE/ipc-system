@@ -32,7 +32,7 @@ router.post('/login', async (req, res) => {
         const { username, password } = req.body;
 
         const [users] = await db.query(
-            'SELECT id, nama, nis, nip, username, password, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, alamat, no_hp, detail, foto, tahun_pelajaran, is_graduated, jurusan, must_change_credentials FROM users WHERE LOWER(username) = LOWER(?)',
+            'SELECT id, nama, nis, nip, username, password, role, kelas, grha, wali_kelas, ipt_total, ipt_awal, alamat, no_hp, detail, foto, tahun_pelajaran, is_graduated, jurusan, must_change_credentials FROM users WHERE LOWER(username) = LOWER(?)',
             [username]
         );
 
@@ -92,7 +92,7 @@ const user = users[0];
                 kelas: user.kelas,
                 grha: user.grha,
                 wali_kelas: user.wali_kelas,
-                ipc_total: user.ipc_total,
+                ipt_total: user.ipt_total,
                 foto: user.foto || null,
                 must_change_credentials: !!user.must_change_credentials
             }

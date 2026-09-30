@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'ipc-system',
+    name: 'mandara-talenta',
     script: 'backend/server.js',
     // Run with backend/ as cwd so any relative path behaves like dev.
     // (All upload paths are absolute via backend/utils/paths.js; this is belt-and-suspenders.)

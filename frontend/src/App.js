@@ -21,7 +21,7 @@ import Approvals from './components/Approvals';
 import DriveViewer from './components/DriveViewer';
 import Notifications from './components/Notifications';
 import LaporanCetak from './components/LaporanCetak';
-import KonfigurasiIPC from './components/KonfigurasiIPC';
+import KonfigurasiIPT from './components/KonfigurasiIPT';
 import SchoolConfig from './components/SchoolConfig';
 import StudentLookup from './components/StudentLookup';
 import api from './utils/api';
@@ -212,9 +212,15 @@ function App() {
             }}
           </ProtectedRoute>
         } />
+        <Route path="/konfigurasi-ipt" element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            {(user) => <MainLayout user={user}><KonfigurasiIPT /></MainLayout>}
+          </ProtectedRoute>
+        } />
+        {/* Deprecated alias: pre-rebrand bookmarks still use /konfigurasi-ipc. */}
         <Route path="/konfigurasi-ipc" element={
           <ProtectedRoute allowedRoles={['superadmin']}>
-            {(user) => <MainLayout user={user}><KonfigurasiIPC /></MainLayout>}
+            {(user) => <MainLayout user={user}><KonfigurasiIPT /></MainLayout>}
           </ProtectedRoute>
         } />
         <Route path="/cari-siswa" element={
@@ -264,7 +270,7 @@ function MainLayout({ user, children }) {
         <button className="mobile-menu-toggle" onClick={toggleMobileMenu} aria-label="Menu navigasi">
           {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
-        <span className="mobile-header-title">Website IPC Bali Mandara</span>
+        <span className="mobile-header-title">Mandara Talenta</span>
       </div>
       <Navbar user={user} onLogout={handleLogout} isMobileMenuOpen={isMobileMenuOpen} toggleMobileMenu={toggleMobileMenu} />
       <div className="content">

@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { auth, superAdminOnly } = require('../middleware/auth');
 const db = require('../config/database');
-const { clearConfigCache, getIpcAwalPerGrade, IPC_AWAL_GRADES } = require('../utils/ipcConfig');
+const { clearConfigCache, getIptAwalPerGrade, IPT_AWAL_GRADES } = require('../utils/iptConfig');
 
 async function getOrganisasiOptions(activeOnly = false) {
     const [rows] = await db.query(
         `SELECT id, name, is_active, created_at, updated_at
-         FROM ipc_organisasi
+         FROM ipt_organisasi
          ${activeOnly ? 'WHERE is_active = TRUE' : ''}
          ORDER BY name`
     );
@@ -17,7 +17,7 @@ async function getOrganisasiOptions(activeOnly = false) {
 async function getPerilakuRatings(activeOnly = false) {
     const [rows] = await db.query(
         `SELECT id, name, is_active, created_at, updated_at
-         FROM ipc_perilaku_tingkat
+         FROM ipt_perilaku_tingkat
          ${activeOnly ? 'WHERE is_active = TRUE' : ''}
          ORDER BY name`
     );
@@ -30,13 +30,13 @@ async function getPelanggaranConfigs(activeOnly = false) {
         SELECT CONCAT('level-', l.id) id, 'pelanggaran' category,
                l.name field1, NULL field2, l.point_value,
                l.description, l.is_active, l.created_at, l.updated_at
-        FROM ipc_pelanggaran_level l ${activeClause}
+        FROM ipt_pelanggaran_level l ${activeClause}
         UNION ALL
         SELECT CONCAT('detail-', d.id), 'pelanggaran',
                d.name, l.name, l.point_value,
                NULL, d.is_active, d.created_at, d.updated_at
-        FROM ipc_pelanggaran_detail d
-        JOIN ipc_pelanggaran_level l ON l.id = d.level_id
+        FROM ipt_pelanggaran_detail d
+        JOIN ipt_pelanggaran_level l ON l.id = d.level_id
         ${activeOnly ? 'WHERE d.is_active = TRUE AND l.is_active = TRUE' : ''}
         ORDER BY category, field1
     `);
@@ -48,7 +48,7 @@ function parsePelanggaranId(id) {
     return match ? { type: match[1], value: Number(match[2]) } : null;
 }
 
-// Get all IPC configurations
+// Get all IPT configurations
 router.get('/all', auth, superAdminOnly, async (req, res) => {
     try {
         const [configs] = await db.query(`
@@ -63,13 +63,13 @@ router.get('/all', auth, superAdminOnly, async (req, res) => {
                 created_at,
                 updated_at,
                 updated_by,
-                (SELECT nama FROM users WHERE id = ipc_config.updated_by) as updated_by_name
-            FROM ipc_config
+                (SELECT nama FROM users WHERE id = ipt_config.updated_by) as updated_by_name
+            FROM ipt_config
             ORDER BY category, field1, field2
         `);
         res.json(configs.concat(await getPelanggaranConfigs()));
     } catch (error) {
-        console.error('Error fetching IPC configurations:', error);
+        console.error('Error fetching IPT configurations:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -90,14 +90,14 @@ router.get('/category/:category', auth, superAdminOnly, async (req, res) => {
                 created_at,
                 updated_at,
                 updated_by,
-                (SELECT nama FROM users WHERE id = ipc_config.updated_by) as updated_by_name
-            FROM ipc_config
+                (SELECT nama FROM users WHERE id = ipt_config.updated_by) as updated_by_name
+            FROM ipt_config
             WHERE category = ?
             ORDER BY field1, field2
         `, [category]);
         res.json(category === 'pelanggaran' ? await getPelanggaranConfigs() : configs);
     } catch (error) {
-        console.error('Error fetching IPC configurations by category:', error);
+        console.error('Error fetching IPT configurations by category:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -107,7 +107,7 @@ router.get('/active', auth, async (req, res) => {
     try {
         const [configs] = await db.query(`
             SELECT category, field1, field2, point_value
-            FROM ipc_config
+            FROM ipt_config
             WHERE is_active = TRUE
             ORDER BY category, field1, field2
         `);
@@ -129,7 +129,7 @@ router.get('/active', auth, async (req, res) => {
         
         res.json(grouped);
     } catch (error) {
-        console.error('Error fetching active IPC configurations:', error);
+        console.error('Error fetching active IPT configurations:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -148,7 +148,7 @@ router.post('/organisasi-options', auth, superAdminOnly, async (req, res) => {
         const { name } = req.body;
         if (!name?.trim()) return res.status(400).json({ message: 'Nama organisasi wajib diisi' });
         const [result] = await db.query(
-            'INSERT INTO ipc_organisasi (name, is_active) VALUES (?, TRUE)', [name.trim()]
+            'INSERT INTO ipt_organisasi (name, is_active) VALUES (?, TRUE)', [name.trim()]
         );
         const options = await getOrganisasiOptions();
         res.status(201).json(options.find(option => option.id === result.insertId));
@@ -161,18 +161,18 @@ router.post('/organisasi-options', auth, superAdminOnly, async (req, res) => {
 
 router.delete('/organisasi-options/:id', auth, superAdminOnly, async (req, res) => {
     try {
-        const [option] = await db.query('SELECT name FROM ipc_organisasi WHERE id = ?', [req.params.id]);
+        const [option] = await db.query('SELECT name FROM ipt_organisasi WHERE id = ?', [req.params.id]);
         if (!option.length) return res.status(404).json({ message: 'Organisasi tidak ditemukan' });
         const [configs] = await db.query(
-            `SELECT COUNT(*) count FROM ipc_config WHERE category = 'organisasi' AND field1 = ?`,
+            `SELECT COUNT(*) count FROM ipt_config WHERE category = 'organisasi' AND field1 = ?`,
             [option[0].name]
         );
         if (configs[0].count > 0) {
             return res.status(409).json({
-                message: `Organisasi ${option[0].name} tidak dapat dihapus karena masih memiliki konfigurasi point IPC`
+                message: `Organisasi ${option[0].name} tidak dapat dihapus karena masih memiliki konfigurasi point IPT`
             });
         }
-        await db.query('DELETE FROM ipc_organisasi WHERE id = ?', [req.params.id]);
+        await db.query('DELETE FROM ipt_organisasi WHERE id = ?', [req.params.id]);
         res.json({ message: 'Organisasi berhasil dihapus' });
     } catch (error) {
         console.error('Error deleting organisasi option:', error);
@@ -194,7 +194,7 @@ router.post('/perilaku-ratings', auth, superAdminOnly, async (req, res) => {
         const { name } = req.body;
         if (!name?.trim()) return res.status(400).json({ message: 'Nama tingkat penilaian wajib diisi' });
         const [result] = await db.query(
-            'INSERT INTO ipc_perilaku_tingkat (name, is_active) VALUES (?, TRUE)', [name.trim()]
+            'INSERT INTO ipt_perilaku_tingkat (name, is_active) VALUES (?, TRUE)', [name.trim()]
         );
         const options = await getPerilakuRatings();
         res.status(201).json(options.find(option => option.id === result.insertId));
@@ -207,20 +207,20 @@ router.post('/perilaku-ratings', auth, superAdminOnly, async (req, res) => {
 
 router.delete('/perilaku-ratings/:id', auth, superAdminOnly, async (req, res) => {
     try {
-        const [option] = await db.query('SELECT name FROM ipc_perilaku_tingkat WHERE id = ?', [req.params.id]);
+        const [option] = await db.query('SELECT name FROM ipt_perilaku_tingkat WHERE id = ?', [req.params.id]);
         if (!option.length) return res.status(404).json({ message: 'Tingkat penilaian tidak ditemukan' });
         // Tingkat dipakai bersama semua karakter (field1 format baru,
         // field2 format lama) -> tolak hapus bila masih dirujuk
         const [configs] = await db.query(
-            `SELECT COUNT(*) count FROM ipc_config WHERE category = 'perilaku' AND (field1 = ? OR field2 = ?)`,
+            `SELECT COUNT(*) count FROM ipt_config WHERE category = 'perilaku' AND (field1 = ? OR field2 = ?)`,
             [option[0].name, option[0].name]
         );
         if (configs[0].count > 0) {
             return res.status(409).json({
-                message: `Tingkat penilaian ${option[0].name} tidak dapat dihapus karena masih memiliki konfigurasi point IPC`
+                message: `Tingkat penilaian ${option[0].name} tidak dapat dihapus karena masih memiliki konfigurasi point IPT`
             });
         }
-        await db.query('DELETE FROM ipc_perilaku_tingkat WHERE id = ?', [req.params.id]);
+        await db.query('DELETE FROM ipt_perilaku_tingkat WHERE id = ?', [req.params.id]);
         res.json({ message: 'Tingkat penilaian berhasil dihapus' });
     } catch (error) {
         console.error('Error deleting perilaku rating:', error);
@@ -228,42 +228,42 @@ router.delete('/perilaku-ratings/:id', auth, superAdminOnly, async (req, res) =>
     }
 });
 
-// ---- Batas minimum Total IPC per tingkat (X, XI, XII) ----
+// ---- Batas minimum Total IPT per tingkat (X, XI, XII) ----
 // Display-only setting: totals below the grade's threshold render red.
 // 0 = nonaktif untuk tingkat tersebut. Missing grade rows fall back to the
-// legacy single `min_ipc` row (if any), then 0 — so existing deployments keep
+// legacy single `min_ipt` row (if any), then 0 — so existing deployments keep
 // their current value for all grades until saved per grade here.
-const MIN_IPC_CATEGORY = 'pengaturan';
-const MIN_IPC_GRADES = ['X', 'XI', 'XII'];
+const MIN_IPT_CATEGORY = 'pengaturan';
+const MIN_IPT_GRADES = ['X', 'XI', 'XII'];
 
-// Dibaca semua role yang login — dipakai untuk menandai total IPC di bawah batas (merah).
-router.get('/min-ipc-per-grade', auth, async (req, res) => {
+// Dibaca semua role yang login — dipakai untuk menandai total IPT di bawah batas (merah).
+router.get('/min-ipt-per-grade', auth, async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT field1, point_value FROM ipc_config
-             WHERE category = ? AND field1 IN ('min_ipc', 'min_ipc_X', 'min_ipc_XI', 'min_ipc_XII')`,
-            [MIN_IPC_CATEGORY]
+            `SELECT field1, point_value FROM ipt_config
+             WHERE category = ? AND field1 IN ('min_ipt', 'min_ipt_X', 'min_ipt_XI', 'min_ipt_XII')`,
+            [MIN_IPT_CATEGORY]
         );
         const byField = {};
         for (const row of rows) byField[row.field1] = parseInt(row.point_value, 10);
-        const legacy = Number.isFinite(byField['min_ipc']) && byField['min_ipc'] > 0 ? byField['min_ipc'] : 0;
+        const legacy = Number.isFinite(byField['min_ipt']) && byField['min_ipt'] > 0 ? byField['min_ipt'] : 0;
         const pick = (grade) => {
-            const value = byField[`min_ipc_${grade}`];
+            const value = byField[`min_ipt_${grade}`];
             return Number.isFinite(value) && value >= 0 ? value : legacy;
         };
         res.json({ X: pick('X'), XI: pick('XI'), XII: pick('XII') });
     } catch (error) {
-        console.error('Error fetching min IPC config:', error);
+        console.error('Error fetching min IPT config:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Hanya superadmin yang boleh mengubah batas.
-router.put('/min-ipc-per-grade', auth, superAdminOnly, async (req, res) => {
+router.put('/min-ipt-per-grade', auth, superAdminOnly, async (req, res) => {
     try {
         const { X, XI, XII } = req.body || {};
         const values = { X, XI, XII };
-        for (const grade of MIN_IPC_GRADES) {
+        for (const grade of MIN_IPT_GRADES) {
             const value = Number(values[grade]);
             if (!Number.isInteger(value) || value < 0 || value > 100000) {
                 return res.status(400).json({ message: `Batas minimum Kelas ${grade} harus bilangan bulat 0 - 100000` });
@@ -271,23 +271,23 @@ router.put('/min-ipc-per-grade', auth, superAdminOnly, async (req, res) => {
         }
 
         const userId = req.user.id;
-        for (const grade of MIN_IPC_GRADES) {
-            const field = `min_ipc_${grade}`;
+        for (const grade of MIN_IPT_GRADES) {
+            const field = `min_ipt_${grade}`;
             const [existing] = await db.query(
-                'SELECT id FROM ipc_config WHERE category = ? AND field1 = ? ORDER BY id LIMIT 1',
-                [MIN_IPC_CATEGORY, field]
+                'SELECT id FROM ipt_config WHERE category = ? AND field1 = ? ORDER BY id LIMIT 1',
+                [MIN_IPT_CATEGORY, field]
             );
             if (existing.length) {
                 await db.query(
-                    'UPDATE ipc_config SET point_value = ?, is_active = TRUE, updated_by = ? WHERE id = ?',
+                    'UPDATE ipt_config SET point_value = ?, is_active = TRUE, updated_by = ? WHERE id = ?',
                     [Number(values[grade]), userId, existing[0].id]
                 );
             } else {
                 await db.query(
-                    `INSERT INTO ipc_config (category, field1, field2, field3, point_value, description, is_active, updated_by)
+                    `INSERT INTO ipt_config (category, field1, field2, field3, point_value, description, is_active, updated_by)
                      VALUES (?, ?, NULL, NULL, ?, ?, TRUE, ?)`,
-                    [MIN_IPC_CATEGORY, field, Number(values[grade]),
-                     `Batas minimum Total IPC Kelas ${grade} - total di bawah nilai ini ditampilkan merah (0 = nonaktif)`,
+                    [MIN_IPT_CATEGORY, field, Number(values[grade]),
+                     `Batas minimum Total IPT Kelas ${grade} - total di bawah nilai ini ditampilkan merah (0 = nonaktif)`,
                      userId]
                 );
             }
@@ -296,63 +296,63 @@ router.put('/min-ipc-per-grade', auth, superAdminOnly, async (req, res) => {
         clearConfigCache();
         res.json({ X: Number(values.X), XI: Number(values.XI), XII: Number(values.XII) });
     } catch (error) {
-        console.error('Error updating min IPC config:', error);
+        console.error('Error updating min IPT config:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// ---- IPC awal defaults per grade (X, XI, XII) ----
+// ---- IPT awal defaults per grade (X, XI, XII) ----
 // Readable by all logged-in users; only superadmin may change (PUT below).
-// Missing rows fall back to 80 (matches users.ipc_awal column default).
-router.get('/ipc-awal-per-grade', auth, async (req, res) => {
+// Missing rows fall back to 80 (matches users.ipt_awal column default).
+router.get('/ipt-awal-per-grade', auth, async (req, res) => {
     try {
-        res.json(await getIpcAwalPerGrade());
+        res.json(await getIptAwalPerGrade());
     } catch (error) {
-        console.error('Error fetching IPC awal per grade:', error);
+        console.error('Error fetching IPT awal per grade:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Save all three grade defaults at once. Does NOT touch existing students —
-// the Edit IPC Awal page applies values to current students via bulk-update.
-router.put('/ipc-awal-per-grade', auth, superAdminOnly, async (req, res) => {
+// the Edit IPT Awal page applies values to current students via bulk-update.
+router.put('/ipt-awal-per-grade', auth, superAdminOnly, async (req, res) => {
     try {
         const { X, XI, XII } = req.body || {};
         const values = { X, XI, XII };
-        for (const grade of IPC_AWAL_GRADES) {
+        for (const grade of IPT_AWAL_GRADES) {
             const value = Number(values[grade]);
             if (!Number.isInteger(value) || value < 0 || value > 100000) {
-                return res.status(400).json({ message: `IPC awal Kelas ${grade} harus bilangan bulat 0 - 100000` });
+                return res.status(400).json({ message: `IPT awal Kelas ${grade} harus bilangan bulat 0 - 100000` });
             }
         }
 
         const userId = req.user.id;
-        for (const grade of IPC_AWAL_GRADES) {
-            const field = `ipc_awal_${grade}`;
+        for (const grade of IPT_AWAL_GRADES) {
+            const field = `ipt_awal_${grade}`;
             const [existing] = await db.query(
-                'SELECT id FROM ipc_config WHERE category = ? AND field1 = ? ORDER BY id LIMIT 1',
+                'SELECT id FROM ipt_config WHERE category = ? AND field1 = ? ORDER BY id LIMIT 1',
                 ['pengaturan', field]
             );
             if (existing.length) {
                 await db.query(
-                    'UPDATE ipc_config SET point_value = ?, is_active = TRUE, updated_by = ? WHERE id = ?',
+                    'UPDATE ipt_config SET point_value = ?, is_active = TRUE, updated_by = ? WHERE id = ?',
                     [Number(values[grade]), userId, existing[0].id]
                 );
             } else {
                 await db.query(
-                    `INSERT INTO ipc_config (category, field1, field2, field3, point_value, description, is_active, updated_by)
+                    `INSERT INTO ipt_config (category, field1, field2, field3, point_value, description, is_active, updated_by)
                      VALUES (?, ?, NULL, NULL, ?, ?, TRUE, ?)`,
                     ['pengaturan', field, Number(values[grade]),
-                     `IPC awal default untuk siswa Kelas ${grade}`,
+                     `IPT awal default untuk siswa Kelas ${grade}`,
                      userId]
                 );
             }
         }
 
         clearConfigCache();
-        res.json(await getIpcAwalPerGrade());
+        res.json(await getIptAwalPerGrade());
     } catch (error) {
-        console.error('Error updating IPC awal per grade:', error);
+        console.error('Error updating IPT awal per grade:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -379,8 +379,8 @@ router.get('/:id', auth, superAdminOnly, async (req, res) => {
                 created_at,
                 updated_at,
                 updated_by,
-                (SELECT nama FROM users WHERE id = ipc_config.updated_by) as updated_by_name
-            FROM ipc_config
+                (SELECT nama FROM users WHERE id = ipt_config.updated_by) as updated_by_name
+            FROM ipt_config
             WHERE id = ?
         `, [id]);
         
@@ -390,7 +390,7 @@ router.get('/:id', auth, superAdminOnly, async (req, res) => {
         
         res.json(configs[0]);
     } catch (error) {
-        console.error('Error fetching IPC configuration:', error);
+        console.error('Error fetching IPT configuration:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -405,10 +405,10 @@ router.post('/', auth, superAdminOnly, async (req, res) => {
                 if (!field1 || !String(field1).trim()) {
                     return res.status(400).json({ message: 'Detail pelanggaran wajib diisi' });
                 }
-                const [level] = await db.query('SELECT id FROM ipc_pelanggaran_level WHERE name = ?', [field2]);
+                const [level] = await db.query('SELECT id FROM ipt_pelanggaran_level WHERE name = ?', [field2]);
                 if (!level.length) return res.status(400).json({ message: 'Violation level not found' });
                 const [result] = await db.query(
-                    'INSERT INTO ipc_pelanggaran_detail (name, level_id, is_active) VALUES (?, ?, ?)',
+                    'INSERT INTO ipt_pelanggaran_detail (name, level_id, is_active) VALUES (?, ?, ?)',
                     [String(field1).trim(), level[0].id, is_active !== undefined ? is_active : true]
                 );
                 clearConfigCache();
@@ -422,7 +422,7 @@ router.post('/', auth, superAdminOnly, async (req, res) => {
                 return res.status(400).json({ message: 'Point pelanggaran harus negatif (< 0)' });
             }
             const [result] = await db.query(
-                'INSERT INTO ipc_pelanggaran_level (name, point_value, description, is_active) VALUES (?, ?, ?, ?)',
+                'INSERT INTO ipt_pelanggaran_level (name, point_value, description, is_active) VALUES (?, ?, ?, ?)',
                 [String(field1).trim(), levelPoint, description || null, is_active !== undefined ? is_active : true]
             );
             clearConfigCache();
@@ -434,15 +434,15 @@ router.post('/', auth, superAdminOnly, async (req, res) => {
         }
         
         const [result] = await db.query(`
-            INSERT INTO ipc_config (category, field1, field2, point_value, description, is_active, updated_by)
+            INSERT INTO ipt_config (category, field1, field2, point_value, description, is_active, updated_by)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [category, field1, field2 || null, point_value, description || null, is_active !== undefined ? is_active : true, userId]);
         
         clearConfigCache();
-        const [newConfig] = await db.query('SELECT id, category, field1, field2, field3, point_value, description, is_active, created_at, updated_at, updated_by FROM ipc_config WHERE id = ?', [result.insertId]);
+        const [newConfig] = await db.query('SELECT id, category, field1, field2, field3, point_value, description, is_active, created_at, updated_at, updated_by FROM ipt_config WHERE id = ?', [result.insertId]);
         res.status(201).json(newConfig[0]);
     } catch (error) {
-        console.error('Error creating IPC configuration:', error);
+        console.error('Error creating IPT configuration:', error);
         if (error.code === '23505') {
             if (req.body?.category === 'pelanggaran' && req.body?.field2) {
                 return res.status(400).json({ message: 'Detail pelanggaran sudah ada' });
@@ -475,7 +475,7 @@ router.put('/:id', auth, superAdminOnly, async (req, res) => {
                 if (is_active !== undefined) { sets.push('is_active = ?'); values.push(is_active); }
                 if (sets.length) {
                     values.push(pelanggaranId.value);
-                    await db.query(`UPDATE ipc_pelanggaran_level SET ${sets.join(', ')} WHERE id = ?`, values);
+                    await db.query(`UPDATE ipt_pelanggaran_level SET ${sets.join(', ')} WHERE id = ?`, values);
                     clearConfigCache();
                 }
                 return res.json((await getPelanggaranConfigs()).find(item => item.id === id));
@@ -485,7 +485,7 @@ router.put('/:id', auth, superAdminOnly, async (req, res) => {
             const detailSets = [];
             const detailValues = [];
             if (field2 !== undefined && field2 !== null && String(field2).trim() !== '') {
-                const [lvl] = await db.query('SELECT id FROM ipc_pelanggaran_level WHERE name = ?', [String(field2).trim()]);
+                const [lvl] = await db.query('SELECT id FROM ipt_pelanggaran_level WHERE name = ?', [String(field2).trim()]);
                 if (!lvl.length) {
                     return res.status(400).json({ message: 'Tingkat pelanggaran tidak ditemukan' });
                 }
@@ -498,19 +498,19 @@ router.put('/:id', auth, superAdminOnly, async (req, res) => {
             }
             if (detailSets.length) {
                 detailValues.push(pelanggaranId.value);
-                await db.query(`UPDATE ipc_pelanggaran_detail SET ${detailSets.join(', ')} WHERE id = ?`, detailValues);
+                await db.query(`UPDATE ipt_pelanggaran_detail SET ${detailSets.join(', ')} WHERE id = ?`, detailValues);
                 clearConfigCache();
             }
             return res.json((await getPelanggaranConfigs()).find(item => item.id === id));
         }
         
         // Check if configuration exists
-        const [existing] = await db.query('SELECT id, category, field1, field2, field3, point_value, description, is_active, created_at, updated_at, updated_by FROM ipc_config WHERE id = ?', [id]);
+        const [existing] = await db.query('SELECT id, category, field1, field2, field3, point_value, description, is_active, created_at, updated_at, updated_by FROM ipt_config WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Configuration not found' });
         }
 
-        // Point pelanggaran (termasuk baris legacy di ipc_config) harus negatif
+        // Point pelanggaran (termasuk baris legacy di ipt_config) harus negatif
         const targetCategory = category || existing[0].category;
         if (targetCategory === 'pelanggaran' && point_value !== undefined) {
             const pv = Number(point_value);
@@ -520,7 +520,7 @@ router.put('/:id', auth, superAdminOnly, async (req, res) => {
         }
         
         await db.query(`
-            UPDATE ipc_config
+            UPDATE ipt_config
             SET category = ?, field1 = ?, field2 = ?, point_value = ?, description = ?, is_active = ?, updated_by = ?
             WHERE id = ?
         `, [
@@ -535,10 +535,10 @@ router.put('/:id', auth, superAdminOnly, async (req, res) => {
         ]);
         
         clearConfigCache();
-        const [updatedConfig] = await db.query('SELECT id, category, field1, field2, field3, point_value, description, is_active, created_at, updated_at, updated_by FROM ipc_config WHERE id = ?', [id]);
+        const [updatedConfig] = await db.query('SELECT id, category, field1, field2, field3, point_value, description, is_active, created_at, updated_at, updated_by FROM ipt_config WHERE id = ?', [id]);
         res.json(updatedConfig[0]);
     } catch (error) {
-        console.error('Error updating IPC configuration:', error);
+        console.error('Error updating IPT configuration:', error);
         if (error.code === '23505') {
             return res.status(400).json({ message: 'Configuration with this category, field1, and field2 already exists' });
         }
@@ -552,7 +552,7 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
         const { id } = req.params;
         const pelanggaranId = parsePelanggaranId(id);
         if (pelanggaranId) {
-            const table = pelanggaranId.type === 'level' ? 'ipc_pelanggaran_level' : 'ipc_pelanggaran_detail';
+            const table = pelanggaranId.type === 'level' ? 'ipt_pelanggaran_level' : 'ipt_pelanggaran_detail';
             const [result] = await db.query(`DELETE FROM ${table} WHERE id = ?`, [pelanggaranId.value]);
             if (result.affectedRows) {
                 clearConfigCache();
@@ -561,7 +561,7 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
             return res.status(404).json({ message: 'Configuration not found' });
         }
         
-        const [result] = await db.query('DELETE FROM ipc_config WHERE id = ?', [id]);
+        const [result] = await db.query('DELETE FROM ipt_config WHERE id = ?', [id]);
         
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Configuration not found' });
@@ -570,7 +570,7 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
         clearConfigCache();
         res.json({ message: 'Configuration deleted successfully' });
     } catch (error) {
-        console.error('Error deleting IPC configuration:', error);
+        console.error('Error deleting IPT configuration:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -581,16 +581,16 @@ router.delete('/all/:category', auth, superAdminOnly, async (req, res) => {
         const { category } = req.params;
 
         if (category === 'pelanggaran') {
-            await db.query('DELETE FROM ipc_pelanggaran_detail');
-            await db.query('DELETE FROM ipc_pelanggaran_level');
+            await db.query('DELETE FROM ipt_pelanggaran_detail');
+            await db.query('DELETE FROM ipt_pelanggaran_level');
         } else {
-            await db.query('DELETE FROM ipc_config WHERE category = ?', [category]);
+            await db.query('DELETE FROM ipt_config WHERE category = ?', [category]);
         }
 
         clearConfigCache();
         res.json({ message: `All ${category} configurations deleted successfully` });
     } catch (error) {
-        console.error('Error deleting IPC configurations by category:', error);
+        console.error('Error deleting IPT configurations by category:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

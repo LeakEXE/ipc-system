@@ -34,7 +34,7 @@ function InputKepanitiaan() {
   const [selectedIndexIds, setSelectedIndexIds] = useState([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const [students, setStudents] = useState([]);
 
@@ -71,7 +71,7 @@ function InputKepanitiaan() {
 
     fetchUserSubmissions();
     checkAccess();
-    fetchIpcConfig();
+    fetchIptConfig();
     if (user.role === 'superadmin') {
       fetchAllKepanitiaan();
     } else if (user.role === 'guru' || user.role === 'pegawai') {
@@ -127,12 +127,12 @@ function InputKepanitiaan() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
@@ -147,7 +147,7 @@ function InputKepanitiaan() {
   };
 
   const calculatePoint = (jabatan) => {
-    const kepanitiaanConfigs = ipcConfig['kepanitiaan'] || [];
+    const kepanitiaanConfigs = iptConfig['kepanitiaan'] || [];
     const config = kepanitiaanConfigs.find(
       c => c.field1 === jabatan
     );
@@ -304,7 +304,7 @@ function InputKepanitiaan() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
@@ -351,7 +351,7 @@ function InputKepanitiaan() {
   const handleBulkDelete = async () => {
     const ids = [...selectedIndexIds];
     if (ids.length === 0) return;
-    if (!window.confirm(`Hapus ${ids.length} data kepanitiaan? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+    if (!window.confirm(`Hapus ${ids.length} data kepanitiaan? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
       return;
     }
     setBulkDeleting(true);
@@ -726,7 +726,7 @@ function InputKepanitiaan() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan didapatkan:
+            Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 

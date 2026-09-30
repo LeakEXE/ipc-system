@@ -1,4 +1,4 @@
-# 🎓 Website IPC Bali Mandara - Quick Reference Guide
+# 🎓 Mandara Talenta - Quick Reference Guide
 
 ## 📋 Table of Contents
 1. [System Requirements](#system-requirements)
@@ -47,10 +47,10 @@ npm run db:setup
 ```
 ```sql
 -- Atau manual:
--- 1. Buat database ipc_school (pgAdmin: klik kanan Databases -> Create,
---    atau terminal: createdb -U postgres ipc_school)
+-- 1. Buat database ipt_school (pgAdmin: klik kanan Databases -> Create,
+--    atau terminal: createdb -U postgres ipt_school)
 -- 2. Impor skema:
---    psql -U postgres -d ipc_school -f backend/database/skema.sql
+--    psql -U postgres -d ipt_school -f backend/database/skema.sql
 --
 -- Baru pakai pgAdmin? Lihat panduan klik-per-klik di REQUIREMENTS.md (Step 4).
 ```
@@ -62,7 +62,7 @@ npm install
 copy .env.example .env
 # Edit .env: DB_PASSWORD, JWT_SECRET, dan SUPERADMIN_SETUP_PASSWORD
 # (lihat backend/.env.example untuk daftar lengkap)
-npm run db:setup   # bila database ipc_school belum ada
+npm run db:setup   # bila database ipt_school belum ada
 npm start
 ```
 
@@ -113,9 +113,9 @@ Login: NIP / (dibuat superadmin)
 ### 🟢 Siswa (View Only)
 ```
 Login: NIS / (dibuat superadmin)
-├── Dashboard (Skor IPC sendiri)
+├── Dashboard (Skor IPT sendiri)
 ├── Peringkat (Top 20 per kategori)
-├── Riwayat IPC
+├── Riwayat IPT
 ├── Notifications
 └── Profile (biodata, foto, edit terbatas)
 ```
@@ -137,7 +137,7 @@ Login: NIS / (dibuat superadmin)
 | Input Perilaku | ✅ | ✅* | ❌ |
 | Approve Data | ✅ | ❌ | ❌ |
 | Lihat Peringkat | ✅ | ✅ | ✅ |
-| View Own IPC | ✅ | ✅ | ✅ |
+| View Own IPT | ✅ | ✅ | ✅ |
 | Edit Profil Terbatas | ✅ | ✅ | ✅ |
 | Export Reports | ✅ | ✅** | ❌ |
 | View Logs | ✅ | ❌ | ❌ |
@@ -219,7 +219,7 @@ Login: NIS / (dibuat superadmin)
              │            │            │
              ▼            ▼            └────────┐
         ┌──────────┐ ┌──────────┐               │
-        │ IPC      │ │ Notify   │               │
+        │ IPT      │ │ Notify   │               │
         │ Updated  │ │ Reason   │               │
         └──────────┘ └──────────┘               │
                                                 ▼
@@ -229,11 +229,11 @@ Login: NIS / (dibuat superadmin)
                                           └──────────┘
 ```
 
-### C. IPC Calculation
+### C. IPT Calculation
 ```
          ┌──────────┐
          │  Start   │
-         │  IPC=80  │
+         │  IPT=80  │
          └────┬─────┘
               │
     ┌─────────┼─────────┐
@@ -249,19 +249,19 @@ Login: NIS / (dibuat superadmin)
          ▼         ▼
     ┌─────────────────┐
     │   Calculate     │
-    │   Total IPC     │
+    │   Total IPT     │
     └────────┬────────┘
              │
              ▼
     ┌─────────────────┐
     │   Range Check   │
-    │   0 <= IPC <= 100│
+    │   0 <= IPT <= 100│
     └────────┬────────┘
              │
     ┌────────┴────────┐
     ▼                 ▼
 ┌─────────┐     ┌─────────┐
-│ IPC < 0 │     │ IPC > 100│
+│ IPT < 0 │     │ IPT > 100│
 │ Set = 0 │     │ Set = 100│
 └────┬────┘     └────┬────┘
      │               │
@@ -299,7 +299,7 @@ Login: NIS / (dibuat superadmin)
               ▼                       ▼
      ┌────────────────┐    ┌────────────────┐
      │  APPROVED      │    │  REJECTED      │
-     │  IPC terupdate │    │  (wajib alasan)│
+     │  IPT terupdate │    │  (wajib alasan)│
      └────────┬───────┘    └────────┬───────┘
               │                     │
               ▼                     ▼
@@ -320,7 +320,7 @@ Catatan: input langsung superadmin otomatis approved tanpa antrean.
 #### 1. Database Connection Error
 ```
 Error: password authentication failed for user "postgres"
-   atau: connection refused / database "ipc_school" does not exist
+   atau: connection refused / database "ipt_school" does not exist
 ```
 **Solution:**
 - Check PostgreSQL is running (`pg_isready`; Windows: *Services* → `postgresql-x64-*`)
@@ -411,10 +411,10 @@ cd frontend && npm install
 cd backend && npm run db:setup
 
 # Backup (Windows: jalankan dari folder bin PostgreSQL atau tambahkan ke PATH)
-pg_dump -U postgres ipc_school > backup.sql
+pg_dump -U postgres ipt_school > backup.sql
 
 # Restore
-psql -U postgres -d ipc_school < backup.sql
+psql -U postgres -d ipt_school < backup.sql
 ```
 
 ### Logs
@@ -430,7 +430,7 @@ tail -f logs/activity.log
 
 **Version**: 2.0  
 **Last Updated**: September 27, 2026  
-**System**: Website IPC Bali Mandara v0.2
+**System**: Mandara Talenta v0.2
 
 ---
 

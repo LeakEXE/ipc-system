@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import StudentDetail from './StudentDetail';
 import { GraduationCap, BarChart3, Users, User, Settings, Search, Pencil, Lightbulb, CircleCheck, TriangleAlert } from 'lucide-react';
 
@@ -19,7 +19,7 @@ function getAcademicYearOptions() {
   });
 }
 
-function getIpcDetailRows(points = {}) {
+function getIptDetailRows(points = {}) {
   return [
     ['Prestasi', Number(points.prestasi) || 0],
     ['Perilaku', ['tanggung_jawab', 'disiplin', 'kepedulian', 'kemandirian', 'spiritual', 'kejujuran', 'kepercayaan_diri']
@@ -33,7 +33,7 @@ function getIpcDetailRows(points = {}) {
 }
 
 function WaliKelas() {
-  const minIpc = useMinIpcPerGrade();
+  const minIpt = useMinIptPerGrade();
   const [assignments, setAssignments] = useState([]);
   const [classStats, setClassStats] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -155,7 +155,7 @@ function WaliKelas() {
 
   const handleViewStudentDetail = (student) => {
     // StudentDetail fetches its own history/records/evidence.
-    // Carry the class context for the below-minimum IPC badge.
+    // Carry the class context for the below-minimum IPT badge.
     setSelectedStudent({ ...student, kelas: student.kelas || student.current_kelas || selectedClass?.kelas });
     setShowStudentDetail(true);
   };
@@ -396,7 +396,7 @@ function WaliKelas() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '999px', background: cls.totalPelanggaran > 0 ? '#ffebee' : '#dcfce7', color: cls.totalPelanggaran > 0 ? '#ef4444' : '#16a34a' }}>{cls.totalPelanggaran} Pelanggaran</span>
-                <span style={{ fontSize: '.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '999px', background: '#cffafe', color: '#0891b2' }}>Rata-rata IPC: {cls.rataRataIPC}</span>
+                <span style={{ fontSize: '.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '999px', background: '#cffafe', color: '#0891b2' }}>Rata-rata IPT: {cls.rataRataIPT}</span>
               </div>
               <button onClick={() => handleViewClassDetail(cls)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '9px 16px', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', background: '#2563eb', color: '#fff', whiteSpace: 'nowrap', transition: 'all 0.2s' }}>Lihat Detail</button>
             </div>
@@ -626,8 +626,8 @@ function WaliKelas() {
                       <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>No</th>
                       <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Nama</th>
                       <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>NIS</th>
-                      <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Detail IPC</th>
-                      <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>IPC</th>
+                      <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Detail IPT</th>
+                      <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>IPT</th>
                       <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Aksi</th>
                     </tr>
                   </thead>
@@ -650,7 +650,7 @@ function WaliKelas() {
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>{student.nis}</td>
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '.8rem' }}>
-                            {getIpcDetailRows(student.ipc_points).map(([label, value]) => (
+                            {getIptDetailRows(student.ipt_points).map(([label, value]) => (
                               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '24px', color: '#334155' }}>
                                 <span>{label}</span>
                                 <span style={{ fontWeight: 700, color: '#0f172a' }}>{value > 0 ? '+' : ''}{value}</span>
@@ -659,7 +659,7 @@ function WaliKelas() {
                           </div>
                         </td>
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: isBelowMinIpc(student.ipc_total || 80, minIpcFor(minIpc, selectedClass?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '.85rem' }}>{student.ipc_total || 80}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: isBelowMinIpt(student.ipt_total || 80, minIptFor(minIpt, selectedClass?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '.85rem' }}>{student.ipt_total || 80}</span>
                         </td>
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>
                           <button onClick={() => handleViewStudentDetail(student)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#2563eb', color: '#fff', transition: 'all 0.2s' }}>Detail</button>

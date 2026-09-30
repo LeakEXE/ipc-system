@@ -1,21 +1,21 @@
 const db = require('../config/database');
-const { buildIpcCardBreakdown } = require('../utils/ipcCardBreakdown');
+const { buildIptCardBreakdown } = require('../utils/iptCardBreakdown');
 
 /**
- * IPC Synchronization Script
+ * IPT Synchronization Script
  * 
- * This script recalculates and synchronizes IPC totals for all students
+ * This script recalculates and synchronizes IPT totals for all students
  * based on the actual breakdown data from database.
  * 
- * Usage: node scripts/syncIpc.js
+ * Usage: node scripts/syncIpt.js
  */
 
-async function syncStudentIPC(userId) {
+async function syncStudentIPT(userId) {
     try {
-        console.log(`Syncing IPC for user ID: ${userId}`);
+        console.log(`Syncing IPT for user ID: ${userId}`);
         
         // Get the accurate breakdown from database
-        const cardData = await buildIpcCardBreakdown(userId);
+        const cardData = await buildIptCardBreakdown(userId);
         
         if (!cardData) {
             console.log(`  - Student not found`);
@@ -23,13 +23,13 @@ async function syncStudentIPC(userId) {
         }
         
         const calculatedTotal = cardData.breakdown_total;
-        const currentTotal = cardData.student.ipc_total;
+        const currentTotal = cardData.student.ipt_total;
         
         // Get current breakdown for logging
         const points = cardData.points;
         
-        console.log(`  - Current IPC: ${currentTotal}`);
-        console.log(`  - Calculated IPC: ${calculatedTotal}`);
+        console.log(`  - Current IPT: ${currentTotal}`);
+        console.log(`  - Calculated IPT: ${calculatedTotal}`);
         console.log(`  - Breakdown:`, {
             point_awal: points.point_awal,
             prestasi: points.prestasi,
@@ -44,15 +44,15 @@ async function syncStudentIPC(userId) {
         // Update if different
         if (calculatedTotal !== currentTotal) {
             await db.query(
-                'UPDATE users SET ipc_total = ? WHERE id = ?',
+                'UPDATE users SET ipt_total = ? WHERE id = ?',
                 [calculatedTotal, userId]
             );
             
-            // Log the sync in ipc_history
+            // Log the sync in ipt_history
             await db.query(
-                `INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan)
+                `INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan)
                  VALUES (?, 'sync', ?, ?, ?, ?)`,
-                [userId, calculatedTotal - currentTotal, currentTotal, calculatedTotal, 'IPC Synchronization']
+                [userId, calculatedTotal - currentTotal, currentTotal, calculatedTotal, 'IPT Synchronization']
             );
             
             console.log(`  - ✅ Updated: ${currentTotal} → ${calculatedTotal} (diff: ${calculatedTotal - currentTotal})`);
@@ -69,11 +69,11 @@ async function syncStudentIPC(userId) {
 
 async function syncAllStudents() {
     try {
-        console.log('🔄 Starting IPC Synchronization...\n');
+        console.log('🔄 Starting IPT Synchronization...\n');
         
         // Get all students
         const [students] = await db.query(
-            "SELECT id, nama, nis, kelas, ipc_total FROM users WHERE role = 'siswa' AND (is_graduated = 0 OR is_graduated IS NULL)"
+            "SELECT id, nama, nis, kelas, ipt_total FROM users WHERE role = 'siswa' AND (is_graduated = 0 OR is_graduated IS NULL)"
         );
         
         console.log(`Found ${students.length} students\n`);
@@ -85,7 +85,7 @@ async function syncAllStudents() {
         for (const student of students) {
             console.log(`👤 ${student.nama} (${student.nis}) - ${student.kelas}`);
             
-            const wasUpdated = await syncStudentIPC(student.id);
+            const wasUpdated = await syncStudentIPT(student.id);
             
             if (wasUpdated) {
                 updatedCount++;
@@ -105,9 +105,9 @@ async function syncAllStudents() {
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         if (updatedCount > 0) {
-            console.log('\n✨ IPC synchronization completed successfully!');
+            console.log('\n✨ IPT synchronization completed successfully!');
         } else {
-            console.log('\n✨ All IPCs are already synchronized!');
+            console.log('\n✨ All IPTs are already synchronized!');
         }
         
     } catch (error) {

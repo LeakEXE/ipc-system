@@ -1,5 +1,5 @@
 import React from 'react';
-import { getIpcPrintBranding } from './ipcPrintBranding';
+import { getIptPrintBranding } from './iptPrintBranding';
 
 function formatTahunPelajaran(date = new Date()) {
   const year = date.getFullYear();
@@ -15,10 +15,10 @@ function formatPrintDate(date = new Date()) {
   return date.toLocaleDateString('id-ID', options);
 }
 
-function IpcPrintSheet({ student, wali, points, ipcTotal, printDate = new Date(), schoolConfig = {} }) {
-  const branding = getIpcPrintBranding(schoolConfig);
+function IptPrintSheet({ student, wali, points, iptTotal, printDate = new Date(), schoolConfig = {} }) {
+  const branding = getIptPrintBranding(schoolConfig);
   const breakdown = points || {
-    point_awal: student?.ipc_awal ?? 80,
+    point_awal: student?.ipt_awal ?? 80,
     prestasi: 0,
     tanggung_jawab: 0,
     disiplin: 0,
@@ -53,16 +53,16 @@ function IpcPrintSheet({ student, wali, points, ipcTotal, printDate = new Date()
     (Number(breakdown.pelanggaran_sedang) || 0) -
     (Number(breakdown.pelanggaran_berat) || 0);
 
-  const total = ipcTotal ?? calculatedTotal ?? student?.ipc_total ?? breakdown.point_awal;
+  const total = iptTotal ?? calculatedTotal ?? student?.ipt_total ?? breakdown.point_awal;
 
   return (
-    <div className="ipc-print-sheet">
+    <div className="ipt-print-sheet">
       <header className="report-header">
         <img src="/header.png" alt="SMK Negeri Bali Mandara Header" className="header-image" />
       </header>
 
       <div className="report-title">
-        <h3>INDIVIDUAL POINT CARD</h3>
+        <h3>INDIVIDUAL POINT TALENT</h3>
         <h3>SMK NEGERI BALI MANDARA</h3>
         <p>Tahun Ajaran {formatTahunPelajaran(printDate)}</p>
       </div>
@@ -98,11 +98,11 @@ function IpcPrintSheet({ student, wali, points, ipcTotal, printDate = new Date()
         </div>
       </section>
 
-      <div className="ipc-table-container">
-        <table className="ipc-table">
+      <div className="ipt-table-container">
+        <table className="ipt-table">
           <thead>
             <tr>
-              <th colSpan="2">Point IPC</th>
+              <th colSpan="2">Point IPT</th>
             </tr>
           </thead>
           <tbody>
@@ -208,7 +208,7 @@ function IpcPrintSheet({ student, wali, points, ipcTotal, printDate = new Date()
             </tr>
 
             <tr className="total-row">
-              <td><strong>TOTAL POINT IPC</strong></td>
+              <td><strong>TOTAL POINT IPT</strong></td>
               <td className="point-value total"><strong>{total}</strong></td>
             </tr>
           </tbody>
@@ -235,5 +235,5 @@ function IpcPrintSheet({ student, wali, points, ipcTotal, printDate = new Date()
   );
 }
 
-export default IpcPrintSheet;
+export default IptPrintSheet;
 export { formatTahunPelajaran, formatPrintDate };

@@ -108,7 +108,7 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
     { path: '/input-perilaku', label: 'Perilaku', show: user?.role === 'superadmin' || ((user?.role === 'guru' || user?.role === 'pegawai') && permissions?.can_input_perilaku) },
     // Kelola Akun for superadmin
     { path: '/kelola-akun', label: 'Kelola Akun', show: user?.role === 'superadmin' },
-    { path: '/konfigurasi-ipc', label: 'Konfigurasi IPC', show: user?.role === 'superadmin' },
+    { path: '/konfigurasi-ipt', label: 'Konfigurasi IPT', show: user?.role === 'superadmin' },
     { path: '/school-config', label: 'Konfigurasi Sekolah', show: user?.role === 'superadmin' },
     { path: '/izin-akun', label: 'Izin Akun', show: user?.role === 'superadmin' },
     // Approvals for superadmin + users granted approval permission
@@ -135,7 +135,7 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
       <div className={`sidebar ${isMobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-header-content">
-            <h2>Website IPC</h2>
+            <h2>Mandara Talenta</h2>
             <p>Bali Mandara</p>
           </div>
         </div>
@@ -210,7 +210,7 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
         <div className="sidebar-footer">
           <div className="sidebar-footer-label">Dikembangkan oleh</div>
           <div className="sidebar-footer-names">Dean Putra & Agus Kariada</div>
-          <div className="sidebar-footer-year">© 2026 · Website IPC Bali Mandara</div>
+          <div className="sidebar-footer-year">© 2026 · Mandara Talenta</div>
         </div>
       </div>
       <div className={`sidebar-overlay ${isMobileMenuOpen ? 'active' : ''}`} onClick={toggleMobileMenu}></div>

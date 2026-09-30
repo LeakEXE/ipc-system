@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import { formatDisplayText } from '../utils/formatDisplayText';
 import StudentRecordsHistory from './StudentRecordsHistory';
 import { UserRound, Camera, Trash2 } from 'lucide-react';
@@ -470,9 +470,9 @@ function AvatarCropModal({ src, saving, onCancel, onSave }) {
 }
 
 function Profile() {
-  const minIpc = useMinIpcPerGrade();
+  const minIpt = useMinIptPerGrade();
   const [profile, setProfile] = useState(null);
-  const [ipcHistory, setIpcHistory] = useState([]);
+  const [iptHistory, setIptHistory] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -490,7 +490,7 @@ function Profile() {
 
   useEffect(() => {
     fetchProfile();
-    fetchIpcHistory();
+    fetchIptHistory();
     fetchSummary();
   }, []);
 
@@ -510,12 +510,12 @@ function Profile() {
     }
   };
 
-  const fetchIpcHistory = async () => {
+  const fetchIptHistory = async () => {
     try {
-      const response = await api.get('/profile/ipc-history');
-      setIpcHistory(response.data);
+      const response = await api.get('/profile/ipt-history');
+      setIptHistory(response.data);
     } catch (error) {
-      console.error('Error fetching IPC history:', error);
+      console.error('Error fetching IPT history:', error);
     }
   };
 
@@ -811,9 +811,9 @@ function Profile() {
       {user.role === 'siswa' && (
         <>
           <div className="card" style={{ marginBottom: '24px' }}>
-            <h3>IPC Anda</h3>
-            <p style={{ fontSize: '48px', fontWeight: 'bold', color: isBelowMinIpc(profile?.ipc_total ?? 0, minIpcFor(minIpc, profile?.kelas)) ? '#dc2626' : 'var(--blue)' }}>{profile?.ipc_total || 0}</p>
-            <p>IPC Awal: {profile?.ipc_awal || 0}</p>
+            <h3>IPT Anda</h3>
+            <p style={{ fontSize: '48px', fontWeight: 'bold', color: isBelowMinIpt(profile?.ipt_total ?? 0, minIptFor(minIpt, profile?.kelas)) ? '#dc2626' : 'var(--blue)' }}>{profile?.ipt_total || 0}</p>
+            <p>IPT Awal: {profile?.ipt_awal || 0}</p>
           </div>
 
           {summary && (
@@ -834,28 +834,28 @@ function Profile() {
           />
 
           <div className="card">
-            <h3>Riwayat IPC</h3>
-            {ipcHistory.length > 0 ? (
+            <h3>Riwayat IPT</h3>
+            {iptHistory.length > 0 ? (
               <table className="table">
                 <thead>
                   <tr>
                     <th>Jenis Perubahan</th>
                     <th>Point Change</th>
-                    <th>IPC Sebelum</th>
-                    <th>IPC Sesudah</th>
+                    <th>IPT Sebelum</th>
+                    <th>IPT Sesudah</th>
                     <th>Keterangan</th>
                     <th>Tanggal</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {ipcHistory.map(history => (
+                  {iptHistory.map(history => (
                     <tr key={history.id}>
                       <td>{formatDisplayText(history.jenis_perubahan)}</td>
                       <td style={{ color: history.point_change >= 0 ? 'green' : 'red' }}>
                         {history.point_change >= 0 ? '+' : ''}{history.point_change}
                       </td>
-                      <td>{history.ipc_sebelum}</td>
-                      <td>{history.ipc_sesudah}</td>
+                      <td>{history.ipt_sebelum}</td>
+                      <td>{history.ipt_sesudah}</td>
                       <td>{formatDisplayText(history.keterangan)}</td>
                       <td>{new Date(history.created_at).toLocaleDateString('id-ID')}</td>
                     </tr>
@@ -863,7 +863,7 @@ function Profile() {
                 </tbody>
               </table>
             ) : (
-              <p>Belum ada riwayat IPC</p>
+              <p>Belum ada riwayat IPT</p>
             )}
           </div>
         </>

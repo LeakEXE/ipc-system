@@ -34,7 +34,7 @@ function InputOrganisasi() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const [students, setStudents] = useState([]);
 
@@ -77,7 +77,7 @@ function InputOrganisasi() {
 
     fetchUserSubmissions();
     checkAccess();
-    fetchIpcConfig();
+    fetchIptConfig();
     fetchOrganisasiOptions();
     if (user.role === 'superadmin') {
       fetchAllOrganisasi();
@@ -88,7 +88,7 @@ function InputOrganisasi() {
 
   const fetchOrganisasiOptions = async () => {
     try {
-      const response = await api.get('/ipc-config/organisasi-options');
+      const response = await api.get('/ipt-config/organisasi-options');
       setOrganisasiOptions(response.data.filter(option => option.is_active));
     } catch (error) {
       console.error('Error fetching organisasi options:', error);
@@ -152,23 +152,23 @@ function InputOrganisasi() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
   const calculatePoint = useCallback((kategori, jabatan) => {
-    const organisasiConfigs = ipcConfig['organisasi'] || [];
+    const organisasiConfigs = iptConfig['organisasi'] || [];
     const config = organisasiConfigs.find(
       c => c.field1?.trim().toLowerCase() === kategori?.trim().toLowerCase() &&
         c.field2?.trim().toLowerCase() === jabatan?.trim().toLowerCase()
     );
     return config ? config.point_value : 0;
-  }, [ipcConfig]);
+  }, [iptConfig]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -323,7 +323,7 @@ function InputOrganisasi() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
@@ -367,7 +367,7 @@ function InputOrganisasi() {
   const handleBulkDelete = async () => {
     const ids = [...selectedIndexIds];
     if (ids.length === 0) return;
-    if (!window.confirm(`Hapus ${ids.length} data organisasi? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+    if (!window.confirm(`Hapus ${ids.length} data organisasi? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
       return;
     }
     setBulkDeleting(true);
@@ -733,7 +733,7 @@ function InputOrganisasi() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan didapatkan:
+            Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 

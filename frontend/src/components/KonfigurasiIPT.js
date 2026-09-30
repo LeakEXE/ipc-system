@@ -8,7 +8,7 @@ import { styleImportTemplateSheet } from '../utils/excelTemplate';
 import { Plus, Download, Pencil, Trash2, TriangleAlert, CircleCheck, CircleX, Settings, RefreshCw } from 'lucide-react';
 import { CATEGORY_ICONS } from './icons';
 
-function KonfigurasiIPC() {
+function KonfigurasiIPT() {
   const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,11 +28,11 @@ function KonfigurasiIPC() {
   const [excelFile, setExcelFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importResults, setImportResults] = useState([]);
-  const [minIpcValues, setMinIpcValues] = useState({ X: '0', XI: '0', XII: '0' });
-  const [minIpcSaving, setMinIpcSaving] = useState(false);
-  const [ipcAwalValues, setIpcAwalValues] = useState({ X: '80', XI: '80', XII: '80' });
-  const [ipcAwalStudents, setIpcAwalStudents] = useState({ X: [], XI: [], XII: [] });
-  const [ipcAwalSaving, setIpcAwalSaving] = useState(false);
+  const [minIptValues, setMinIptValues] = useState({ X: '0', XI: '0', XII: '0' });
+  const [minIptSaving, setMinIptSaving] = useState(false);
+  const [iptAwalValues, setIptAwalValues] = useState({ X: '80', XI: '80', XII: '80' });
+  const [iptAwalStudents, setIptAwalStudents] = useState({ X: [], XI: [], XII: [] });
+  const [iptAwalSaving, setIptAwalSaving] = useState(false);
 
   const categories = [
     { key: 'prestasi', label: 'Prestasi', icon: CATEGORY_ICONS.prestasi },
@@ -49,13 +49,13 @@ function KonfigurasiIPC() {
     fetchConfigs();
     fetchOrganisasiOptions();
     fetchPerilakuRatings();
-    fetchMinIpcConfig();
-    fetchIpcAwalConfig();
+    fetchMinIptConfig();
+    fetchIptAwalConfig();
   }, []);
 
   const fetchOrganisasiOptions = async () => {
     try {
-      const response = await api.get('/ipc-config/organisasi-options');
+      const response = await api.get('/ipt-config/organisasi-options');
       setOrganisasiOptions(response.data);
     } catch (error) {
       console.error('Error fetching organisasi options:', error);
@@ -65,7 +65,7 @@ function KonfigurasiIPC() {
 
   const fetchPerilakuRatings = async () => {
     try {
-      const response = await api.get('/ipc-config/perilaku-ratings');
+      const response = await api.get('/ipt-config/perilaku-ratings');
       if (!Array.isArray(response.data)) {
         throw new Error('Invalid perilaku rating response');
       }
@@ -80,7 +80,7 @@ function KonfigurasiIPC() {
     event.preventDefault();
     try {
       setSaving(true);
-      await api.post('/ipc-config/perilaku-ratings', { name: perilakuRatingName });
+      await api.post('/ipt-config/perilaku-ratings', { name: perilakuRatingName });
       setPerilakuRatingName('');
       setMessage('Tingkat penilaian berhasil ditambahkan!');
       await fetchPerilakuRatings();
@@ -94,7 +94,7 @@ function KonfigurasiIPC() {
   const deletePerilakuRating = async (rating) => {
     if (!window.confirm(`Hapus tingkat penilaian ${rating.name}?`)) return;
     try {
-      await api.delete(`/ipc-config/perilaku-ratings/${rating.id}`);
+      await api.delete(`/ipt-config/perilaku-ratings/${rating.id}`);
       setMessage('Tingkat penilaian berhasil dihapus!');
       fetchPerilakuRatings();
     } catch (error) {
@@ -106,7 +106,7 @@ function KonfigurasiIPC() {
     event.preventDefault();
     try {
       setSaving(true);
-      await api.post('/ipc-config/organisasi-options', { name: organisasiName });
+      await api.post('/ipt-config/organisasi-options', { name: organisasiName });
       setOrganisasiName('');
       setMessage('Organisasi berhasil ditambahkan!');
       fetchOrganisasiOptions();
@@ -120,7 +120,7 @@ function KonfigurasiIPC() {
   const deleteOrganisasiOption = async (option) => {
     if (!window.confirm(`Hapus organisasi ${option.name}?`)) return;
     try {
-      await api.delete(`/ipc-config/organisasi-options/${option.id}`);
+      await api.delete(`/ipt-config/organisasi-options/${option.id}`);
       setMessage('Organisasi berhasil dihapus!');
       fetchOrganisasiOptions();
     } catch (error) {
@@ -128,24 +128,24 @@ function KonfigurasiIPC() {
     }
   };
 
-  const fetchMinIpcConfig = async () => {
+  const fetchMinIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/min-ipc-per-grade');
+      const response = await api.get('/ipt-config/min-ipt-per-grade');
       const data = response.data || {};
-      setMinIpcValues({
+      setMinIptValues({
         X: String(data.X ?? 0),
         XI: String(data.XI ?? 0),
         XII: String(data.XII ?? 0)
       });
     } catch (error) {
-      console.error('Error fetching min IPC config:', error);
+      console.error('Error fetching min IPT config:', error);
     }
   };
 
-  const saveMinIpcConfig = async () => {
+  const saveMinIptConfig = async () => {
     const parsed = {};
     for (const grade of ['X', 'XI', 'XII']) {
-      const trimmed = String(minIpcValues[grade]).trim();
+      const trimmed = String(minIptValues[grade]).trim();
       const value = Number(trimmed);
       if (trimmed === '' || !Number.isInteger(value) || value < 0) {
         setMessage(`Batas minimum Kelas ${grade} harus bilangan bulat 0 atau lebih (0 = nonaktif)`);
@@ -154,25 +154,25 @@ function KonfigurasiIPC() {
       parsed[grade] = value;
     }
     try {
-      setMinIpcSaving(true);
-      await api.put('/ipc-config/min-ipc-per-grade', parsed);
-      setMessage('Batas minimum Total IPC berhasil disimpan!');
-      setMinIpcValues({ X: String(parsed.X), XI: String(parsed.XI), XII: String(parsed.XII) });
+      setMinIptSaving(true);
+      await api.put('/ipt-config/min-ipt-per-grade', parsed);
+      setMessage('Batas minimum Total IPT berhasil disimpan!');
+      setMinIptValues({ X: String(parsed.X), XI: String(parsed.XI), XII: String(parsed.XII) });
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Gagal menyimpan batas minimum IPC');
+      setMessage(error.response?.data?.message || 'Gagal menyimpan batas minimum IPT');
     } finally {
-      setMinIpcSaving(false);
+      setMinIptSaving(false);
     }
   };
 
-  const fetchIpcAwalConfig = async () => {
+  const fetchIptAwalConfig = async () => {
     try {
       const [defaultsRes, usersRes] = await Promise.all([
-        api.get('/ipc-config/ipc-awal-per-grade'),
+        api.get('/ipt-config/ipt-awal-per-grade'),
         api.get('/users')
       ]);
       const defaults = defaultsRes.data || {};
-      setIpcAwalValues({
+      setIptAwalValues({
         X: String(defaults.X ?? 80),
         XI: String(defaults.XI ?? 80),
         XII: String(defaults.XII ?? 80)
@@ -181,61 +181,61 @@ function KonfigurasiIPC() {
       const byGrade = { X: [], XI: [], XII: [] };
       (users || []).filter(u => u.role === 'siswa').forEach(s => {
         const prefix = String(s.kelas || '').split(' ')[0].toUpperCase();
-        if (byGrade[prefix]) byGrade[prefix].push({ id: s.id, ipc_awal: s.ipc_awal });
+        if (byGrade[prefix]) byGrade[prefix].push({ id: s.id, ipt_awal: s.ipt_awal });
       });
-      setIpcAwalStudents(byGrade);
+      setIptAwalStudents(byGrade);
     } catch (error) {
-      console.error('Error fetching IPC awal config:', error);
+      console.error('Error fetching IPT awal config:', error);
     }
   };
 
-  const saveIpcAwalConfig = async () => {
+  const saveIptAwalConfig = async () => {
     const parsed = {};
     for (const grade of ['X', 'XI', 'XII']) {
-      const value = parseInt(ipcAwalValues[grade], 10);
+      const value = parseInt(iptAwalValues[grade], 10);
       if (Number.isNaN(value) || value < 0) {
-        setMessage(`IPC awal Kelas ${grade} harus angka valid (min 0)`);
+        setMessage(`IPT awal Kelas ${grade} harus angka valid (min 0)`);
         return;
       }
       parsed[grade] = value;
     }
     try {
-      setIpcAwalSaving(true);
+      setIptAwalSaving(true);
       // 1. Store grade defaults (used for newly created students)
-      await api.put('/ipc-config/ipc-awal-per-grade', parsed);
+      await api.put('/ipt-config/ipt-awal-per-grade', parsed);
       // 2. Apply to current students, but only where the value actually changed
       const applied = [];
       for (const grade of ['X', 'XI', 'XII']) {
-        const changed = (ipcAwalStudents[grade] || []).filter(s => (s.ipc_awal ?? 0) !== parsed[grade]);
+        const changed = (iptAwalStudents[grade] || []).filter(s => (s.ipt_awal ?? 0) !== parsed[grade]);
         if (changed.length > 0) {
-          await api.post('/users/bulk-update-ipc-awal', {
+          await api.post('/users/bulk-update-ipt-awal', {
             userIds: changed.map(s => s.id),
-            ipcAwal: parsed[grade]
+            iptAwal: parsed[grade]
           });
           applied.push(`Kelas ${grade} (${changed.length} siswa)`);
         }
       }
       setMessage(
         applied.length > 0
-          ? `IPC awal berhasil disimpan dan diterapkan: ${applied.join(', ')}!`
-          : 'IPC awal berhasil disimpan! (tidak ada perubahan pada siswa saat ini)'
+          ? `IPT awal berhasil disimpan dan diterapkan: ${applied.join(', ')}!`
+          : 'IPT awal berhasil disimpan! (tidak ada perubahan pada siswa saat ini)'
       );
-      fetchIpcAwalConfig();
+      fetchIptAwalConfig();
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Gagal menyimpan IPC awal');
+      setMessage(error.response?.data?.message || 'Gagal menyimpan IPT awal');
     } finally {
-      setIpcAwalSaving(false);
+      setIptAwalSaving(false);
     }
   };
 
   const fetchConfigs = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/ipc-config/all');
+      const response = await api.get('/ipt-config/all');
       setConfigs(response.data);
     } catch (error) {
-      console.error('Error fetching IPC configurations:', error);
-      setMessage('Gagal memuat konfigurasi IPC');
+      console.error('Error fetching IPT configurations:', error);
+      setMessage('Gagal memuat konfigurasi IPT');
     } finally {
       setLoading(false);
     }
@@ -244,7 +244,7 @@ function KonfigurasiIPC() {
   const handleUpdateConfig = async (configId, updatedData) => {
     try {
       setSaving(true);
-      await api.put(`/ipc-config/${configId}`, updatedData);
+      await api.put(`/ipt-config/${configId}`, updatedData);
       setMessage('Konfigurasi berhasil diperbarui!');
       setShowEditModal(false);
       setEditingConfig(null);
@@ -259,7 +259,7 @@ function KonfigurasiIPC() {
   const handleAddConfig = async (newData) => {
     try {
       setSaving(true);
-      await api.post('/ipc-config', newData);
+      await api.post('/ipt-config', newData);
       setMessage('Konfigurasi berhasil ditambahkan!');
       setShowAddModal(false);
       fetchConfigs();
@@ -274,7 +274,7 @@ function KonfigurasiIPC() {
     if (!window.confirm('Apakah Anda yakin ingin menghapus konfigurasi ini?')) return;
 
     try {
-      await api.delete(`/ipc-config/${configId}`);
+      await api.delete(`/ipt-config/${configId}`);
       setMessage('Konfigurasi berhasil dihapus!');
       fetchConfigs();
     } catch (error) {
@@ -284,7 +284,7 @@ function KonfigurasiIPC() {
 
   const handleToggleActive = async (configId, currentStatus) => {
     try {
-      await api.put(`/ipc-config/${configId}`, { is_active: !currentStatus });
+      await api.put(`/ipt-config/${configId}`, { is_active: !currentStatus });
       setMessage(`Konfigurasi berhasil ${!currentStatus ? 'diaktifkan' : 'dinonaktifkan'}!`);
       fetchConfigs();
     } catch (error) {
@@ -298,7 +298,7 @@ function KonfigurasiIPC() {
 
     try {
       setSaving(true);
-      await api.delete(`/ipc-config/all/${activeCategory}`);
+      await api.delete(`/ipt-config/all/${activeCategory}`);
       setMessage(`Semua konfigurasi ${categoryLabel} berhasil dihapus!`);
       fetchConfigs();
     } catch (error) {
@@ -416,7 +416,7 @@ function KonfigurasiIPC() {
         }
 
         try {
-          await api.post('/ipc-config', {
+          await api.post('/ipt-config', {
             category: 'pelanggaran',
             field1: detail,
             field2: level.field1,
@@ -579,8 +579,8 @@ function KonfigurasiIPC() {
           <Settings size={20} />
         </div>
         <div>
-          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Konfigurasi IPC</h2>
-          <p style={{ margin: 0, color: '#6B7080', fontSize: 14 }}>Atur nilai point untuk semua indikator IPC</p>
+          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Konfigurasi IPT</h2>
+          <p style={{ margin: 0, color: '#6B7080', fontSize: 14 }}>Atur nilai point untuk semua indikator IPT</p>
         </div>
       </div>
 
@@ -593,9 +593,9 @@ function KonfigurasiIPC() {
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 320px' }}>
-            <h3 style={{ margin: '0 0 4px' }}>Batas Minimum Total IPC per Tingkat</h3>
+            <h3 style={{ margin: '0 0 4px' }}>Batas Minimum Total IPT per Tingkat</h3>
             <p style={{ margin: 0, color: '#6B7080', fontSize: 13 }}>
-              Total IPC siswa di bawah batas tingkatnya ditampilkan <strong style={{ color: '#dc2626' }}>merah</strong> pada
+              Total IPT siswa di bawah batas tingkatnya ditampilkan <strong style={{ color: '#dc2626' }}>merah</strong> pada
               cetakan Excel (laporan individual &amp; per kelas) dan halaman laporan. Isi <strong>0</strong> untuk
               menonaktifkan per tingkat.
             </p>
@@ -610,14 +610,14 @@ function KonfigurasiIPC() {
                   type="number"
                   min="0"
                   step="1"
-                  value={minIpcValues[grade]}
-                  onChange={(e) => setMinIpcValues(prev => ({ ...prev, [grade]: e.target.value }))}
+                  value={minIptValues[grade]}
+                  onChange={(e) => setMinIptValues(prev => ({ ...prev, [grade]: e.target.value }))}
                   style={{ width: 110, padding: '9px 10px', borderRadius: 8, border: '1px solid #D7DBE4', fontSize: 14 }}
                 />
               </div>
             ))}
-            <button className="btn btn-primary" onClick={saveMinIpcConfig} disabled={minIpcSaving}>
-              {minIpcSaving ? 'Menyimpan...' : 'Simpan'}
+            <button className="btn btn-primary" onClick={saveMinIptConfig} disabled={minIptSaving}>
+              {minIptSaving ? 'Menyimpan...' : 'Simpan'}
             </button>
           </div>
         </div>
@@ -626,9 +626,9 @@ function KonfigurasiIPC() {
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 320px' }}>
-            <h3 style={{ margin: '0 0 4px' }}>IPC Awal per Tingkat</h3>
+            <h3 style={{ margin: '0 0 4px' }}>IPT Awal per Tingkat</h3>
             <p style={{ margin: 0, color: '#6B7080', fontSize: 13 }}>
-              Nilai awal IPC untuk siswa Kelas X, XI, dan XII. Menyimpan akan menerapkan nilai ke
+              Nilai awal IPT untuk siswa Kelas X, XI, dan XII. Menyimpan akan menerapkan nilai ke
               siswa saat ini (hanya yang berubah) dan menyimpannya sebagai default untuk siswa baru.
             </p>
           </div>
@@ -636,20 +636,20 @@ function KonfigurasiIPC() {
             {['X', 'XI', 'XII'].map(grade => (
               <div key={grade}>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 12, fontWeight: 600, color: '#6B7080' }}>
-                  Kelas {grade} ({(ipcAwalStudents[grade] || []).length} siswa)
+                  Kelas {grade} ({(iptAwalStudents[grade] || []).length} siswa)
                 </label>
                 <input
                   type="number"
                   min="0"
                   step="1"
-                  value={ipcAwalValues[grade]}
-                  onChange={(e) => setIpcAwalValues(prev => ({ ...prev, [grade]: e.target.value }))}
+                  value={iptAwalValues[grade]}
+                  onChange={(e) => setIptAwalValues(prev => ({ ...prev, [grade]: e.target.value }))}
                   style={{ width: 110, padding: '9px 10px', borderRadius: 8, border: '1px solid #D7DBE4', fontSize: 14 }}
                 />
               </div>
             ))}
-            <button className="btn btn-primary" onClick={saveIpcAwalConfig} disabled={ipcAwalSaving}>
-              {ipcAwalSaving ? 'Menyimpan...' : 'Simpan'}
+            <button className="btn btn-primary" onClick={saveIptAwalConfig} disabled={iptAwalSaving}>
+              {iptAwalSaving ? 'Menyimpan...' : 'Simpan'}
             </button>
           </div>
         </div>
@@ -1014,7 +1014,7 @@ function KonfigurasiIPC() {
                   <small style={{ color: '#666', fontSize: '12px' }}>
                     {editingConfig.field2
                       ? 'Point otomatis mengikuti Tingkat Pelanggaran yang dipilih'
-                      : 'Point pelanggaran harus negatif karena mengurangi IPC'}
+                      : 'Point pelanggaran harus negatif karena mengurangi IPT'}
                   </small>
                 )}
               </div>
@@ -1087,7 +1087,7 @@ function KonfigurasiIPC() {
             </p>
             <form onSubmit={(e) => {
               e.preventDefault();
-              // Point pelanggaran harus negatif (mengurangi IPC)
+              // Point pelanggaran harus negatif (mengurangi IPT)
               const pvRaw = e.target.point_value?.value;
               if (activeCategory === 'pelanggaran' && pvRaw !== undefined && !(parseInt(pvRaw) < 0)) {
                 setMessage('Point pelanggaran harus negatif (< 0)');
@@ -1230,7 +1230,7 @@ function KonfigurasiIPC() {
                   style={{ fontSize: 14 }}
                 />
                 {activeCategory === 'pelanggaran' && (
-                  <small style={{ color: '#666', fontSize: '12px' }}>Point pelanggaran harus negatif karena mengurangi IPC</small>
+                  <small style={{ color: '#666', fontSize: '12px' }}>Point pelanggaran harus negatif karena mengurangi IPT</small>
                 )}
               </div>}
               {!(activeCategory === 'pelanggaran' && pelanggaranAddType === 'detail') && <div className="form-group" style={{ marginBottom: 20 }}>
@@ -1343,4 +1343,4 @@ function KonfigurasiIPC() {
   );
 }
 
-export default KonfigurasiIPC;
+export default KonfigurasiIPT;

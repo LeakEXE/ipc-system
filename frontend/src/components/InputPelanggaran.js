@@ -32,14 +32,14 @@ function InputPelanggaran() {
   const [hasPermission, setHasPermission] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(true);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const [students, setStudents] = useState([]);
   const [submissions, setSubmissions] = useState([]);
-  const jenisOptions = (ipcConfig['pelanggaran'] || [])
+  const jenisOptions = (iptConfig['pelanggaran'] || [])
     .filter(config => config.field2)
     .map(config => {
-      const level = (ipcConfig['pelanggaran'] || []).find(
+      const level = (iptConfig['pelanggaran'] || []).find(
         candidate => !candidate.field2 && candidate.field1 === config.field2
       );
       return { value: config.field1, label: config.field1, level: config.field2, point: level?.point_value || 0 };
@@ -89,7 +89,7 @@ function InputPelanggaran() {
       fetchStudents();
     }
 
-    fetchIpcConfig();
+    fetchIptConfig();
     fetchUserSubmissions();
     if (user.role === 'superadmin') {
       fetchAllPelanggaran();
@@ -111,17 +111,17 @@ function InputPelanggaran() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
       const firstDetail = (response.data.pelanggaran || []).find(config => config.field2);
       if (firstDetail) {
         setFormData(prev => ({ ...prev, jenis_pelanggaran: firstDetail.field1 }));
         setCalculatedPoint(calculatePoint(firstDetail.field1, response.data));
       }
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
@@ -144,7 +144,7 @@ function InputPelanggaran() {
     }
   };
 
-  const calculatePoint = (jenis, configData = ipcConfig) => {
+  const calculatePoint = (jenis, configData = iptConfig) => {
     const pelanggaranConfigs = configData.pelanggaran || [];
     const config = pelanggaranConfigs.find(
       c => c.field1 === jenis
@@ -323,7 +323,7 @@ function InputPelanggaran() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
@@ -363,7 +363,7 @@ function InputPelanggaran() {
   const handleBulkDelete = async () => {
     const ids = [...selectedIndexIds];
     if (ids.length === 0) return;
-    if (!window.confirm(`Hapus ${ids.length} data pelanggaran? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+    if (!window.confirm(`Hapus ${ids.length} data pelanggaran? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
       return;
     }
     setBulkDeleting(true);
@@ -700,7 +700,7 @@ function InputPelanggaran() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan dikurangi:
+            Point IPT yang akan dikurangi:
           </label>
           <span style={{ 
             fontSize: '18px', 

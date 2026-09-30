@@ -21,7 +21,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage, fileFilter: evidenceFileFilter, limits: EVIDENCE_LIMITS });
 const { calculateOrganisasiPoints } = require('../constants/points');
-const { buildKeterangan } = require('../utils/ipc');
+const { buildKeterangan } = require('../utils/ipt');
 
 // Get all organisasi (for approvals)
 router.get('/all', auth, async (req, res) => {
@@ -115,16 +115,16 @@ router.put('/:id/approve', auth, superAdminOnly, async (req, res) => {
         // Update status and photo path
         await db.query('UPDATE organisasi SET status = ?, foto = ? WHERE id = ?', ['approved', newFotoPath, organisasiId]);
         
-        // Update user IPC (can go negative due to pelanggaran, can recover with organisasi)
-        const [user] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [organisasiData.user_id]);
-        const ipcSebelum = user[0].ipc_total;
-        const ipcSesudah = ipcSebelum + organisasiData.point;
+        // Update user IPT (can go negative due to pelanggaran, can recover with organisasi)
+        const [user] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [organisasiData.user_id]);
+        const iptSebelum = user[0].ipt_total;
+        const iptSesudah = iptSebelum + organisasiData.point;
         
-        await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, organisasiData.user_id]);
+        await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, organisasiData.user_id]);
         
         await db.query(
-            'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-            [organisasiData.user_id, 'organisasi', organisasiData.point, ipcSebelum, ipcSesudah, buildKeterangan('organisasi', organisasiData)]
+            'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+            [organisasiData.user_id, 'organisasi', organisasiData.point, iptSebelum, iptSesudah, buildKeterangan('organisasi', organisasiData)]
         );
 
         await db.query(
@@ -200,18 +200,18 @@ router.put('/:id', auth, upload.single('foto'), async (req, res) => {
             [nama, nis, kelas, grha, jabatan_organisasi, kategori_organisasi, foto, point, organisasiId]
         );
 
-        // If status is approved and point changed, update user IPC
+        // If status is approved and point changed, update user IPT
         if (organisasiData.status === 'approved' && organisasiData.point !== point) {
             const pointDiff = point - organisasiData.point;
-            const [userBefore] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [organisasiData.user_id]);
-            const ipcSebelum = userBefore[0].ipc_total;
-            const ipcSesudah = ipcSebelum + pointDiff;
+            const [userBefore] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [organisasiData.user_id]);
+            const iptSebelum = userBefore[0].ipt_total;
+            const iptSesudah = iptSebelum + pointDiff;
             
-            await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, organisasiData.user_id]);
+            await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, organisasiData.user_id]);
             
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [organisasiData.user_id, 'organisasi_update', pointDiff, ipcSebelum, ipcSesudah, `Update Organisasi: ${jabatan_organisasi}`]
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [organisasiData.user_id, 'organisasi_update', pointDiff, iptSebelum, iptSesudah, `Update Organisasi: ${jabatan_organisasi}`]
             );
         }
 
@@ -240,18 +240,18 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
 
         const organisasiData = organisasi[0];
 
-        // If approved, revert IPC change
+        // If approved, revert IPT change
         if (organisasiData.status === 'approved') {
-            const [user] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [organisasiData.user_id]);
-            const ipcSebelum = user[0].ipc_total;
-            const ipcSesudah = ipcSebelum - organisasiData.point;
+            const [user] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [organisasiData.user_id]);
+            const iptSebelum = user[0].ipt_total;
+            const iptSesudah = iptSebelum - organisasiData.point;
             
-            await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, organisasiData.user_id]);
+            await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, organisasiData.user_id]);
             
-            // Log IPC history
+            // Log IPT history
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [organisasiData.user_id, 'organisasi_delete', -organisasiData.point, ipcSebelum, ipcSesudah, `Delete Organisasi: ${organisasiData.jabatan_organisasi}`]
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [organisasiData.user_id, 'organisasi_delete', -organisasiData.point, iptSebelum, iptSesudah, `Delete Organisasi: ${organisasiData.jabatan_organisasi}`]
             );
         }
 

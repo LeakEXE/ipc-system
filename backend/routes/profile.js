@@ -44,7 +44,7 @@ const upload = multer({
 router.get('/', auth, async (req, res) => {
     try {
         const [user] = await db.query(
-            'SELECT id, nama, nis, nip, username, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, alamat, no_hp, detail, detail AS jabatan, foto, created_at, tahun_pelajaran, is_graduated, jurusan, must_change_credentials FROM users WHERE id = ?',
+            'SELECT id, nama, nis, nip, username, role, kelas, grha, wali_kelas, ipt_total, ipt_awal, alamat, no_hp, detail, detail AS jabatan, foto, created_at, tahun_pelajaran, is_graduated, jurusan, must_change_credentials FROM users WHERE id = ?',
             [req.user.id]
         );
 
@@ -176,11 +176,11 @@ router.delete('/avatar', auth, async (req, res) => {
     }
 });
 
-// Get user IPC history
-router.get('/ipc-history', auth, async (req, res) => {
+// Get user IPT history
+router.get('/ipt-history', auth, async (req, res) => {
     try {
         const [history] = await db.query(
-            'SELECT * FROM ipc_history WHERE user_id = ? ORDER BY created_at DESC',
+            'SELECT * FROM ipt_history WHERE user_id = ? ORDER BY created_at DESC',
             [req.user.id]
         );
         res.json(history);

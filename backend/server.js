@@ -143,7 +143,9 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/file-viewer', require('./routes/file-viewer'));
 app.use('/api/academic-year', require('./routes/academicYear'));
 app.use('/api/sync', require('./routes/sync'));
-app.use('/api/ipc-config', require('./routes/ipcConfig'));
+app.use('/api/ipt-config', require('./routes/iptConfig'));
+// Deprecated alias: pre-rebrand clients may still call /api/ipc-config.
+app.use('/api/ipc-config', require('./routes/iptConfig'));
 app.use('/api/school-config', require('./routes/school-config'));
 
 // Catch-all route for React SPA client-side routing (must be after API routes)

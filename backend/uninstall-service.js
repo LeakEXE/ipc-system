@@ -2,7 +2,7 @@ const Service = require('node-windows').Service;
 
 // Create a new service object (must match the installed service)
 const svc = new Service({
-  name: 'IPC Backend Service',
+  name: 'Mandara Talenta Backend Service',
   script: require('path').join(__dirname, 'server.js')
 });
 

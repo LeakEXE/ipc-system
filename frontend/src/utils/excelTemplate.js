@@ -1,5 +1,5 @@
 // Shared styling for downloadable import templates
-// (KelolaAkun siswa/guru templates, KonfigurasiIPC detail template).
+// (KelolaAkun siswa/guru templates, KonfigurasiIPT detail template).
 // Header emphasis + grid borders + frozen top row for readability.
 // Border-only cells carry no values, so the named-field import parsers
 // (XLSX sheet_to_json) keep skipping empty rows exactly as before.

@@ -6,6 +6,8 @@ node_modules/
 
 *.sql
 !skema.sql
+!ipt_config_schema.sql
+!migrate_ipc_to_ipt.sql
 
 # Uploads
 uploads/

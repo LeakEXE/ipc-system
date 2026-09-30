@@ -1,4 +1,4 @@
-# 📚 Website IPC Bali Mandara - Dokumentasi Lengkap
+# 📚 Mandara Talenta - Dokumentasi Lengkap
 
 ## 📋 System Requirements
 
@@ -79,7 +79,7 @@ Cara otomatis (disarankan):
 ```bash
 cd backend
 npm install
-npm run db:setup   # membuat database ipc_school + mengimpor skema
+npm run db:setup   # membuat database ipt_school + mengimpor skema
 ```
 
 Cara manual:
@@ -88,14 +88,14 @@ Cara manual:
 #    (installer Windows EDB sudah termasuk pgAdmin 4)
 
 # 2. Buat database
-createdb -U postgres ipc_school
-# (atau via pgAdmin: klik kanan Databases -> Create -> ipc_school)
+createdb -U postgres ipt_school
+# (atau via pgAdmin: klik kanan Databases -> Create -> ipt_school)
 
 # 3. Impor skema (semua tabel + data awal)
-psql -U postgres -d ipc_school -f backend/database/skema.sql
+psql -U postgres -d ipt_school -f backend/database/skema.sql
 
 # 4. Verifikasi
-psql -U postgres -d ipc_school -c "\dt"
+psql -U postgres -d ipt_school -c "\dt"
 ```
 
 Pastikan `backend/.env` berisi kredensial PostgreSQL yang benar (lihat `backend/.env.example`):
@@ -104,7 +104,7 @@ DB_HOST=localhost
 DB_USER=postgres
 DB_PASSWORD=password_postgres_anda
 DB_PORT=5432
-DB_NAME=ipc_school
+DB_NAME=ipt_school
 JWT_SECRET=string_acak_minimal_32_karakter
 SUPERADMIN_SETUP_PASSWORD=password_awal_rahasia
 ```
@@ -143,7 +143,7 @@ flowchart TD
     C --> C3[Approval Semua Data]
     C --> C4[Laporan & Cetak]
     C --> C5[Input Data]
-    C --> C6[Konfigurasi IPC & Sekolah]
+    C --> C6[Konfigurasi IPT & Sekolah]
     
     D --> D1[Lihat Siswa Kelas]
     D --> D2[Input Prestasi]
@@ -154,7 +154,7 @@ flowchart TD
     D --> D7[Notifikasi]
     D --> D8[Wali Kelas Panel - bila ditunjuk]
     
-    E --> E1[Lihat IPC]
+    E --> E1[Lihat IPT]
     E --> E2[Histori Perubahan]
     E --> E3[Notifikasi]
     E --> E4[Leaderboard]
@@ -168,7 +168,7 @@ flowchart TD
     
     F --> G{Status Approval}
     G -->|Pending| H[Menunggu Approval]
-    G -->|Approved| I[IPC Terupdate]
+    G -->|Approved| I[IPT Terupdate]
     G -->|Rejected| J[Ditolak dengan Alasan]
     
     I --> K[Activity Log]
@@ -302,7 +302,7 @@ flowchart TD
     Dashboard --> Menu{Menu Selection}
     
     Menu -->|Dashboard| D[View Dashboard]
-    D --> D1[Current IPC Score]
+    D --> D1[Current IPT Score]
     D --> D2[Recent Activities]
     D --> D3[Notifications]
     
@@ -311,7 +311,7 @@ flowchart TD
     LB --> LB2[Podium Top 3]
     LB --> LB3[Detail Poin per Siswa]
     
-    Menu -->|Histori| H[IPC History]
+    Menu -->|Histori| H[IPT History]
     H --> H1[View All Changes]
     H --> H2[Filter by Type]
     H --> H3[View Details]
@@ -319,10 +319,10 @@ flowchart TD
     Menu -->|Notifikasi| N[Notifications]
     N --> N1[View All Notifications]
     N --> N2[Mark as Read]
-    N --> N3[View IPC Changes]
+    N --> N3[View IPT Changes]
     
     Menu -->|Profil| P[Profile]
-    P --> P1[Lihat Biodata & IPC]
+    P --> P1[Lihat Biodata & IPT]
     P --> P2[Ubah Foto Profil]
     P --> P3[Edit Terbatas - mis. No HP]
 ```
@@ -331,7 +331,7 @@ flowchart TD
 
 ## 🔄 Data Flow Diagrams
 
-### IPC Calculation Flow
+### IPT Calculation Flow
 
 ```mermaid
 flowchart LR
@@ -342,16 +342,16 @@ flowchart LR
     A -->|Pelanggaran| B
     A -->|Perilaku| B
     
-    B -->|Base: 80| C[IPC Total]
+    B -->|Base: 80| C[IPT Total]
     C --> D[Simpan ke Database]
     D --> E[Buat History Record]
     E --> F[Kirim Notifikasi]
     F --> G[Update Leaderboard]
 ```
 
-> Catatan: tidak ada batas 0–100 — nilai IPC boleh negatif
-> (lihat `backend/utils/ipc.js`). Batas minimum IPC per tingkat
-> diatur di menu Konfigurasi IPC.
+> Catatan: tidak ada batas 0–100 — nilai IPT boleh negatif
+> (lihat `backend/utils/ipt.js`). Batas minimum IPT per tingkat
+> diatur di menu Konfigurasi IPT.
 
 
 ### Approval Workflow
@@ -367,7 +367,7 @@ flowchart TD
     H --> I[Notifikasi ke User + Alasan]
 
     G --> J[Apply Perubahan]
-    J --> K[Update IPC]
+    J --> K[Update IPT]
     K --> L[Buat History]
     L --> M[Notifikasi Sukses ke User]
 ```
@@ -381,7 +381,7 @@ flowchart TD
 ## 📁 File Structure
 
 ```
-ipc-system/
+mandara-talenta/
 ├── backend/
 │   ├── config/
 │   │   └── database.js
@@ -401,9 +401,9 @@ ipc-system/
 │   │   ├── profile.js         → /api/profile
 │   │   ├── reports.js         → /api/reports
 │   │   ├── file-viewer.js, academicYear.js, sync.js
-│   │   └── ipcConfig.js       → /api/ipc-config
+│   │   └── iptConfig.js       → /api/ipt-config
 │   │       school-config.js    → /api/school-config
-│   ├── utils/               # ipc.js, ipcConfig.js, schoolConfig.js, ...
+│   ├── utils/               # ipt.js, iptConfig.js, schoolConfig.js, ...
 │   ├── scripts/
 │   │   └── setupDb.js         # npm run db:setup
 │   ├── database/
@@ -424,20 +424,20 @@ ipc-system/
 │   │   │   ├── KelolaAkun.js + IzinAkun.js
 │   │   │   ├── Approvals.js
 │   │   │   ├── Leaderboard.js + WaliKelas.js + TeacherWaliKelas.js
-│   │   │   ├── KonfigurasiIPC.js + SchoolConfig.js
-│   │   │   ├── LaporanCetak.js + IpcReport.js + IpcPrintSheet.js
+│   │   │   ├── KonfigurasiIPT.js + SchoolConfig.js
+│   │   │   ├── LaporanCetak.js + IptReport.js + IptPrintSheet.js
 │   │   │   ├── Profile.js + StudentDetail.js + StudentRecordsHistory.js
 │   │   │   ├── Search.js + Notifications.js + NotificationBadge.js
 │   │   │   ├── Logs.js + DriveViewer.js + EditModal.js
 │   │   │   └── icons.js (sistem ikon lucide bersama)
-│   │   ├── utils/ (api.js, minIpc.js, kelasJurusan.js, ...)
+│   │   ├── utils/ (api.js, minIpt.js, kelasJurusan.js, ...)
 │   │   ├── hooks/, config.js, index.js, index.css
 │   ├── package.json
 │   └── .env (bila perlu override API)
 ├── docs/
 │   └── ACADEMIC_YEAR_SYSTEM.md
 ├── DOCUMENTATION.md / REQUIREMENTS.md / QUICK_GUIDE.md
-├── SECURITY.md / IPC_SYNC_GUIDE.md / DOCS_INDEX.txt
+├── SECURITY.md / IPT_SYNC_GUIDE.md / DOCS_INDEX.txt
 ├── FLOWCHART.html (+ versi sederhana)
 ├── LICENSE (proprietary) + README.md
 ```
@@ -528,4 +528,4 @@ ipc-system/
 
 **Document Version**: 2.0
 **Last Updated**: September 27, 2026
-**System Version**: Website IPC Bali Mandara v0.2
+**System Version**: Mandara Talenta v0.2

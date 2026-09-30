@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import StudentDetail from './StudentDetail';
 
 const KELAS_OPTIONS = [
@@ -91,7 +91,7 @@ function FilterChip({ label, kind, onRemove }) {
 }
 
 function StudentLookup() {
-  const minIpc = useMinIpcPerGrade();
+  const minIpt = useMinIptPerGrade();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [kelasInc, setKelasInc] = useState([]);
@@ -100,7 +100,7 @@ function StudentLookup() {
   const [grhaExc, setGrhaExc] = useState([]);
   const [tahunPel, setTahunPel] = useState('');
   const [status, setStatus] = useState('semua');
-  const [ipcStatus, setIpcStatus] = useState('semua');
+  const [iptStatus, setIptStatus] = useState('semua');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [users, setUsers] = useState([]);
@@ -136,7 +136,7 @@ function StudentLookup() {
       if (grhaExc.length) params.grha_exclude = grhaExc.join(',');
       if (tahunPel) params.tahun_pelajaran = tahunPel;
       if (status !== 'semua') params.status = status;
-      if (ipcStatus !== 'semua') params.ipc_status = ipcStatus;
+      if (iptStatus !== 'semua') params.ipt_status = iptStatus;
       const res = await api.get('/users/lookup', { params });
       if (fetchIdRef.current !== fetchId) return;
       setUsers(res.data.users || []);
@@ -151,7 +151,7 @@ function StudentLookup() {
     } finally {
       if (fetchIdRef.current === fetchId) setLoading(false);
     }
-  }, [debouncedQuery, kelasInc, kelasExc, grhaInc, grhaExc, tahunPel, status, ipcStatus, page, limit]);
+  }, [debouncedQuery, kelasInc, kelasExc, grhaInc, grhaExc, tahunPel, status, iptStatus, page, limit]);
 
   useEffect(() => {
     if (role === 'siswa') {
@@ -180,12 +180,12 @@ function StudentLookup() {
     setGrhaExc([]);
     setTahunPel('');
     setStatus('semua');
-    setIpcStatus('semua');
+    setIptStatus('semua');
     setPage(1);
   };
 
   const hasActiveFilters = query.trim() || kelasInc.length || kelasExc.length || grhaInc.length || grhaExc.length
-    || tahunPel || status !== 'semua' || ipcStatus !== 'semua';
+    || tahunPel || status !== 'semua' || iptStatus !== 'semua';
 
   const from = total === 0 ? 0 : (page - 1) * limit + 1;
   const to = Math.min(page * limit, total);
@@ -250,8 +250,8 @@ function StudentLookup() {
           <option value="aktif">Aktif</option>
           <option value="lulus">Lulus</option>
         </select>
-        <select value={ipcStatus} onChange={(e) => { setIpcStatus(e.target.value); setPage(1); }} style={selectStyle} aria-label="Filter IPC">
-          <option value="semua">Semua IPC</option>
+        <select value={iptStatus} onChange={(e) => { setIptStatus(e.target.value); setPage(1); }} style={selectStyle} aria-label="Filter IPT">
+          <option value="semua">Semua IPT</option>
           <option value="below">Di bawah minimum</option>
           <option value="normal">Normal</option>
         </select>
@@ -326,14 +326,14 @@ function StudentLookup() {
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Username</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Kelas</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Grha</th>
-                      <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>IPC</th>
+                      <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>IPT</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Status</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map((s) => {
-                      const belowMin = isBelowMinIpc(s.ipc_total, minIpcFor(minIpc, s.kelas));
+                      const belowMin = isBelowMinIpt(s.ipt_total, minIptFor(minIpt, s.kelas));
                       const lulus = Number(s.is_graduated) === 1;
                       const fotoUrl = s.foto ? API_BASE_URL.replace('/api', '') + s.foto : null;
                       return (
@@ -354,7 +354,7 @@ function StudentLookup() {
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155', fontWeight: 600 }}>{s.username || '-'}</td>
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>{s.kelas || '-'}</td>
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>{s.grha || '-'}</td>
-                          <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', fontWeight: 700, color: belowMin ? '#dc2626' : '#0f172a' }}>{s.ipc_total ?? '-'}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', fontWeight: 700, color: belowMin ? '#dc2626' : '#0f172a' }}>{s.ipt_total ?? '-'}</td>
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9' }}>
                             <span style={{
                               fontSize: '.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '999px',

@@ -7,7 +7,7 @@ const { evidenceFileFilter, EVIDENCE_LIMITS } = require('../utils/evidenceUpload
 const path = require('path');
 const fs = require('fs');
 const { calculatePelanggaranPoints } = require('../constants/points');
-const { resolveStudentIdByNis, applyIpcChange } = require('../utils/ipc');
+const { resolveStudentIdByNis, applyIptChange } = require('../utils/ipt');
 const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
 const { ensureUploadSubdir, resolveUploadPath } = require('../utils/paths');
 
@@ -121,7 +121,7 @@ router.put('/:id/approve', auth, superAdminOnly, async (req, res) => {
             ['approved', newFotoPath, pelanggaranId, 'pending']
         );
         
-        await applyIpcChange(
+        await applyIptChange(
             pelanggaranData.user_id,
             'pelanggaran',
             pelanggaranData.point_dikurangi,
@@ -202,18 +202,18 @@ router.put('/:id', auth, upload.single('foto'), async (req, res) => {
             [nama, nis, kelas, grha, keterangan, foto, jenis_pelanggaran, point_dikurangi, pelanggaranId]
         );
 
-        // If status is approved and point changed, update user IPC
+        // If status is approved and point changed, update user IPT
         if (pelanggaranData.status === 'approved' && pelanggaranData.point_dikurangi !== point_dikurangi) {
             const pointDiff = point_dikurangi - pelanggaranData.point_dikurangi;
-            const [userBefore] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [pelanggaranData.user_id]);
-            const ipcSebelum = userBefore[0].ipc_total;
-            const ipcSesudah = ipcSebelum + pointDiff;
+            const [userBefore] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [pelanggaranData.user_id]);
+            const iptSebelum = userBefore[0].ipt_total;
+            const iptSesudah = iptSebelum + pointDiff;
             
-            await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, pelanggaranData.user_id]);
+            await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, pelanggaranData.user_id]);
             
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [pelanggaranData.user_id, 'pelanggaran_update', pointDiff, ipcSebelum, ipcSesudah, `Update Pelanggaran: ${jenis_pelanggaran}`]
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [pelanggaranData.user_id, 'pelanggaran_update', pointDiff, iptSebelum, iptSesudah, `Update Pelanggaran: ${jenis_pelanggaran}`]
             );
         }
 
@@ -242,18 +242,18 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
 
         const pelanggaranData = pelanggaran[0];
 
-        // If approved, revert IPC change
+        // If approved, revert IPT change
         if (pelanggaranData.status === 'approved') {
-            const [user] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [pelanggaranData.user_id]);
-            const ipcSebelum = user[0].ipc_total;
-            const ipcSesudah = ipcSebelum - pelanggaranData.point_dikurangi;
+            const [user] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [pelanggaranData.user_id]);
+            const iptSebelum = user[0].ipt_total;
+            const iptSesudah = iptSebelum - pelanggaranData.point_dikurangi;
             
-            await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, pelanggaranData.user_id]);
+            await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, pelanggaranData.user_id]);
             
-            // Log IPC history
+            // Log IPT history
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [pelanggaranData.user_id, 'pelanggaran_delete', pelanggaranData.point_dikurangi, ipcSebelum, ipcSesudah, `Delete Pelanggaran: ${pelanggaranData.jenis_pelanggaran}`]
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [pelanggaranData.user_id, 'pelanggaran_delete', pelanggaranData.point_dikurangi, iptSebelum, iptSesudah, `Delete Pelanggaran: ${pelanggaranData.jenis_pelanggaran}`]
             );
         }
 

@@ -171,14 +171,14 @@ function Login() {
             margin: '0',
             color: '#1c2333'
           }}>
-            Website IPC Bali Mandara
+            Mandara Talenta
           </h1>
           <p style={{
             margin: '.25rem 0 0',
             fontSize: '.86rem',
             color: '#5b6478'
           }}>
-            Individual Point Card
+            Individual Point Talent
           </p>
         </div>
 
@@ -379,7 +379,7 @@ function Login() {
         lineHeight: 1.6
       }}>
         <div>Dikembangkan oleh <strong style={{ color: '#fff' }}>Dean Putra & Agus Kariada</strong></div>
-        <div>© 2026 · Website IPC Bali Mandara</div>
+        <div>© 2026 · Mandara Talenta</div>
       </div>
     </div>
   );

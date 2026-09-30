@@ -15,7 +15,7 @@ function esc(val) {
 
 /**
  * Isi semua {{placeholder}} di template dengan data siswa.
- * @param {string} template - isi file raport-ipc.html
+ * @param {string} template - isi file raport-ipt.html
  * @param {object} data - object key harus sama dengan nama placeholder
  */
 function renderTemplate(template, data) {
@@ -58,7 +58,7 @@ function renderTemplateWithLoops(template, data) {
 }
 
 /**
- * Bangun 1 baris <tr> untuk 1 siswa untuk leger IPC.
+ * Bangun 1 baris <tr> untuk 1 siswa untuk leger IPT.
  */
 function buildRow(siswa, no) {
   return `
@@ -106,22 +106,22 @@ function pilihDensityClass(jumlahSiswa) {
 }
 
 /**
- * Generate PDF untuk Individual Point Card menggunakan puppeteer
+ * Generate PDF untuk Individual Point Talent menggunakan puppeteer
  * @param {object} data - data siswa untuk diisi ke template
  * @param {string} outputPath - path output PDF
  */
-async function generateRaportIPC(data, outputPath) {
+async function generateRaportIPT(data, outputPath) {
   const puppeteer = require('puppeteer');
   
-  const templatePath = path.join(__dirname, '..', 'templates', 'raport-ipc.html');
-  const cssPath = path.join(__dirname, '..', 'templates', 'raport-ipc.css');
+  const templatePath = path.join(__dirname, '..', 'templates', 'raport-ipt.html');
+  const cssPath = path.join(__dirname, '..', 'templates', 'raport-ipt.css');
 
   let html = fs.readFileSync(templatePath, 'utf8');
   const css = fs.readFileSync(cssPath, 'utf8');
 
   // inline-kan CSS supaya puppeteer tidak perlu resolve path terpisah
   html = html.replace(
-    '<link rel="stylesheet" href="raport-ipc.css">',
+    '<link rel="stylesheet" href="raport-ipt.css">',
     `<style>${css}</style>` 
   );
 
@@ -168,22 +168,22 @@ async function generateRaportIPC(data, outputPath) {
 }
 
 /**
- * Generate PDF buffer untuk Individual Point Card menggunakan puppeteer
+ * Generate PDF buffer untuk Individual Point Talent menggunakan puppeteer
  * @param {object} data - data siswa untuk diisi ke template
  * @returns {Buffer} PDF buffer
  */
-async function generateRaportIPCBuffer(data) {
+async function generateRaportIPTBuffer(data) {
   const puppeteer = require('puppeteer');
   
-  const templatePath = path.join(__dirname, '..', 'templates', 'raport-ipc.html');
-  const cssPath = path.join(__dirname, '..', 'templates', 'raport-ipc.css');
+  const templatePath = path.join(__dirname, '..', 'templates', 'raport-ipt.html');
+  const cssPath = path.join(__dirname, '..', 'templates', 'raport-ipt.css');
 
   let html = fs.readFileSync(templatePath, 'utf8');
   const css = fs.readFileSync(cssPath, 'utf8');
 
   // inline-kan CSS supaya puppeteer tidak perlu resolve path terpisah
   html = html.replace(
-    '<link rel="stylesheet" href="raport-ipc.css">',
+    '<link rel="stylesheet" href="raport-ipt.css">',
     `<style>${css}</style>` 
   );
 
@@ -234,23 +234,23 @@ function formatDateIndo(date = new Date()) {
 }
 
 /**
- * Generate PDF buffer untuk Leger IPC Per Kelas menggunakan puppeteer
+ * Generate PDF buffer untuk Leger IPT Per Kelas menggunakan puppeteer
  * @param {object} dataKelas - data kelas untuk diisi ke template
  * @param {Array} listSiswa - array data siswa
  * @returns {Buffer} PDF buffer
  */
-async function generateLegerIPCBuffer(dataKelas, listSiswa) {
+async function generateLegerIPTBuffer(dataKelas, listSiswa) {
   const puppeteer = require('puppeteer');
   
-  const templatePath = path.join(__dirname, '..', 'templates', 'leger-ipc.html');
-  const cssPath = path.join(__dirname, '..', 'templates', 'leger-ipc.css');
+  const templatePath = path.join(__dirname, '..', 'templates', 'leger-ipt.html');
+  const cssPath = path.join(__dirname, '..', 'templates', 'leger-ipt.css');
 
   let html = fs.readFileSync(templatePath, 'utf8');
   const css = fs.readFileSync(cssPath, 'utf8');
 
   // inline-kan CSS supaya puppeteer tidak perlu resolve path terpisah
   html = html.replace(
-    '<link rel="stylesheet" href="leger-ipc.css">',
+    '<link rel="stylesheet" href="leger-ipt.css">',
     `<style>${css}</style>` 
   );
 
@@ -299,4 +299,4 @@ async function generateLegerIPCBuffer(dataKelas, listSiswa) {
   return pdfBuffer;
 }
 
-module.exports = { generateRaportIPC, generateRaportIPCBuffer, generateLegerIPCBuffer, renderTemplate, renderTemplateWithLoops, formatDateIndo, esc, buildRow, pilihDensityClass };
+module.exports = { generateRaportIPT, generateRaportIPTBuffer, generateLegerIPTBuffer, renderTemplate, renderTemplateWithLoops, formatDateIndo, esc, buildRow, pilihDensityClass };

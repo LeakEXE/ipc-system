@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import { formatDisplayText } from '../utils/formatDisplayText';
 import { buildEvidenceMap } from '../utils/historyEvidence';
 import { EvidenceViewer } from './EvidenceViewer';
 import { CATEGORY_ICONS } from './icons';
 import { User, Pencil, FileText, History, Paperclip } from 'lucide-react';
 
-function getIpcDetailRows(points = {}) {
+function getIptDetailRows(points = {}) {
   return [
     ['Prestasi', Number(points.prestasi) || 0],
     ['Perilaku', ['tanggung_jawab', 'disiplin', 'kepedulian', 'kemandirian', 'spiritual', 'kejujuran', 'kepercayaan_diri']
@@ -22,10 +22,10 @@ function getIpcDetailRows(points = {}) {
 }
 
 function StudentDetail({ student, onClose }) {
-    const minIpc = useMinIpcPerGrade();
+    const minIpt = useMinIptPerGrade();
     const [records, setRecords] = useState(null);
-    const [ipcHistory, setIpcHistory] = useState([]);
-    const [ipcCard, setIpcCard] = useState(null);
+    const [iptHistory, setIptHistory] = useState([]);
+    const [iptCard, setIptCard] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [evidenceImage, setEvidenceImage] = useState(null);
@@ -37,12 +37,12 @@ function StudentDetail({ student, onClose }) {
             try {
                 const [recordsRes, historyRes] = await Promise.all([
                     api.get(`/users/${student.id}/records`),
-                    api.get(`/users/${student.id}/ipc-history`)
+                    api.get(`/users/${student.id}/ipt-history`)
                 ]);
                 setRecords(recordsRes.data);
-                setIpcHistory(historyRes.data || []);
-                const ipcCardRes = await api.get(`/reports/ipc-card/${student.id}`);
-                setIpcCard(ipcCardRes.data);
+                setIptHistory(historyRes.data || []);
+                const iptCardRes = await api.get(`/reports/ipt-card/${student.id}`);
+                setIptCard(iptCardRes.data);
             } catch (err) {
                 setError(err.response?.data?.message || 'Gagal memuat detail siswa');
             } finally {
@@ -84,7 +84,7 @@ function StudentDetail({ student, onClose }) {
     };
 
     const avatarUrl = getImageUrl(student?.foto);
-    const detailRows = getIpcDetailRows(student?.ipc_points || ipcCard?.points || {});
+    const detailRows = getIptDetailRows(student?.ipt_points || iptCard?.points || {});
 
     return (
         <div className="modal-overlay app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1500 }} onClick={(e) => { if (e.target === e.currentTarget) { onClose(); setEvidenceImage(null); } }}>
@@ -127,7 +127,7 @@ function StudentDetail({ student, onClose }) {
                     <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{student.grha || '-'}</div>
                   </div>
                   <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Detail IPC</div>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Detail IPT</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {detailRows.map(([label, value]) => (
                         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.88rem', fontWeight: 400, color: '#334155' }}>
@@ -139,12 +139,12 @@ function StudentDetail({ student, onClose }) {
                   </div>
 
                   <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Riwayat IPC</div>
-                    {ipcHistory.length === 0 ? (
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Riwayat IPT</div>
+                    {iptHistory.length === 0 ? (
                       <div style={{ fontSize: '.85rem', color: '#94a3b8', textAlign: 'center', padding: '6px' }}>Belum ada riwayat</div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '320px', overflowY: 'auto' }}>
-                        {groupHistoryByCategory(ipcHistory).map(group => {
+                        {groupHistoryByCategory(iptHistory).map(group => {
                           const categoryIcons = {
                             prestasi: CATEGORY_ICONS.prestasi,
                             perilaku: CATEGORY_ICONS.perilaku,
@@ -190,7 +190,7 @@ function StudentDetail({ student, onClose }) {
                                     )}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.68rem', color: '#94a3b8' }}>
                                       <span>{new Date(record.created_at).toLocaleString('id-ID')}</span>
-                                      <span>{record.ipc_sebelum} → {record.ipc_sesudah}</span>
+                                      <span>{record.ipt_sebelum} → {record.ipt_sesudah}</span>
                                     </div>
                                   </div>
                                   );
@@ -204,8 +204,8 @@ function StudentDetail({ student, onClose }) {
                   </div>
 
                   <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Total IPC</div>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: isBelowMinIpc(student.ipc_total || 80, minIpcFor(minIpc, student?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '1rem' }}>{student.ipc_total || 80}</span>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Total IPT</div>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: isBelowMinIpt(student.ipt_total || 80, minIptFor(minIpt, student?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '1rem' }}>{student.ipt_total || 80}</span>
                   </div>
                 </>
               )}

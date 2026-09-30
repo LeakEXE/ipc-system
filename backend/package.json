@@ -1,7 +1,7 @@
 {
-  "name": "ipc-backend",
+  "name": "mandara-talenta-backend",
   "version": "0.2.0",
-  "description": "Backend API for IPC School System",
+  "description": "Backend API for Mandara Talenta",
   "license": "UNLICENSED",
   "private": true,
   "main": "server.js",

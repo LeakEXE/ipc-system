@@ -38,7 +38,7 @@ function Approvals() {
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState('');
   // Access gating: superadmin always; others need can_approve permission.
-  // Non-superadmin approvers only see IPC tabs (biodata/student-creation stay superadmin-only).
+  // Non-superadmin approvers only see IPT tabs (biodata/student-creation stay superadmin-only).
   const [hasAccess, setHasAccess] = useState(false);
   // Enlarged photo popup (same pattern as DriveViewer: URL string or null)
   const [previewImage, setPreviewImage] = useState(null);

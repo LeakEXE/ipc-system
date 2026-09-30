@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'ipc-frontend',
+    name: 'mandara-talenta-frontend',
     script: 'serve.js',
     instances: 1,
     autorestart: true,

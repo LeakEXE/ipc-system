@@ -40,7 +40,7 @@ function InputPrestasi() {
   const [userRole, setUserRole] = useState('');
   const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const FIXED_TINGKAT_OPTIONS = [
     'kecamatan',
@@ -87,7 +87,7 @@ function InputPrestasi() {
 
     fetchTeachers();
     fetchUserSubmissions();
-    fetchIpcConfig();
+    fetchIptConfig();
     checkAccess();
     if (user.role === 'superadmin') {
       fetchAllPrestasi();
@@ -114,7 +114,7 @@ function InputPrestasi() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
@@ -165,7 +165,7 @@ function InputPrestasi() {
   const handleBulkDelete = async () => {
     const ids = [...selectedIndexIds];
     if (ids.length === 0) return;
-    if (!window.confirm(`Hapus ${ids.length} data prestasi? IPC akan dikembalikan untuk data yang sudah disetujui.`)) {
+    if (!window.confirm(`Hapus ${ids.length} data prestasi? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
       return;
     }
     setBulkDeleting(true);
@@ -277,16 +277,16 @@ function InputPrestasi() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
       const firstTingkat = response.data.prestasi?.[0]?.field1 || 'sekolah';
       const firstJuara = response.data.prestasi?.[0]?.field2 || 'juara_i';
       setFormData(prev => ({ ...prev, kategori: firstTingkat, juara: firstJuara }));
       setCalculatedPoint(calculatePoint(firstTingkat, firstJuara, response.data));
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
@@ -301,7 +301,7 @@ function InputPrestasi() {
     }
   };
 
-  const calculatePoint = (tingkat, juara, configData = ipcConfig) => {
+  const calculatePoint = (tingkat, juara, configData = iptConfig) => {
     const config = (configData.prestasi || []).find(
       c => c.field1 === tingkat && c.field2 === juara
     );
@@ -337,7 +337,7 @@ function InputPrestasi() {
       const newFormData = { ...formData, [name]: value };
       // When tingkat changes, keep juara only if it exists for that tingkat
       if (name === 'kategori') {
-        const juaraForTingkat = (ipcConfig.prestasi || [])
+        const juaraForTingkat = (iptConfig.prestasi || [])
           .filter(c => c.field1 === value)
           .map(c => c.field2);
         if (!juaraForTingkat.includes(newFormData.juara)) {
@@ -826,7 +826,7 @@ function InputPrestasi() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan didapatkan:
+            Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 

@@ -6,8 +6,8 @@ const currentDir = __dirname;
 
 // Create a new service object
 const svc = new Service({
-  name: 'IPC Frontend',
-  description: 'IPC System Frontend Server (Production)',
+  name: 'Mandara Talenta Frontend',
+  description: 'Mandara Talenta Frontend Server (Production)',
   script: path.join(currentDir, 'serve.js'),
   workingDirectory: currentDir,
   nodeOptions: [

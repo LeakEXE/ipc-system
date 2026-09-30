@@ -583,7 +583,7 @@ function Leaderboard() {
         <div className="header-icon"><Trophy size={20} /></div>
         <div className="header-text">
           <h1>Peringkat Top 20</h1>
-          <p>Peringkat siswa berdasarkan poin IPC per kategori</p>
+          <p>Peringkat siswa berdasarkan poin IPT per kategori</p>
         </div>
       </div>
 

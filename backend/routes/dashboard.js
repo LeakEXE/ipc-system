@@ -17,8 +17,8 @@ router.get('/stats', auth, async (req, res) => {
             [pelanggaranByGrha],
             [pelanggaranByKelas],
             [activityCounts],
-            [ipcStats],
-            [topIpcStudents]
+            [iptStats],
+            [topIptStudents]
         ] = await Promise.all([
             // Total students
             db.query("SELECT COUNT(*) as count FROM users WHERE role = 'siswa'"),
@@ -85,22 +85,22 @@ router.get('/stats', auth, async (req, res) => {
                     (SELECT COALESCE(SUM(point), 0) FROM event WHERE status = 'approved') as points_event
             `),
 
-            // IPC Statistics
+            // IPT Statistics
             db.query(`
                 SELECT
-                    AVG(ipc_total) as rata_rata,
-                    MAX(ipc_total) as tertinggi,
-                    MIN(ipc_total) as terendah
+                    AVG(ipt_total) as rata_rata,
+                    MAX(ipt_total) as tertinggi,
+                    MIN(ipt_total) as terendah
                 FROM users
-                WHERE role = 'siswa' AND is_graduated = 0 AND ipc_total IS NOT NULL
+                WHERE role = 'siswa' AND is_graduated = 0 AND ipt_total IS NOT NULL
             `),
 
-            // Siswa dengan IPC tertinggi
+            // Siswa dengan IPT tertinggi
             db.query(`
-                SELECT id, nama, nis, kelas, grha, foto, ipc_total
+                SELECT id, nama, nis, kelas, grha, foto, ipt_total
                 FROM users
-                WHERE role = 'siswa' AND is_graduated = 0 AND ipc_total IS NOT NULL
-                ORDER BY ipc_total DESC
+                WHERE role = 'siswa' AND is_graduated = 0 AND ipt_total IS NOT NULL
+                ORDER BY ipt_total DESC
                 LIMIT 5
             `)
         ]);
@@ -122,12 +122,12 @@ router.get('/stats', auth, async (req, res) => {
             points_organisasi: Number(activityCounts[0].points_organisasi) || 0,
             points_kepanitiaan: Number(activityCounts[0].points_kepanitiaan) || 0,
             points_event: Number(activityCounts[0].points_event) || 0,
-            ipc_stats: {
-                rata_rata: Math.round(ipcStats[0].rata_rata || 0),
-                tertinggi: ipcStats[0].tertinggi || 0,
-                terendah: ipcStats[0].terendah || 0
+            ipt_stats: {
+                rata_rata: Math.round(iptStats[0].rata_rata || 0),
+                tertinggi: iptStats[0].tertinggi || 0,
+                terendah: iptStats[0].terendah || 0
             },
-            top_ipc_students: topIpcStudents
+            top_ipt_students: topIptStudents
         });
     } catch (error) {
         console.error(error);

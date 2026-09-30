@@ -1,10 +1,10 @@
-// Single source of truth for IPC point calculations
-// Reads from ipc_config (field1/field2) with hardcoded fallbacks
+// Single source of truth for IPT point calculations
+// Reads from ipt_config (field1/field2) with hardcoded fallbacks
 
-const { getIPCConfig } = require('../utils/ipcConfig');
+const { getIPTConfig } = require('../utils/iptConfig');
 const db = require('../config/database');
 
-// Default values as fallback — aligned with ipc_config_schema.sql
+// Default values as fallback — aligned with ipt_config_schema.sql
 const PRESTASI_POINTS = {
     'juara_i': { sekolah: 5, kecamatan: 8, kabupaten: 12, provinsi: 30, nasional: 40, internasional: 50 },
     'juara_ii': { sekolah: 4, kecamatan: 7, kabupaten: 10, provinsi: 25, nasional: 35, internasional: 45 },
@@ -102,7 +102,7 @@ const calculatePrestasiPoints = async (juara, kategori) => {
     try {
         const [configuredPoints] = await db.query(
             `SELECT point_value
-             FROM ipc_config
+             FROM ipt_config
              WHERE category = 'prestasi'
                AND is_active = TRUE
                AND LOWER(TRIM(field1)) = LOWER(TRIM(?))
@@ -114,7 +114,7 @@ const calculatePrestasiPoints = async (juara, kategori) => {
             return configuredPoints[0].point_value;
         }
 
-        const config = await getIPCConfig();
+        const config = await getIPTConfig();
         return config.prestasi?.byKey?.[`${kategori}|${juara}`]
             || config.prestasi?.juara?.[juara]
             || PRESTASI_POINTS[juara]?.[kategori]
@@ -129,7 +129,7 @@ const calculateEventPoints = async (tingkat) => {
     try {
         const [configuredPoints] = await db.query(
             `SELECT point_value
-             FROM ipc_config
+             FROM ipt_config
              WHERE category = 'event'
                AND is_active = TRUE
                AND LOWER(TRIM(field1)) = LOWER(TRIM(?))
@@ -141,7 +141,7 @@ const calculateEventPoints = async (tingkat) => {
             return configuredPoints[0].point_value;
         }
 
-        const config = await getIPCConfig();
+        const config = await getIPTConfig();
         return config.event?.tingkat?.[tingkat]
             || config.event?.tingkat?.[normalizeKey(tingkat)]
             || EVENT_POINTS[normalizeKey(tingkat)]
@@ -157,7 +157,7 @@ const calculateOrganisasiPoints = async (kategori, jabatan) => {
     try {
         const [configuredPoints] = await db.query(
             `SELECT point_value
-             FROM ipc_config
+             FROM ipt_config
              WHERE category = 'organisasi'
                AND is_active = TRUE
                AND LOWER(TRIM(field1)) = LOWER(TRIM(?))
@@ -169,7 +169,7 @@ const calculateOrganisasiPoints = async (kategori, jabatan) => {
             return configuredPoints[0].point_value;
         }
 
-        const config = await getIPCConfig();
+        const config = await getIPTConfig();
         return config.organisasi?.byKey?.[`${kategori}|${jabatan}`]
             || config.organisasi?.jabatan?.[jabatan]
             || ORGANISASI_POINTS[normalizeKey(jabatan)]
@@ -185,7 +185,7 @@ const calculateKepanitiaanPoints = async (jabatan) => {
     try {
         const [configuredPoints] = await db.query(
             `SELECT point_value
-             FROM ipc_config
+             FROM ipt_config
              WHERE category = 'kepanitiaan'
                AND is_active = TRUE
                AND LOWER(TRIM(field1)) = LOWER(TRIM(?))
@@ -197,7 +197,7 @@ const calculateKepanitiaanPoints = async (jabatan) => {
             return configuredPoints[0].point_value;
         }
 
-        const config = await getIPCConfig();
+        const config = await getIPTConfig();
         return config.kepanitiaan?.jabatan?.[jabatan]
             || config.kepanitiaan?.jabatan?.[normalizeKey(jabatan)]
             || KEPANITIAAN_POINTS[normalizeKey(jabatan)]
@@ -213,8 +213,8 @@ const calculatePelanggaranPoints = async (jenis) => {
     try {
         const [configs] = await db.query(
             `SELECT level.point_value AS point_value
-             FROM ipc_pelanggaran_level level
-             LEFT JOIN ipc_pelanggaran_detail detail
+             FROM ipt_pelanggaran_level level
+             LEFT JOIN ipt_pelanggaran_detail detail
                ON detail.level_id = level.id AND detail.name = ?
              WHERE (level.name = ? OR detail.name = ?)
                AND level.is_active = TRUE
@@ -228,8 +228,8 @@ const calculatePelanggaranPoints = async (jenis) => {
 
         const [legacyConfigs] = await db.query(
             `SELECT COALESCE(level_config.point_value, detail_config.point_value) AS point_value
-             FROM ipc_config detail_config
-             LEFT JOIN ipc_config level_config
+             FROM ipt_config detail_config
+             LEFT JOIN ipt_config level_config
                ON level_config.category = detail_config.category
               AND level_config.field1 = detail_config.field2
               AND level_config.field2 IS NULL
@@ -255,7 +255,7 @@ const lookupPerilakuPoint = async (character, rating) => {
 
     const [rows] = await db.query(
         `SELECT point_value
-         FROM ipc_config
+         FROM ipt_config
          WHERE category = 'perilaku'
            AND is_active = TRUE
            AND (LOWER(TRIM(field1)) = LOWER(TRIM(?)) OR LOWER(TRIM(field2)) = LOWER(TRIM(?)))
@@ -285,7 +285,7 @@ const calculatePerilakuPoints = async (karakter) => {
             return calculatePerilakuPointsFromFields(fields);
         }
 
-        const config = await getIPCConfig();
+        const config = await getIPTConfig();
         return config.perilaku?.karakter?.[karakter]
             || config.perilaku?.karakter?.[normalizeKey(karakter)]
             || PERILAKU_POINTS[normalizeKey(karakter)]
@@ -296,7 +296,7 @@ const calculatePerilakuPoints = async (karakter) => {
     }
 };
 
-// Sum of all trait points (matches frontend preview + IPC card breakdown)
+// Sum of all trait points (matches frontend preview + IPT card breakdown)
 const calculatePerilakuPointsFromFields = async (fields) => {
     try {
         let total = 0;

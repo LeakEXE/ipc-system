@@ -3,7 +3,7 @@ const router = express.Router();
 const { auth, superAdminOnly, teacherOnly } = require('../middleware/auth');
 const db = require('../config/database');
 const { validateTahunPelajaran, getCurrentAcademicYear, calculateCurrentClass } = require('../utils/academicYear');
-const { buildIpcCardBreakdown } = require('../utils/ipcCardBreakdown');
+const { buildIptCardBreakdown } = require('../utils/iptCardBreakdown');
 
 function getRequestedAcademicYear(req) {
     const tahunAjaran = req.query.tahun_ajaran || getCurrentAcademicYear();
@@ -75,7 +75,7 @@ router.get('/class-statistics', auth, superAdminOnly, async (req, res) => {
                 // Get students in this class based on academic year
                 // Calculate the expected class for each student based on their enrollment year
                 const [allStudents] = await db.query(`
-                    SELECT id, nama, nis, username, grha, ipc_total, foto, tahun_pelajaran, jurusan, kelas as current_kelas
+                    SELECT id, nama, nis, username, grha, ipt_total, foto, tahun_pelajaran, jurusan, kelas as current_kelas
                     FROM users 
                     WHERE role = 'siswa' AND (is_graduated = 0 OR is_graduated IS NULL)
                     ORDER BY nama ASC
@@ -148,11 +148,11 @@ router.get('/class-statistics', auth, superAdminOnly, async (req, res) => {
                     totalPelanggaran = pelanggaranResult[0]?.total || 0;
                 }
 
-                // Get average IPC
-                let avgIpc = 80;
+                // Get average IPT
+                let avgIpt = 80;
                 if (students.length > 0) {
-                    const totalIpc = students.reduce((sum, s) => sum + (s.ipc_total || 80), 0);
-                    avgIpc = Math.round(totalIpc / students.length);
+                    const totalIpt = students.reduce((sum, s) => sum + (s.ipt_total || 80), 0);
+                    avgIpt = Math.round(totalIpt / students.length);
                 }
 
                 return {
@@ -169,12 +169,12 @@ router.get('/class-statistics', auth, superAdminOnly, async (req, res) => {
                     totalOrganisasi,
                     totalKepanitiaan,
                     totalPelanggaran,
-                    rataRataIPC: avgIpc,
+                    rataRataIPT: avgIpt,
                     students: await Promise.all(students.map(async (student) => {
-                        const cardData = await buildIpcCardBreakdown(student.id);
+                        const cardData = await buildIptCardBreakdown(student.id);
                         return {
                             ...student,
-                            ipc_points: cardData?.points || {}
+                            ipt_points: cardData?.points || {}
                         };
                     }))
                 };
@@ -255,7 +255,7 @@ router.get('/my-class', auth, teacherOnly, async (req, res) => {
                 // Get students for this class
                 const [allStudents] = await db.query(`
                     SELECT 
-                        u.id, u.nama, u.nis, u.grha, u.ipc_total, u.ipc_awal,
+                        u.id, u.nama, u.nis, u.grha, u.ipt_total, u.ipt_awal,
                         u.alamat, u.no_hp, u.wali_kelas, u.foto, u.created_at, u.tahun_pelajaran, u.jurusan
                     FROM users u
                     WHERE u.role = 'siswa' AND (u.is_graduated = 0 OR u.is_graduated IS NULL)
@@ -331,8 +331,8 @@ router.get('/my-class', auth, teacherOnly, async (req, res) => {
                 const totalOrganisasi = studentsWithStats.reduce((sum, s) => sum + s.stats.organisasi, 0);
                 const totalKepanitiaan = studentsWithStats.reduce((sum, s) => sum + s.stats.kepanitiaan, 0);
                 const totalPelanggaran = studentsWithStats.reduce((sum, s) => sum + s.stats.pelanggaran, 0);
-                const avgIpc = students.length > 0 
-                    ? Math.round(students.reduce((sum, s) => sum + (s.ipc_total || 80), 0) / students.length)
+                const avgIpt = students.length > 0 
+                    ? Math.round(students.reduce((sum, s) => sum + (s.ipt_total || 80), 0) / students.length)
                     : 80;
 
                 res.json({
@@ -344,7 +344,7 @@ router.get('/my-class', auth, teacherOnly, async (req, res) => {
                     totalOrganisasi,
                     totalKepanitiaan,
                     totalPelanggaran,
-                    rataRataIPC: avgIpc,
+                    rataRataIPT: avgIpt,
                     students: studentsWithStats
                 });
                 return;
@@ -358,7 +358,7 @@ router.get('/my-class', auth, teacherOnly, async (req, res) => {
         // Get all students and filter by calculated class for current academic year
         const [allStudents] = await db.query(`
             SELECT 
-                u.id, u.nama, u.nis, u.grha, u.ipc_total, u.ipc_awal,
+                u.id, u.nama, u.nis, u.grha, u.ipt_total, u.ipt_awal,
                 u.alamat, u.no_hp, u.wali_kelas, u.foto, u.created_at, u.tahun_pelajaran, u.jurusan
             FROM users u
             WHERE u.role = 'siswa' AND (u.is_graduated = 0 OR u.is_graduated IS NULL)
@@ -434,8 +434,8 @@ router.get('/my-class', auth, teacherOnly, async (req, res) => {
         const totalOrganisasi = studentsWithStats.reduce((sum, s) => sum + s.stats.organisasi, 0);
         const totalKepanitiaan = studentsWithStats.reduce((sum, s) => sum + s.stats.kepanitiaan, 0);
         const totalPelanggaran = studentsWithStats.reduce((sum, s) => sum + s.stats.pelanggaran, 0);
-        const avgIpc = students.length > 0 
-            ? Math.round(students.reduce((sum, s) => sum + (s.ipc_total || 80), 0) / students.length)
+        const avgIpt = students.length > 0 
+            ? Math.round(students.reduce((sum, s) => sum + (s.ipt_total || 80), 0) / students.length)
             : 80;
 
         res.json({
@@ -447,7 +447,7 @@ router.get('/my-class', auth, teacherOnly, async (req, res) => {
             totalOrganisasi,
             totalKepanitiaan,
             totalPelanggaran,
-            rataRataIPC: avgIpc,
+            rataRataIPT: avgIpt,
             students: studentsWithStats
         });
     } catch (error) {
