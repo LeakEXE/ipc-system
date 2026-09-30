@@ -30,7 +30,7 @@ CREATE TABLE users (
     nis VARCHAR(20) UNIQUE,
     nip VARCHAR(20) UNIQUE,
     password VARCHAR(255) NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('superadmin', 'guru', 'siswa')),
+    role TEXT NOT NULL CHECK (role IN ('superadmin', 'guru', 'pegawai', 'siswa')),
     kelas VARCHAR(50),
     grha VARCHAR(50),
     jurusan VARCHAR(50) DEFAULT NULL,
@@ -167,11 +167,14 @@ CREATE TABLE prestasi (
     kategori VARCHAR(100) NOT NULL,
     jenis_lomba VARCHAR(50) DEFAULT 'akademik',
     kategori_lomba VARCHAR(50) DEFAULT 'individu',
+    pembina_id INTEGER NULL,
+    grup_lomba VARCHAR(64) NULL,
     point INTEGER NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     rejection_reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (pembina_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Organisasi Table
@@ -333,6 +336,7 @@ CREATE TABLE prestasi_approvals (
     kategori VARCHAR(50),
     jenis_lomba VARCHAR(50) DEFAULT 'akademik',
     kategori_lomba VARCHAR(50) DEFAULT 'individu',
+    grup_lomba VARCHAR(64) NULL,
     foto VARCHAR(255),
     pembina_status TEXT DEFAULT 'pending' CHECK (pembina_status IN ('pending', 'approved', 'rejected')),
     superadmin_status TEXT DEFAULT 'pending' CHECK (superadmin_status IN ('pending', 'approved', 'rejected')),
@@ -554,7 +558,7 @@ DROP TABLE IF EXISTS input_access_control CASCADE;
 CREATE TABLE input_access_control (
     id SERIAL PRIMARY KEY,
     control_type TEXT NOT NULL CHECK (control_type IN ('global', 'role')),
-    role_target TEXT DEFAULT 'all' CHECK (role_target IN ('siswa', 'guru', 'all')),
+    role_target TEXT DEFAULT 'all' CHECK (role_target IN ('siswa', 'guru', 'pegawai', 'all')),
     jenis_input TEXT NOT NULL CHECK (jenis_input IN ('prestasi', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran', 'perilaku', 'all')),
     is_enabled BOOLEAN DEFAULT TRUE,
     updated_by INTEGER NOT NULL,
@@ -570,7 +574,7 @@ DROP TABLE IF EXISTS input_access_logs CASCADE;
 CREATE TABLE input_access_logs (
     id SERIAL PRIMARY KEY,
     control_type TEXT NOT NULL CHECK (control_type IN ('global', 'role', 'individual')),
-    target_role TEXT DEFAULT NULL CHECK (target_role IN ('siswa', 'guru', 'all')),
+    target_role TEXT DEFAULT NULL CHECK (target_role IN ('siswa', 'guru', 'pegawai', 'all')),
     target_user_id INTEGER DEFAULT NULL,
     jenis_input VARCHAR(50) NOT NULL,
     action TEXT NOT NULL CHECK (action IN ('enabled', 'disabled')),
@@ -585,6 +589,10 @@ CREATE TABLE input_access_logs (
 -- Indexes for Prestasi Approvals
 CREATE INDEX idx_prestasi_user ON prestasi_approvals(user_id);
 CREATE INDEX idx_prestasi_status ON prestasi_approvals(pembina_status, superadmin_status);
+CREATE INDEX IF NOT EXISTS idx_prestasi_approvals_grup ON prestasi_approvals(grup_lomba);
+
+-- Indexes for Prestasi (pembina leaderboard joins/filters on pembina_id)
+CREATE INDEX IF NOT EXISTS idx_prestasi_pembina ON prestasi(pembina_id);
 
 -- Indexes for Event Approvals
 CREATE INDEX idx_event_user ON event_approvals(user_id);

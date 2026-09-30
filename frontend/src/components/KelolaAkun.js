@@ -260,7 +260,7 @@ function KelolaAkun() {
         grha: user.grha,
         tahun_pelajaran: user.tahun_pelajaran
       });
-    } else if (user.role === 'guru') {
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
       setFormData({
         nama: user.nama,
         nip: user.nip,

@@ -33,6 +33,7 @@ function InputEvent() {
   const [indexSearch, setIndexSearch] = useState('');
   const [selectedIndexIds, setSelectedIndexIds] = useState([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
   const [ipcConfig, setIpcConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
@@ -74,6 +75,8 @@ function InputEvent() {
     fetchIpcConfig();
     if (user.role === 'superadmin') {
       fetchAllEvent();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllEvent(); }).catch(() => setCanApprove(false));
     }
   }, []);
 
@@ -118,7 +121,7 @@ function InputEvent() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.event || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -280,7 +283,7 @@ function InputEvent() {
         data.append('foto', fileToUpload);
       }
 
-      await api.post('/approvals-v2/event/submit', data);
+      await api.post('/approvals/event/submit', data);
 
       setMessage(userRole === 'superadmin' ? 'Event berhasil ditambahkan!' : 'Event berhasil diajukan untuk persetujuan!');
       if (userRole === 'superadmin') {
@@ -451,6 +454,8 @@ function InputEvent() {
     );
   };
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (checkingAccess) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -470,7 +475,7 @@ function InputEvent() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Event</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Event'}
           </button>
@@ -484,7 +489,7 @@ function InputEvent() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Event</h3>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -495,7 +500,7 @@ function InputEvent() {
               placeholder="Cari nama, NIS, event, tingkat..."
               style={{ padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', minWidth: '240px' }}
             />
-            {selectedIndexIds.length > 0 && (
+            {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span style={{ fontSize: '13px', color: '#666' }}>{selectedIndexIds.length} dipilih</span>
                 <button
@@ -524,19 +529,21 @@ function InputEvent() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={filteredEvent.length > 0 && filteredEvent.every((item) => selectedIndexIds.includes(item.id))}
-                        ref={(el) => {
-                          if (el) {
-                            const filteredIds = filteredEvent.map((item) => item.id);
-                            el.indeterminate = filteredIds.some((id) => selectedIndexIds.includes(id)) && !filteredIds.every((id) => selectedIndexIds.includes(id));
-                          }
-                        }}
-                        onChange={toggleSelectAllFiltered}
-                      />
-                    </th>
+                    {userRole === 'superadmin' && (
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={filteredEvent.length > 0 && filteredEvent.every((item) => selectedIndexIds.includes(item.id))}
+                          ref={(el) => {
+                            if (el) {
+                              const filteredIds = filteredEvent.map((item) => item.id);
+                              el.indeterminate = filteredIds.some((id) => selectedIndexIds.includes(id)) && !filteredIds.every((id) => selectedIndexIds.includes(id));
+                            }
+                          }}
+                          onChange={toggleSelectAllFiltered}
+                        />
+                      </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -550,13 +557,15 @@ function InputEvent() {
                 <tbody>
                   {filteredEvent.map(item => (
                     <tr key={item.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedIndexIds.includes(item.id)}
-                          onChange={() => toggleSelectIndex(item.id)}
-                        />
-                      </td>
+                      {userRole === 'superadmin' && (
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedIndexIds.includes(item.id)}
+                            onChange={() => toggleSelectIndex(item.id)}
+                          />
+                        </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -572,13 +581,15 @@ function InputEvent() {
                         >
                           Edit
                         </button>
-                        <button 
-                          className="btn btn-danger" 
-                          onClick={() => handleDelete(item.id)} 
-                          style={{ padding: '3px 8px', fontSize: '12px' }}
-                        >
-                          Hapus
-                        </button>
+                        {userRole === 'superadmin' && (
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => handleDelete(item.id)}
+                            style={{ padding: '3px 8px', fontSize: '12px' }}
+                          >
+                            Hapus
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -595,7 +606,7 @@ function InputEvent() {
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -835,8 +846,8 @@ function InputEvent() {
         </div>
       </EditModal>
 
-      {/* Submission History */}
-      {submissions.length > 0 && (
+      {/* Submission History - Hidden for approvers */}
+      {!canApprove && submissions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Event</h3>
           <div style={{ display: 'grid', gap: '10px' }}>

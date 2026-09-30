@@ -82,7 +82,7 @@ router.post('/', auth, checkPermission('perilaku'), async (req, res) => {
                 kepercayaan_diri
             });
 
-        if (userRole === 'superadmin') {
+        if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
             const [result] = await db.query(
                 `INSERT INTO perilaku (user_id, submitted_by, nama, nis, kelas, grha, karakter_siswa, point, status)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
@@ -97,7 +97,7 @@ router.post('/', auth, checkPermission('perilaku'), async (req, res) => {
             );
 
             // Log activity
-            await logActivity(req.user.id, 'SUBMIT_PERILAKU', `SuperAdmin ${req.user.nama} directly submitted perilaku for ${nama} (${nis}): ${karakter}`, req.ip);
+            await logActivity(req.user.id, 'SUBMIT_PERILAKU', `${req.user.nama} (${req.user.role}) directly submitted perilaku for ${nama} (${nis}): ${karakter}`, req.ip);
 
             return res.status(201).json({
                 message: 'Perilaku berhasil ditambahkan',

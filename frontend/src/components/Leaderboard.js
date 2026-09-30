@@ -600,7 +600,7 @@ function Leaderboard() {
               <span className="chip-icon"><cat.icon size={16} /></span>
               <span className="chip-text">
                 <strong>{cat.label}</strong>
-                {dataByCategory[cat.key] && <span>{dataByCategory[cat.key].length} siswa</span>}
+                {dataByCategory[cat.key] && <span>{dataByCategory[cat.key].length} {cat.key === 'pembina' ? 'pembina' : 'siswa'}</span>}
               </span>
             </button>
           ))}
@@ -624,7 +624,7 @@ function Leaderboard() {
             <div className="card podium-card" style={{ marginBottom: '12px' }}>
               <div className="card-head">
                 <h2><Trophy size={16} /> Podium Top 3</h2>
-                <p>{title} — {isPembina ? 'guru' : 'siswa'} dengan {isPembina ? 'pembinaan' : 'poin'} {superlative}</p>
+                <p>{title} — {isPembina ? 'pembina' : 'siswa'} dengan poin {superlative}</p>
               </div>
               <div className="podium">
                 {[
@@ -657,7 +657,7 @@ function Leaderboard() {
                           <>{s.kelas} · {s.grha || '-'}</>
                         )}
                       </div>
-                      <div className="podium-total"><Award size={13} /> {isPembina ? `${s.total_point} pembinaan` : `${s.total_point} poin`}</div>
+                      <div className="podium-total"><Award size={13} /> {s.total_point} poin</div>
                       <div className="podium-step">{s.rank}</div>
                     </div>
                   );
@@ -676,7 +676,7 @@ function Leaderboard() {
             </div>
             <div className="stat-item">
               <div className="stat-value"><Award size={20} /> {totalPoints}</div>
-              <div className="stat-label">Total {isPembina ? 'pembinaan' : 'poin'} {activeLabel}</div>
+              <div className="stat-label">Total poin {activeLabel}</div>
             </div>
             <div className="stat-item">
               <div className="stat-value"><Clock size={20} /> {lastUpdated ? lastUpdated.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}</div>
@@ -688,7 +688,7 @@ function Leaderboard() {
           <div className="card">
             <div className="card-head">
               <h2 id="cardTitle"><ClipboardList size={16} /> {title}</h2>
-              <p id="cardSub">Top 20 siswa dengan poin {activeLabel} {superlative} yang telah disetujui</p>
+              <p id="cardSub">Top 20 {isPembina ? 'pembina' : 'siswa'} dengan poin {activeLabel} {superlative} yang telah disetujui</p>
             </div>
 
             {/* Desktop table */}
@@ -700,7 +700,7 @@ function Leaderboard() {
                     <th>Nama</th>
                     <th>{isPembina ? 'NIP' : 'Kelas'}</th>
                     <th>{isPembina ? 'Jabatan' : 'Grha'}</th>
-                    <th>{isPembina ? 'Total Pembinaan' : 'Total Poin'}</th>
+                    <th>Total Poin</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -734,7 +734,7 @@ function Leaderboard() {
                           </td>
                           <td><span className="pill kelas">{isPembina ? (s.nip || '-') : s.kelas}</span></td>
                           <td><span className={`pill ${isPembina ? 'jabatan' : 'grha'}`}>{isPembina ? (s.jabatan || s.detail || 'Guru') : (s.grha || '-')}</span></td>
-                          <td><span className="points-pill"><Award size={13} /> {isPembina ? `${s.total_point} pembinaan` : `${s.total_point} poin`}</span></td>
+                          <td><span className="points-pill"><Award size={13} /> {s.total_point} poin</span></td>
                         </tr>
                       );
                     })
@@ -775,7 +775,7 @@ function Leaderboard() {
                         <span className="pill kelas">{isPembina ? (s.nip || '-') : s.kelas}</span>
                         <span className={`pill ${isPembina ? 'jabatan' : 'grha'}`}>{isPembina ? (s.jabatan || s.detail || 'Guru') : (s.grha || '-')}</span>
                       </div>
-                      <div className="m-total"><ClipboardList size={13} /> {isPembina ? 'Total pembinaan:' : 'Total poin:'} <span className="points-pill"><Award size={13} /> {isPembina ? `${s.total_point} pembinaan` : `${s.total_point} poin`}</span></div>
+                      <div className="m-total"><ClipboardList size={13} /> Total poin: <span className="points-pill"><Award size={13} /> {s.total_point} poin</span></div>
                     </div>
                   );
                 })

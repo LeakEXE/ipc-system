@@ -33,6 +33,7 @@ function InputPerilaku() {
   const [userRole, setUserRole] = useState('');
   const [hasPermission, setHasPermission] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(true);
+  const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
   const [ipcConfig, setIpcConfig] = useState([]);
   const [calculatedPoints, setCalculatedPoints] = useState({});
@@ -53,7 +54,7 @@ function InputPerilaku() {
     const checkPermission = async () => {
       try {
         const response = await api.get('/permissions/my-permissions');
-        const canAccess = user.role === 'superadmin' || (user.role === 'guru' && response.data.can_input_perilaku);
+        const canAccess = user.role === 'superadmin' || ((user.role === 'guru' || user.role === 'pegawai') && response.data.can_input_perilaku);
         setHasPermission(canAccess);
       } catch (error) {
         console.error('Error checking permission:', error);
@@ -84,6 +85,8 @@ function InputPerilaku() {
     fetchUserSubmissions();
     if (user.role === 'superadmin') {
       fetchAllPerilaku();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPerilaku(); }).catch(() => setCanApprove(false));
     }
   }, []);
 
@@ -138,7 +141,7 @@ function InputPerilaku() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.perilaku || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -392,6 +395,8 @@ function InputPerilaku() {
     fetchAllPerilaku();
   };
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (permissionLoading) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -409,7 +414,7 @@ function InputPerilaku() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Perilaku</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Perilaku'}
           </button>
@@ -423,7 +428,7 @@ function InputPerilaku() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Perilaku</h3>
           {loadingIndex ? (
@@ -438,7 +443,7 @@ function InputPerilaku() {
                 onChange={(e) => setIndexSearch(e.target.value)}
                 style={{ padding: '6px 10px', fontSize: '13px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '260px' }}
               />
-              {selectedIndexIds.length > 0 && (
+              {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
                 <>
                   <span style={{ fontSize: '13px' }}>{selectedIndexIds.length} dipilih</span>
                   <button
@@ -464,6 +469,7 @@ function InputPerilaku() {
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
                     <th>
                       <input
                         type="checkbox"
@@ -479,6 +485,7 @@ function InputPerilaku() {
                         onChange={toggleSelectAllFiltered}
                       />
                     </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -495,6 +502,7 @@ function InputPerilaku() {
                 <tbody>
                   {filteredPerilaku.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
                       <td>
                         <input
                           type="checkbox"
@@ -502,6 +510,7 @@ function InputPerilaku() {
                           onChange={() => toggleSelectIndex(item.id)}
                         />
                       </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -520,6 +529,7 @@ function InputPerilaku() {
                         >
                           Edit
                         </button>
+                        {userRole === 'superadmin' && (
                         <button
                           className="btn btn-danger"
                           onClick={() => handleDelete(item.id)}
@@ -527,6 +537,7 @@ function InputPerilaku() {
                         >
                           Hapus
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -545,7 +556,7 @@ function InputPerilaku() {
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -811,8 +822,8 @@ function InputPerilaku() {
         </div>
       </EditModal>
 
-      {/* Submission History - Hidden for Superadmin */}
-      {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
+      {/* Submission History - Hidden for Superadmin and approvers */}
+      {userRole !== 'superadmin' && !canApprove && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Perilaku</h3>
           {submissions.length === 0 ? (

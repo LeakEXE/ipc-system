@@ -10,8 +10,8 @@ function Notifications() {
 
   const markAllAsRead = useCallback(async () => {
     try {
-      await api.put('/approvals-v2/notifications/read-all', {});
-      const response = await api.get('/approvals-v2/notifications/count');
+      await api.put('/approvals/notifications/read-all', {});
+      const response = await api.get('/approvals/notifications/count');
       setUnreadCount(response.data.count || 0);
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -20,7 +20,7 @@ function Notifications() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await api.get('/approvals-v2/notifications');
+      const response = await api.get('/approvals/notifications');
       setNotifications(response.data);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -32,7 +32,7 @@ function Notifications() {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const response = await api.get('/approvals-v2/notifications/count');
+      const response = await api.get('/approvals/notifications/count');
       setUnreadCount(response.data.count || 0);
     } catch (error) {
       console.error('Error fetching unread count:', error);
@@ -47,7 +47,7 @@ function Notifications() {
 
   const markAsRead = async (id) => {
     try {
-      await api.put(`/approvals-v2/notifications/${id}/read`, {});
+      await api.put(`/approvals/notifications/${id}/read`, {});
       fetchNotifications();
       fetchUnreadCount();
     } catch (error) {

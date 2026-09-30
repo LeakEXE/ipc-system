@@ -127,7 +127,6 @@ app.use('/api/event', require('./routes/event'));
 app.use('/api/pelanggaran', require('./routes/pelanggaran'));
 app.use('/api/perilaku', require('./routes/perilaku'));
 app.use('/api/approvals', require('./routes/approvals'));
-app.use('/api/approvals-v2', require('./routes/approvals-v2'));
 app.use('/api/permissions', require('./routes/permissions'));
 app.use('/api/input-access', require('./routes/input-access'));
 app.use('/api/logs', require('./routes/logs'));

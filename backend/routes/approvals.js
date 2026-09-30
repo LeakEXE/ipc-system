@@ -1,108 +1,1041 @@
 const express = require('express');
 const router = express.Router();
-const { auth, superAdminOnly } = require('../middleware/auth');
+const multer = require('multer');
+const { evidenceFileFilter, EVIDENCE_LIMITS } = require('../utils/evidenceUpload');
+const path = require('path');
+const { auth, approverOnly, checkInputAccess } = require('../middleware/auth');
 const db = require('../config/database');
+const { logActivity } = require('../utils/logger');
+const {
+    calculatePrestasiPoints,
+    calculateEventPoints,
+    calculateOrganisasiPoints,
+    calculateKepanitiaanPoints,
+    calculatePelanggaranPoints
+} = require('../constants/points');
+const { resolveStudentIdByNis, resolvePembina, applyIpcChange, applyPerilakuIpcChange, buildKeterangan } = require('../utils/ipc');
+const {
+    getApprovalStatusColumn,
+    getRowApprovalStatus,
+    fetchPendingApprovals,
+    approveSubmission,
+    rejectSubmission
+} = require('../utils/approvalSchema');
+const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
+const { ensureUploadSubdir, UPLOAD_DIR, resolveUploadPath } = require('../utils/paths');
+const fs = require('fs');
+// Local file storage only - Google Drive removed
 
-// Get all pending approvals
-router.get('/pending', auth, superAdminOnly, async (req, res) => {
+// Configure multer for file uploads - use type-specific folders
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        // Determine upload subfolder based on route
+        let subdir = 'approvals';
+        if (req.originalUrl.includes('/prestasi/')) {
+            subdir = 'prestasi';
+        } else if (req.originalUrl.includes('/event/')) {
+            subdir = 'event';
+        } else if (req.originalUrl.includes('/organisasi/')) {
+            subdir = 'organisasi';
+        } else if (req.originalUrl.includes('/kepanitiaan/')) {
+            subdir = 'kepanitiaan';
+        } else if (req.originalUrl.includes('/pelanggaran/')) {
+            subdir = 'pelanggaran';
+        }
+
+        // Absolute path (<backend>/uploads/...) + auto-create, independent of cwd
+        cb(null, ensureUploadSubdir(subdir));
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ storage: storage, fileFilter: evidenceFileFilter, limits: EVIDENCE_LIMITS });
+
+// Helper function to save file locally - extracts the DB-relative path from the absolute file path
+const saveFileLocally = (filePath) => {
+    // filePath is absolute (multer destinations are absolute).
+    // DB format stays 'uploads/<type>/<file>' no matter where UPLOAD_DIR lives.
+    // filePath is absolute like: c:\...\backend\uploads\prestasi\filename.jpg
+    // We want: uploads/prestasi/filename.jpg
+
+    const rel = path.relative(UPLOAD_DIR, filePath).replace(/\\/g, '/');
+    if (rel && !rel.startsWith('..')) {
+        return `uploads/${rel}`;
+    }
+
+    // If file is outside UPLOAD_DIR, use the filename and default to approvals folder
+    console.warn('Upload file outside UPLOAD_DIR, using fallback:', filePath);
+    const filename = path.basename(filePath);
+    return `uploads/approvals/${filename}`;
+};
+
+// ==================== SUBMIT FOR APPROVAL ====================
+
+// Submit Prestasi for Approval (or Direct Submit for Superadmin)
+router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.single('foto'), async (req, res) => {
     try {
-        const [prestasi] = await db.query(`
-            SELECT p.*, 'prestasi' as type, u.nama as user_name 
-            FROM prestasi p 
-            JOIN users u ON p.user_id = u.id 
-            WHERE p.status = 'pending'
-        `);
-        
-        const [organisasi] = await db.query(`
-            SELECT o.*, 'organisasi' as type, u.nama as user_name 
-            FROM organisasi o 
-            JOIN users u ON o.user_id = u.id 
-            WHERE o.status = 'pending'
-        `);
-        
-        const [event] = await db.query(`
-            SELECT e.*, 'event' as type, u.nama as user_name 
-            FROM event e 
-            JOIN users u ON e.user_id = u.id 
-            WHERE e.status = 'pending'
-        `);
-        
-        const [pelanggaran] = await db.query(`
-            SELECT p.*, 'pelanggaran' as type, u.nama as user_name 
-            FROM pelanggaran p 
-            JOIN users u ON p.user_id = u.id 
-            WHERE p.status = 'pending'
-        `);
-        
-        const [perilaku] = await db.query(`
-            SELECT p.*, 'perilaku' as type, u.nama as user_name 
-            FROM perilaku p 
-            JOIN users u ON p.user_id = u.id 
-            WHERE p.status = 'pending'
-        `);
+        const userRole = req.user.role;
+        const { nama, nis, nama_lomba, pembina, pembina_id, grha, juara, kategori, jenis_lomba = 'akademik', kategori_lomba = 'individu' } = req.body;
+        // Kelompok mode: anggota = [{ nama, nis }, ...] (min 2). Individu: single nama/nis.
+        let anggota = [];
+        if (kategori_lomba === 'kelompok') {
+            try {
+                anggota = typeof req.body.anggota === 'string' ? JSON.parse(req.body.anggota) : (req.body.anggota || []);
+            } catch {
+                return res.status(400).json({ message: 'Format data anggota tidak valid' });
+            }
+            if (!Array.isArray(anggota) || anggota.length < 2) {
+                return res.status(400).json({ message: 'Lomba kelompok membutuhkan minimal 2 anggota' });
+            }
+        } else {
+            anggota = [{ nama, nis }];
+        }
+        let fotoPath = req.file ? saveFileLocally(req.file.path) : null;
+        console.log('Prestasi - Using local path:', fotoPath);
 
-        const allApprovals = [
-            ...prestasi.map(p => ({ ...p, type: 'prestasi' })),
-            ...organisasi.map(o => ({ ...o, type: 'organisasi' })),
-            ...event.map(e => ({ ...e, type: 'event' })),
-            ...pelanggaran.map(p => ({ ...p, type: 'pelanggaran' })),
-            ...perilaku.map(p => ({ ...p, type: 'perilaku' }))
-        ];
+        // Resolve pembina to a guru user id (frontend sends pembina_id from the teachers dropdown).
+        const { id: resolvedPembinaId, nama: resolvedPembinaName } = await resolvePembina(pembina_id, pembina);
+        if ((pembina_id || pembina) && !resolvedPembinaId && !resolvedPembinaName) {
+            return res.status(400).json({ message: 'Data pembina tidak valid' });
+        }
 
-        res.json(allApprovals);
+        // Resolve every member (kelas/grha diambil dari database per siswa).
+        // One shared grup_lomba id links kelompok members (used by the
+        // pembina leaderboard so a group lomba counts exactly once).
+        const grupLomba = kategori_lomba === 'kelompok'
+            ? `grp_${Date.now().toString(36)}${Math.round(Math.random() * 1E6).toString(36)}`
+            : null;
+        const members = [];
+        for (const a of anggota) {
+            if (!a || !a.nis) {
+                return res.status(400).json({ message: 'Setiap anggota harus memiliki NIS' });
+            }
+            // Throws 400 when the NIS is unknown
+            const memberId = await resolveStudentIdByNis(a.nis, req.user.id);
+            const [studentData] = await db.query('SELECT id, nama, nis, kelas, grha FROM users WHERE id = ?', [memberId]);
+            members.push(studentData[0]);
+        }
+
+        // Move photo once (shared evidence for all members)
+        let sharedFotoPath = fotoPath;
+        if (fotoPath) {
+            const movedPath = movePhotoToApprovedFolder(fotoPath, 'prestasi');
+            if (movedPath) {
+                sharedFotoPath = path.join('uploads', movedPath).replace(/\\/g, '/');
+            }
+        }
+        
+        // STAFF DIRECT (superadmin/guru/pegawai): approved rows + IPC, skips approval queue
+        if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
+            console.log('Prestasi - Superadmin direct submission');
+            const point = await calculatePrestasiPoints(juara, kategori);
+
+            const insertedIds = [];
+            for (const m of members) {
+                const [result] = await db.query(
+                    `INSERT INTO prestasi
+                    (user_id, nama, nis, nama_lomba, kelas, pembina, pembina_id, grha, juara, kategori, jenis_lomba, kategori_lomba, grup_lomba, foto, point, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
+                    [m.id, m.nama, m.nis, nama_lomba, m.kelas || '', resolvedPembinaName, resolvedPembinaId, m.grha || '', juara, kategori, jenis_lomba, kategori_lomba, grupLomba, sharedFotoPath, point]
+                );
+                await applyIpcChange(m.id, 'prestasi', point, buildKeterangan('prestasi', { nama_lomba, juara, kategori }));
+                insertedIds.push(result.insertId);
+            }
+
+            console.log('Prestasi - Directly added by superadmin:', insertedIds);
+
+            return res.status(201).json({
+                message: members.length > 1 ? `Prestasi kelompok berhasil ditambahkan untuk ${members.length} siswa` : 'Prestasi berhasil ditambahkan',
+                ids: insertedIds
+            });
+        }
+
+        // SISWA: Submit for approval (one row per member, same grup_lomba)
+        const insertedIds = [];
+        for (const m of members) {
+            const [result] = await db.query(
+                `INSERT INTO prestasi_approvals
+                (user_id, submitted_by, nama, nis, nama_lomba, kelas, pembina, pembina_id, grha, juara, kategori, jenis_lomba, kategori_lomba, grup_lomba, foto)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [m.id, req.user.id, m.nama, m.nis, nama_lomba, m.kelas || '', resolvedPembinaName, resolvedPembinaId, m.grha || '', juara, kategori, jenis_lomba, kategori_lomba, grupLomba, fotoPath]
+            );
+            insertedIds.push(result.insertId);
+        }
+
+        // Log activity
+        const memberSummary = members.map(m => `${m.nama} (${m.nis})`).join(', ');
+        await logActivity(req.user.id, 'SUBMIT_PRESTASI', `User ${req.user.nama} (${req.user.role}) submitted prestasi for ${memberSummary}: ${nama_lomba}`, req.ip);
+
+        // Create notification for superadmin only
+        // Notify superadmins AND users granted approval permission
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
+        console.log('Prestasi - Recipients found:', recipients.length);
+        for (const recipient of recipients) {
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
+                 VALUES (?, 'approval_needed', 'Persetujuan Prestasi', ?, ?, 'prestasi')`,
+                [recipient.id, `${memberSummary} mengajukan prestasi: ${nama_lomba}`, insertedIds[0]]
+            );
+            console.log('Prestasi - Notification sent to approver:', recipient.id);
+        }
+
+        res.status(201).json({
+            message: members.length > 1 ? `Prestasi kelompok berhasil diajukan untuk ${members.length} siswa` : 'Prestasi berhasil diajukan untuk persetujuan',
+            ids: insertedIds
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Submit Pelanggaran for Approval (or Direct Submit for Superadmin)
+router.post('/pelanggaran/submit', auth, checkInputAccess('pelanggaran'), upload.single('foto'), async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const { nama, nis, grha, keterangan, jenis_pelanggaran } = req.body;
+        const userId = await resolveStudentIdByNis(nis, req.user.id);
+        let foto_path = req.file ? saveFileLocally(req.file.path) : null;
+        console.log('Pelanggaran - Using local path:', foto_path);
+        const point = await calculatePelanggaranPoints(jenis_pelanggaran);
+        if (!point) {
+            return res.status(400).json({ message: 'Detail pelanggaran belum memiliki konfigurasi tingkat atau point aktif' });
+        }
+
+        // Get student's calculated class from database
+        const [studentData] = await db.query('SELECT kelas FROM users WHERE id = ?', [userId]);
+        const calculatedClass = studentData[0]?.kelas || '';
+
+        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPC change, skips approval queue
+        if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
+            console.log('Pelanggaran - Superadmin direct submission');
+
+            // Move photo to organized folder if exists
+            let finalFotoPath = foto_path;
+            if (foto_path) {
+                const movedPath = movePhotoToApprovedFolder(foto_path, 'pelanggaran');
+                if (movedPath) {
+                    finalFotoPath = path.join('uploads', movedPath).replace(/\\/g, '/');
+                }
+            }
+
+            const [result] = await db.query(
+                `INSERT INTO pelanggaran
+                (user_id, submitted_by, nama, nis, kelas, grha, keterangan, foto, jenis_pelanggaran, point_dikurangi, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
+                [userId, req.user.id, nama, nis, calculatedClass, grha, keterangan, finalFotoPath, jenis_pelanggaran, point]
+            );
+
+            await applyIpcChange(userId, 'pelanggaran', point, buildKeterangan('pelanggaran', { jenis_pelanggaran }));
+
+            // Log activity
+            await logActivity(req.user.id, 'SUBMIT_PELANGGARAN', `${req.user.nama} (${req.user.role}) directly added pelanggaran for ${nama} (${nis}): ${jenis_pelanggaran}`, req.ip);
+
+            console.log('Pelanggaran - Directly added by superadmin:', result.insertId);
+
+            return res.status(201).json({
+                message: 'Pelanggaran berhasil ditambahkan',
+                id: result.insertId
+            });
+        }
+
+        // SISWA: Submit for approval with pending status
+        const [result] = await db.query(
+            `INSERT INTO pelanggaran
+            (user_id, submitted_by, nama, nis, kelas, grha, keterangan, foto, jenis_pelanggaran, point_dikurangi, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+            [userId, req.user.id, nama, nis, calculatedClass, grha, keterangan, foto_path, jenis_pelanggaran, point]
+        );
+
+        // Log activity
+        await logActivity(req.user.id, 'SUBMIT_PELANGGARAN', `${req.user.nama} submitted pelanggaran for approval: ${jenis_pelanggaran}`, req.ip);
+
+        console.log('Pelanggaran - Submitted for approval:', result.insertId);
+
+        return res.status(201).json({
+            message: 'Pelanggaran berhasil diajukan untuk persetujuan',
+            id: result.insertId
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+router.post('/event/submit', auth, checkInputAccess('event'), upload.single('foto'), async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const { nama, nis, grha, pembina, nama_event, tingkat } = req.body;
+        const userId = await resolveStudentIdByNis(nis, req.user.id);
+        let foto_path = req.file ? saveFileLocally(req.file.path) : null;
+        console.log('Event - Using local path:', foto_path);
+        
+        // Get student's calculated class from database
+        const [studentData] = await db.query('SELECT kelas FROM users WHERE id = ?', [userId]);
+        const calculatedClass = studentData[0]?.kelas || '';
+        
+        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPC change, skips approval queue
+        if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
+            console.log('Event - Superadmin direct submission');
+            const point = await calculateEventPoints(tingkat);
+            
+            // Move photo to organized folder if exists
+            let finalFotoPath = foto_path;
+            if (foto_path) {
+                const movedPath = movePhotoToApprovedFolder(foto_path, 'event');
+                if (movedPath) {
+                    finalFotoPath = path.join('uploads', movedPath).replace(/\\/g, '/');
+                }
+            }
+            
+            const [result] = await db.query(
+                `INSERT INTO event 
+                (user_id, nama, nis, kelas, grha, nama_event, tingkat, foto, point, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
+                [userId, nama, nis, calculatedClass, grha, nama_event, tingkat, finalFotoPath, point]
+            );
+            
+            await applyIpcChange(userId, 'event', point, buildKeterangan('event', { nama_event, tingkat }));
+            
+            console.log('Event - Directly added by superadmin:', result.insertId);
+            
+            return res.status(201).json({ 
+                message: 'Event berhasil ditambahkan', 
+                id: result.insertId 
+            });
+        }
+
+        // SISWA: Submit for approval
+        const [result] = await db.query(
+            `INSERT INTO event_approvals
+            (user_id, submitted_by, nama, nis, kelas, grha, pembina, nama_event, tingkat, foto)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [userId, req.user.id, nama, nis, calculatedClass, grha, pembina, nama_event, tingkat, foto_path]
+        );
+
+        // Log activity
+        await logActivity(req.user.id, 'SUBMIT_EVENT', `User ${req.user.nama} (${req.user.role}) submitted event for ${nama} (${nis}): ${nama_event}`, req.ip);
+
+        // Create notification for superadmin only
+        // Notify superadmins AND users granted approval permission
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
+        console.log('Event - Recipients found:', recipients.length);
+        for (const recipient of recipients) {
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
+                 VALUES (?, 'approval_needed', 'Persetujuan Event', ?, ?, 'event')`,
+                [recipient.id, `${nama} (${nis}) mengajukan event: ${nama_event}`, result.insertId]
+            );
+            console.log('Event - Notification sent to approver:', recipient.id);
+        }
+
+        res.status(201).json({
+            message: 'Event berhasil diajukan untuk persetujuan',
+            id: result.insertId
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Submit Organisasi for Approval (or Direct Submit for Superadmin)
+router.post('/organisasi/submit', auth, checkInputAccess('organisasi'), upload.single('foto'), async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const { nama, nis, grha, pembina, jabatan_organisasi, kategori_organisasi } = req.body;
+        const userId = await resolveStudentIdByNis(nis, req.user.id);
+        let foto_path = req.file ? saveFileLocally(req.file.path) : null;
+        console.log('Organisasi - Using local path:', foto_path);
+        
+        // Get student's calculated class from database
+        const [studentData] = await db.query('SELECT kelas FROM users WHERE id = ?', [userId]);
+        const calculatedClass = studentData[0]?.kelas || '';
+        
+        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPC change, skips approval queue
+        if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
+            console.log('Organisasi - Superadmin direct submission');
+            const point = await calculateOrganisasiPoints(kategori_organisasi, jabatan_organisasi);
+            
+            // Move photo to organized folder if exists
+            let finalFotoPath = foto_path;
+            if (foto_path) {
+                const movedPath = movePhotoToApprovedFolder(foto_path, 'organisasi');
+                if (movedPath) {
+                    finalFotoPath = path.join('uploads', movedPath).replace(/\\/g, '/');
+                }
+            }
+            
+            const [result] = await db.query(
+                `INSERT INTO organisasi 
+                (user_id, nama, nis, kelas, grha, jabatan_organisasi, foto, kategori_organisasi, point, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
+                [userId, nama, nis, calculatedClass, grha, jabatan_organisasi, finalFotoPath, kategori_organisasi, point]
+            );
+            
+            await applyIpcChange(
+                userId,
+                'organisasi',
+                point,
+                buildKeterangan('organisasi', { kategori_organisasi, jabatan_organisasi })
+            );
+            
+            console.log('Organisasi - Directly added by superadmin:', result.insertId);
+            
+            return res.status(201).json({ 
+                message: 'Organisasi berhasil ditambahkan', 
+                id: result.insertId 
+            });
+        }
+        
+        // SISWA: Submit for approval
+        const [result] = await db.query(
+            `INSERT INTO organisasi_approvals
+            (user_id, submitted_by, nama, nis, kelas, grha, pembina, jabatan_organisasi, kategori_organisasi, foto)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [userId, req.user.id, nama, nis, calculatedClass, grha, pembina, jabatan_organisasi, kategori_organisasi, foto_path]
+        );
+
+        // Log activity
+        await logActivity(req.user.id, 'SUBMIT_ORGANISASI', `User ${req.user.nama} (${req.user.role}) submitted organisasi for ${nama} (${nis}): ${kategori_organisasi}`, req.ip);
+
+        // Create notification for superadmin only
+        // Notify superadmins AND users granted approval permission
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
+        console.log('Organisasi - Recipients found:', recipients.length);
+        for (const recipient of recipients) {
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
+                 VALUES (?, 'approval_needed', 'Persetujuan Organisasi', ?, ?, 'organisasi')`,
+                [recipient.id, `${nama} (${nis}) mengajukan organisasi: ${kategori_organisasi}`, result.insertId]
+            );
+            console.log('Organisasi - Notification sent to approver:', recipient.id);
+        }
+
+        res.status(201).json({
+            message: 'Organisasi berhasil diajukan untuk persetujuan',
+            id: result.insertId
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Submit Kepanitiaan for Approval (or Direct Submit for Superadmin)
+router.post('/kepanitiaan/submit', auth, checkInputAccess('kepanitiaan'), upload.single('foto'), async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const { nama, nis, grha, pembina, jabatan_kepanitiaan, kategori_kepanitiaan } = req.body;
+        const userId = await resolveStudentIdByNis(nis, req.user.id);
+        let foto_path = req.file ? saveFileLocally(req.file.path) : null;
+        console.log('Kepanitiaan - Using local path:', foto_path);
+        
+        // Get student's calculated class from database
+        const [studentData] = await db.query('SELECT kelas FROM users WHERE id = ?', [userId]);
+        const calculatedClass = studentData[0]?.kelas || '';
+        
+        // STAFF DIRECT (superadmin/guru/pegawai): approved insert + IPC change, skips approval queue
+        if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
+            console.log('Kepanitiaan - Superadmin direct submission');
+            const point = await calculateKepanitiaanPoints(jabatan_kepanitiaan);
+            
+            // Move photo to organized folder if exists
+            let finalFotoPath = foto_path;
+            if (foto_path) {
+                const movedPath = movePhotoToApprovedFolder(foto_path, 'kepanitiaan');
+                if (movedPath) {
+                    finalFotoPath = path.join('uploads', movedPath).replace(/\\/g, '/');
+                }
+            }
+            
+            const [result] = await db.query(
+                `INSERT INTO kepanitiaan 
+                (user_id, nama, nis, kelas, grha, jabatan_kepanitiaan, foto, kategori_kepanitiaan, point, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
+                [userId, nama, nis, calculatedClass, grha, jabatan_kepanitiaan, finalFotoPath, kategori_kepanitiaan, point]
+            );
+            
+            await applyIpcChange(
+                userId,
+                'kepanitiaan',
+                point,
+                buildKeterangan('kepanitiaan', { kategori_kepanitiaan, jabatan_kepanitiaan })
+            );
+            
+            console.log('Kepanitiaan - Directly added by superadmin:', result.insertId);
+            
+            return res.status(201).json({ 
+                message: 'Kepanitiaan berhasil ditambahkan', 
+                id: result.insertId 
+            });
+        }
+        
+        // SISWA: Submit for approval
+        const [result] = await db.query(
+            `INSERT INTO kepanitiaan_approvals
+            (user_id, submitted_by, nama, nis, kelas, grha, pembina, jabatan_kepanitiaan, kategori_kepanitiaan, foto)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [userId, req.user.id, nama, nis, calculatedClass, grha, pembina, jabatan_kepanitiaan, kategori_kepanitiaan, foto_path]
+        );
+
+        // Log activity
+        await logActivity(req.user.id, 'SUBMIT_KEPANITIAAN', `User ${req.user.nama} (${req.user.role}) submitted kepanitiaan for ${nama} (${nis}): ${kategori_kepanitiaan}`, req.ip);
+
+        // Create notification for superadmin only
+        // Notify superadmins AND users granted approval permission
+        const [recipients] = await db.query(
+            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
+        );
+        console.log('Kepanitiaan - Recipients found:', recipients.length);
+        for (const recipient of recipients) {
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
+                 VALUES (?, 'approval_needed', 'Persetujuan Kepanitiaan', ?, ?, 'kepanitiaan')`,
+                [recipient.id, `${nama} (${nis}) mengajukan kepanitiaan: ${kategori_kepanitiaan}`, result.insertId]
+            );
+            console.log('Kepanitiaan - Notification sent to approver:', recipient.id);
+        }
+
+        res.status(201).json({
+            message: 'Kepanitiaan berhasil diajukan untuk persetujuan',
+            id: result.insertId
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// ==================== APPROVAL ACTIONS ====================
+
+// REMOVED: Pembina approval route - now only superadmin approval
+
+// SuperAdmin Approve/Reject (single-step approval)
+router.put('/superadmin/:type/:id', auth, approverOnly, async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        const { status, notes } = req.body;
+
+        console.log(`SuperAdmin ${status} request: type=${type}, id=${id}`);
+
+        if (type === 'pelanggaran' || type === 'perilaku') {
+            return handleLegacyApproval(type, id, status, notes, req.user.id, req.user.role, req.ip, res);
+        }
+
+        let table, pointField, allowedColumns;
+        switch(type) {
+            case 'prestasi':
+                table = 'prestasi_approvals';
+                pointField = 'juara';
+                allowedColumns = ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'nama_lomba', 'foto', 'kelas', 'pembina', 'pembina_id', 'grha', 'juara', 'kategori', 'jenis_lomba', 'kategori_lomba', 'grup_lomba', 'superadmin_status', 'created_at'];
+                break;
+            case 'event':
+                table = 'event_approvals';
+                pointField = 'tingkat';
+                allowedColumns = ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'pembina', 'nama_event', 'tingkat', 'foto', 'superadmin_status', 'created_at'];
+                break;
+            case 'organisasi':
+                table = 'organisasi_approvals';
+                pointField = 'jabatan_organisasi';
+                allowedColumns = ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'jabatan_organisasi', 'foto', 'kategori_organisasi', 'superadmin_status', 'created_at'];
+                break;
+            case 'kepanitiaan':
+                table = 'kepanitiaan_approvals';
+                pointField = 'jabatan_kepanitiaan';
+                allowedColumns = ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'jabatan_kepanitiaan', 'foto', 'kategori_kepanitiaan', 'superadmin_status', 'created_at'];
+                break;
+            default:
+                return res.status(400).json({ message: 'Invalid type' });
+        }
+
+        // Get submission data - use explicit column list instead of SELECT *
+        const [submission] = await db.query(`SELECT ${allowedColumns.join(', ')} FROM ${table} WHERE id = ?`, [id]);
+        if (submission.length === 0) {
+            return res.status(404).json({ message: 'Submission not found' });
+        }
+
+        const data = submission[0];
+        console.log('Submission data:', data);
+
+        const approvalStatus = getRowApprovalStatus(data);
+        if (approvalStatus !== 'pending') {
+            return res.status(400).json({ message: 'Pengajuan ini sudah diproses' });
+        }
+
+        // Approvers cannot decide on their own submissions (superadmin excluded)
+        if (req.user.role !== 'superadmin' && data.submitted_by !== null && data.submitted_by !== undefined && Number(data.submitted_by) === Number(req.user.id)) {
+            return res.status(403).json({ message: 'Anda tidak dapat menyetujui pengajuan sendiri' });
+        }
+
+        const actorLabel = req.user.role === 'superadmin' ? 'SuperAdmin' : 'Approver';
+
+        // Kelompok prestasi: one decision covers the whole group. Collect
+        // still-pending sibling rows sharing this grup_lomba (each keeps its
+        // own row, IPC entry, and notification — full points per member).
+        let targetRows = [data];
+        if (type === 'prestasi' && data.grup_lomba) {
+            const [siblings] = await db.query(
+                `SELECT ${allowedColumns.join(', ')} FROM ${table} WHERE grup_lomba = ? AND id <> ?`,
+                [data.grup_lomba, data.id]
+            );
+            for (const sib of siblings) {
+                if (getRowApprovalStatus(sib) === 'pending') targetRows.push(sib);
+            }
+        }
+        const isGroupDecision = targetRows.length > 1;
+
+        if (status === 'approved') {
+            for (const row of targetRows) {
+            const data = row;
+            // Calculate points
+            let pointChange = 0;
+            if (type === 'prestasi') {
+                pointChange = await calculatePrestasiPoints(data.juara, data.kategori);
+            } else if (type === 'event') {
+                pointChange = await calculateEventPoints(data.tingkat);
+            } else if (type === 'kepanitiaan') {
+                pointChange = await calculateKepanitiaanPoints(data[pointField]);
+            } else {
+                pointChange = await calculateOrganisasiPoints(data.kategori_organisasi, data[pointField]);
+            }
+
+            // Move photo to organized folder if exists
+            // `foto` is the current column name (`foto_path` kept as fallback for older DBs)
+            let finalFotoPath = data.foto ?? data.foto_path;
+            if (finalFotoPath) {
+                const movedPath = movePhotoToApprovedFolder(finalFotoPath, type);
+                if (movedPath) {
+                    finalFotoPath = path.join('uploads', movedPath).replace(/\\/g, '/');
+                } else {
+                    // The file may already have been moved to the approved folder
+                    // (e.g. approving another member of the same kelompok submission
+                    // that shares one evidence file). Fall back to the approved
+                    // location when the stored path no longer exists on disk.
+                    const approvedGuess = path.join('uploads', 'approved', type, path.basename(finalFotoPath)).replace(/\\/g, '/');
+                    let storedExists = false;
+                    try {
+                        storedExists = fs.existsSync(resolveUploadPath(finalFotoPath));
+                    } catch {
+                        storedExists = false;
+                    }
+                    if (!storedExists) {
+                        try {
+                            if (fs.existsSync(resolveUploadPath(approvedGuess))) {
+                                console.log(`Approval evidence already in approved folder, reusing: ${approvedGuess}`);
+                                finalFotoPath = approvedGuess;
+                            }
+                        } catch {
+                            // keep the stored path
+                        }
+                    }
+                }
+            }
+
+            // Insert to actual table
+            let insertQuery, insertParams;
+            if (type === 'prestasi') {
+                insertQuery = `INSERT INTO prestasi (user_id, nama, nis, nama_lomba, kelas, pembina, pembina_id, grha, juara, kategori, jenis_lomba, kategori_lomba, grup_lomba, foto, point, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`;
+                insertParams = [data.user_id, data.nama || 'Unknown', data.nis || '', data.nama_lomba || '', data.kelas || '', data.pembina || '', data.pembina_id || null, data.grha || '', data.juara || '', data.kategori || '', data.jenis_lomba || 'akademik', data.kategori_lomba || 'individu', data.grup_lomba || null, finalFotoPath || null, pointChange];
+            } else if (type === 'event') {
+                insertQuery = `INSERT INTO event (user_id, nama, nis, kelas, grha, nama_event, tingkat, foto, point, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`;
+                insertParams = [data.user_id, data.nama || 'Unknown', data.nis || '', data.kelas || '', data.grha || '', data.nama_event || '', data.tingkat || '', finalFotoPath || null, pointChange];
+            } else if (type === 'kepanitiaan') {
+                insertQuery = `INSERT INTO kepanitiaan (user_id, nama, nis, kelas, grha, jabatan_kepanitiaan, kategori_kepanitiaan, foto, point, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`;
+                insertParams = [data.user_id, data.nama || 'Unknown', data.nis || '', data.kelas || '', data.grha || '', data.jabatan_kepanitiaan || '', data.kategori_kepanitiaan || '', finalFotoPath || null, pointChange];
+            } else {
+                insertQuery = `INSERT INTO organisasi (user_id, nama, nis, kelas, grha, jabatan_organisasi, kategori_organisasi, foto, point, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`;
+                insertParams = [data.user_id, data.nama || 'Unknown', data.nis || '', data.kelas || '', data.grha || '', data.jabatan_organisasi || '', data.kategori_organisasi || '', finalFotoPath || null, pointChange];
+            }
+
+            await db.query(insertQuery, insertParams);
+
+            // Keep the submission row pointing at the real file location
+            // (the file was just moved to the approved folder above).
+            if (finalFotoPath) {
+                await db.query(`UPDATE ${table} SET foto = ? WHERE id = ?`, [finalFotoPath, row.id]);
+            }
+
+            await applyIpcChange(
+                data.user_id,
+                type,
+                pointChange,
+                buildKeterangan(type, data)
+            );
+
+            await approveSubmission(table, row.id, notes || 'Disetujui oleh SuperAdmin');
+
+            // Log activity
+            await logActivity(req.user.id, `APPROVE_${type.toUpperCase()}`, `${actorLabel} ${req.user.nama} approved ${type} for ${data.nama} (${data.nis}): ${data[pointField]}`, req.ip);
+
+            // Notify student
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) VALUES (?, 'approved', 'Pengajuan Disetujui', ?, ?, ?)`,
+                [data.user_id, `Pengajuan ${type} Anda telah disetujui`, row.id, type]
+            );
+
+            }
+            res.json({ message: isGroupDecision ? `${type} kelompok berhasil disetujui untuk ${targetRows.length} siswa` : `${type} berhasil disetujui` });
+        } else {
+            for (const row of targetRows) {
+            const data = row;
+            await rejectSubmission(table, row.id, notes || 'Ditolak oleh SuperAdmin');
+
+            // Log activity
+            await logActivity(req.user.id, `REJECT_${type.toUpperCase()}`, `${actorLabel} ${req.user.nama} rejected ${type} for ${data.nama} (${data.nis}): ${notes || 'No reason'}`, req.ip);
+
+            // Notify student of rejection
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) VALUES (?, 'rejected', 'Pengajuan Ditolak', ?, ?, ?)`,
+                [data.user_id, `Pengajuan ${type} Anda ditolak: ${notes || 'Tanpa alasan'}`, row.id, type]
+            );
+
+            }
+            res.json({ message: isGroupDecision ? `${type} kelompok berhasil ditolak untuk ${targetRows.length} siswa` : `${type} berhasil ditolak` });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+async function handleLegacyApproval(type, id, status, notes, approverId, approverRole, ipAddress, res) {
+    const table = type;
+    const actorLabel = approverRole === 'superadmin' ? 'SuperAdmin' : 'Approver';
+    try {
+        // Define allowed columns for each table type
+        const tableColumns = {
+            'prestasi': ['id', 'user_id', 'nama', 'nis', 'jenis', 'nama_lomba', 'foto', 'kelas', 'pembina', 'grha', 'juara', 'kategori', 'point', 'status', 'rejection_reason', 'created_at'],
+            'event': ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'pembina', 'nama_event', 'tingkat', 'foto', 'point', 'status', 'rejection_reason', 'created_at'],
+            'organisasi': ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'jabatan_organisasi', 'foto', 'kategori_organisasi', 'point', 'status', 'rejection_reason', 'created_at'],
+            'kepanitiaan': ['id', 'user_id', 'nama', 'nis', 'kelas', 'grha', 'jabatan_kepanitiaan', 'foto', 'point', 'status', 'rejection_reason', 'created_at'],
+            'pelanggaran': ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'keterangan', 'foto', 'jenis_pelanggaran', 'point_dikurangi', 'status', 'rejection_reason', 'created_at'],
+            'perilaku': ['id', 'user_id', 'submitted_by', 'nama', 'nis', 'kelas', 'grha', 'karakter_siswa', 'point', 'status', 'rejection_reason', 'created_at']
+        };
+
+        const allowedColumns = tableColumns[table] || ['id', 'user_id', 'nama', 'status', 'created_at'];
+        const [rows] = await db.query(`SELECT ${allowedColumns.join(', ')} FROM ${table} WHERE id = ?`, [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Submission not found' });
+        }
+
+        const data = rows[0];
+
+        if (data.status !== 'pending') {
+            return res.status(400).json({ message: 'Pengajuan ini sudah diproses' });
+        }
+
+        // Approvers cannot decide on their own submissions (superadmin excluded)
+        if (approverRole !== 'superadmin' && data.submitted_by !== null && data.submitted_by !== undefined && Number(data.submitted_by) === Number(approverId)) {
+            return res.status(403).json({ message: 'Anda tidak dapat menyetujui pengajuan sendiri' });
+        }
+
+        if (status === 'approved') {
+            await db.query(`UPDATE ${table} SET status = 'approved' WHERE id = ? AND status = 'pending'`, [id]);
+
+            if (type === 'pelanggaran') {
+                await applyIpcChange(
+                    data.user_id,
+                    'pelanggaran',
+                    // point_dikurangi sudah negatif (hasil calculatePelanggaranPoints),
+                    // jadi langsung dijumlahkan — tanpa tanda minus.
+                    data.point_dikurangi,
+                    `Pelanggaran: ${data.jenis_pelanggaran}`
+                );
+            } else {
+                await applyPerilakuIpcChange(
+                    data.user_id,
+                    data.point,
+                    `Perilaku: ${data.karakter_siswa}`,
+                    id
+                );
+            }
+
+            // Log activity
+            await logActivity(approverId, `APPROVE_${type.toUpperCase()}`, `${actorLabel} approved ${type} for ${data.nama} (${data.nis})`, ipAddress);
+
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) VALUES (?, 'approved', 'Pengajuan Disetujui', ?, ?, ?)`,
+                [data.user_id, `Pengajuan ${type} Anda telah disetujui`, id, type]
+            );
+
+            return res.json({ message: `${type} berhasil disetujui` });
+        }
+
+        await db.query(
+            `UPDATE ${table} SET status = 'rejected', rejection_reason = ? WHERE id = ?`,
+            [notes || 'Ditolak oleh SuperAdmin', id]
+        );
+
+        // Log activity
+        await logActivity(approverId, `REJECT_${type.toUpperCase()}`, `${actorLabel} rejected ${type} for ${data.nama} (${data.nis}): ${notes || 'No reason'}`, ipAddress);
+
+        await db.query(
+            `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) VALUES (?, 'rejected', 'Pengajuan Ditolak', ?, ?, ?)`,
+            [data.user_id, `Pengajuan ${type} Anda ditolak: ${notes || 'Tanpa alasan'}`, id, type]
+        );
+
+        return res.json({ message: `${type} berhasil ditolak` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+// ==================== GET APPROVALS ====================
+
+// Get pending approvals count for SuperAdmin
+router.get('/pending-count', auth, approverOnly, async (req, res) => {
+    try {
+        const col = await getApprovalStatusColumn();
+
+        const [prestasiCount] = await db.query(
+            `SELECT COUNT(*) as count FROM prestasi_approvals WHERE ${col} = 'pending'`
+        );
+        const [eventCount] = await db.query(
+            `SELECT COUNT(*) as count FROM event_approvals WHERE ${col} = 'pending'`
+        );
+        const [organisasiCount] = await db.query(
+            `SELECT COUNT(*) as count FROM organisasi_approvals WHERE ${col} = 'pending'`
+        );
+        const [kepanitiaanCount] = await db.query(
+            `SELECT COUNT(*) as count FROM kepanitiaan_approvals WHERE ${col} = 'pending'`
+        );
+        const [pelanggaranCount] = await db.query(
+            "SELECT COUNT(*) as count FROM pelanggaran WHERE status = 'pending'"
+        );
+        const [perilakuCount] = await db.query(
+            "SELECT COUNT(*) as count FROM perilaku WHERE status = 'pending'"
+        );
+
+        const total = (prestasiCount[0].count || 0) +
+                     (eventCount[0].count || 0) +
+                     (organisasiCount[0].count || 0) +
+                     (kepanitiaanCount[0].count || 0) +
+                     (pelanggaranCount[0].count || 0) +
+                     (perilakuCount[0].count || 0);
+
+        res.json({
+            total,
+            prestasi: prestasiCount[0].count || 0,
+            event: eventCount[0].count || 0,
+            organisasi: organisasiCount[0].count || 0,
+            kepanitiaan: kepanitiaanCount[0].count || 0,
+            pelanggaran: pelanggaranCount[0].count || 0,
+            perilaku: perilakuCount[0].count || 0
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Get user's pending submissions
-router.get('/user/:userId', auth, async (req, res) => {
+// Get all approvals for SuperAdmin
+router.get('/all', auth, approverOnly, async (req, res) => {
     try {
-        const userId = req.params.userId;
-        
-        const [prestasi] = await db.query(`
-            SELECT p.*, 'prestasi' as type 
-            FROM prestasi p 
-            WHERE p.user_id = ? AND p.status = 'pending'
-        `, [userId]);
-        
-        const [organisasi] = await db.query(`
-            SELECT o.*, 'organisasi' as type 
-            FROM organisasi o 
-            WHERE o.user_id = ? AND o.status = 'pending'
-        `, [userId]);
-        
-        const [event] = await db.query(`
-            SELECT e.*, 'event' as type 
-            FROM event e 
-            WHERE e.user_id = ? AND e.status = 'pending'
-        `, [userId]);
-        
+        const [prestasi, event, organisasi, kepanitiaan] = await Promise.all([
+            fetchPendingApprovals('prestasi_approvals', 'p'),
+            fetchPendingApprovals('event_approvals', 'e'),
+            fetchPendingApprovals('organisasi_approvals', 'o'),
+            fetchPendingApprovals('kepanitiaan_approvals', 'k')
+        ]);
+
+        // "Diajukan Oleh" = actual submitter (submitted_by), not the target
+        // student (user_id). COALESCE covers legacy rows with submitted_by NULL.
         const [pelanggaran] = await db.query(`
-            SELECT p.*, 'pelanggaran' as type 
-            FROM pelanggaran p 
-            WHERE p.user_id = ? AND p.status = 'pending'
-        `, [userId]);
-        
+            SELECT p.*,
+                   COALESCE(s.nama, u.nama) as user_name,
+                   s.nama as submitted_by_name,
+                   s.role as submitted_by_role
+            FROM pelanggaran p
+            JOIN users u ON p.user_id = u.id
+            LEFT JOIN users s ON p.submitted_by = s.id
+            WHERE p.status = 'pending'
+        `);
+
         const [perilaku] = await db.query(`
-            SELECT p.*, 'perilaku' as type 
-            FROM perilaku p 
-            WHERE p.user_id = ? AND p.status = 'pending'
-        `, [userId]);
+            SELECT p.*,
+                   COALESCE(s.nama, u.nama) as user_name,
+                   s.nama as submitted_by_name,
+                   s.role as submitted_by_role
+            FROM perilaku p
+            JOIN users u ON p.user_id = u.id
+            LEFT JOIN users s ON p.submitted_by = s.id
+            WHERE p.status = 'pending'
+        `);
 
-        const allSubmissions = [
-            ...prestasi.map(p => ({ ...p, type: 'prestasi' })),
-            ...organisasi.map(o => ({ ...o, type: 'organisasi' })),
-            ...event.map(e => ({ ...e, type: 'event' })),
-            ...pelanggaran.map(p => ({ ...p, type: 'pelanggaran' })),
-            ...perilaku.map(p => ({ ...p, type: 'perilaku' }))
-        ];
-
-        res.json(allSubmissions);
+        res.json({
+            prestasi: prestasi.map(p => ({ ...p, type: 'prestasi', status: getRowApprovalStatus(p) })),
+            event: event.map(e => ({ ...e, type: 'event', status: getRowApprovalStatus(e) })),
+            organisasi: organisasi.map(o => ({ ...o, type: 'organisasi', status: getRowApprovalStatus(o) })),
+            kepanitiaan: kepanitiaan.map(k => ({ ...k, type: 'kepanitiaan', status: getRowApprovalStatus(k) })),
+            pelanggaran: pelanggaran.map(p => ({ ...p, type: 'pelanggaran' })),
+            perilaku: perilaku.map(p => ({ ...p, type: 'perilaku' }))
+        });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Get approvals for Pembina (Guru) - REMOVED: No longer needed
+
+// Get user's submissions
+router.get('/user-submissions', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const col = await getApprovalStatusColumn();
+
+        const [prestasi] = await db.query(`
+            SELECT *,
+                   superadmin_status as status,
+                   'prestasi' as type
+            FROM prestasi_approvals
+            WHERE user_id = ? OR submitted_by = ?
+            ORDER BY created_at DESC
+        `, [userId, userId]);
+
+        const [event] = await db.query(`
+            SELECT *,
+                   superadmin_status as status,
+                   'event' as type
+            FROM event_approvals
+            WHERE user_id = ? OR submitted_by = ?
+            ORDER BY created_at DESC
+        `, [userId, userId]);
+
+        const [organisasi] = await db.query(`
+            SELECT *,
+                   superadmin_status as status,
+                   'organisasi' as type
+            FROM organisasi_approvals
+            WHERE user_id = ? OR submitted_by = ?
+            ORDER BY created_at DESC
+        `, [userId, userId]);
+
+        const [kepanitiaan] = await db.query(`
+            SELECT *,
+                   superadmin_status as status,
+                   'kepanitiaan' as type
+            FROM kepanitiaan_approvals
+            WHERE user_id = ? OR submitted_by = ?
+            ORDER BY created_at DESC
+        `, [userId, userId]);
+
+        const [pelanggaran] = await db.query(`
+            SELECT *,
+                   status,
+                   'pelanggaran' as type
+            FROM pelanggaran
+            WHERE user_id = ? OR submitted_by = ?
+            ORDER BY created_at DESC
+        `, [userId, userId]);
+
+        const [perilaku] = await db.query(`
+            SELECT *,
+                   status,
+                   'perilaku' as type
+            FROM perilaku
+            WHERE user_id = ? OR submitted_by = ?
+            ORDER BY created_at DESC
+        `, [userId, userId]);
+
+        res.json({
+            prestasi,
+            event,
+            organisasi,
+            kepanitiaan,
+            pelanggaran,
+            perilaku
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// ==================== NOTIFICATIONS ====================
+
+// Get unread notifications count
+router.get('/notifications/count', auth, async (req, res) => {
+    try {
+        const [result] = await db.query(
+            'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = FALSE',
+            [req.user.id]
+        );
+        res.json({ count: result[0].count });
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Get all notifications
+router.get('/notifications', auth, async (req, res) => {
+    try {
+        const [notifications] = await db.query(
+            `SELECT n.*, 
+                CASE 
+                    WHEN n.related_type = 'prestasi' THEN (SELECT nama_lomba FROM prestasi_approvals WHERE id = n.related_id)
+                    WHEN n.related_type = 'event' THEN (SELECT nama_event FROM event_approvals WHERE id = n.related_id)
+                    WHEN n.related_type = 'organisasi' THEN (SELECT kategori_organisasi FROM organisasi_approvals WHERE id = n.related_id)
+                    WHEN n.related_type = 'student_creation' THEN (SELECT nama FROM student_creation_approvals WHERE id = n.related_id)
+                    WHEN n.related_type = 'biodata' THEN (SELECT u.nama FROM biodata_update_approvals b JOIN users u ON b.user_id = u.id WHERE b.id = n.related_id)
+                    WHEN n.related_type = 'pelanggaran' THEN (SELECT keterangan FROM pelanggaran WHERE id = n.related_id)
+                    WHEN n.related_type = 'perilaku' THEN (SELECT karakter_siswa FROM perilaku WHERE id = n.related_id)
+                END as detail_name
+             FROM notifications n 
+             WHERE n.user_id = ? 
+             ORDER BY n.created_at DESC 
+             LIMIT 50`,
+            [req.user.id]
+        );
+        
+        res.json(notifications);
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Mark single notification as read
+router.put('/notifications/:id/read', auth, async (req, res) => {
+    try {
+        const [result] = await db.query(
+            'UPDATE notifications SET is_read = TRUE WHERE id = ? AND user_id = ?',
+            [req.params.id, req.user.id]
+        );
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Notification not found' });
+        }
+        res.json({ message: 'Notification marked as read' });
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Mark all notifications as read
+router.put('/notifications/read-all', auth, async (req, res) => {
+    try {
+        await db.query(
+            'UPDATE notifications SET is_read = TRUE WHERE user_id = ? AND is_read = FALSE',
+            [req.user.id]
+        );
+        res.json({ message: 'All notifications marked as read' });
+    } catch (error) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
     }
 });
 

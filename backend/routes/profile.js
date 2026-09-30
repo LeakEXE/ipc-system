@@ -70,8 +70,8 @@ router.get('/', auth, async (req, res) => {
             }
         }
 
-        // If user is a teacher, check if they are assigned as wali kelas
-        if (userData.role === 'guru') {
+        // If user is a teacher (guru/pegawai), check if they are assigned as wali kelas
+        if (userData.role === 'guru' || userData.role === 'pegawai') {
             const { getCurrentAcademicYear } = require('../utils/academicYear');
             const currentYear = getCurrentAcademicYear();
             

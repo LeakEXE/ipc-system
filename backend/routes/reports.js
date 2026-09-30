@@ -42,7 +42,7 @@ router.get('/students', auth, async (req, res) => {
         let queryParams = [];
         
         // If user is a teacher (guru), restrict to their wali kelas class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (waliKelasClass) {
                 query += ` AND kelas = ?`;
@@ -179,7 +179,7 @@ router.get('/class-ipc/:kelas', auth, async (req, res) => {
         const { kelas } = req.params;
         
         // If user is a teacher, check if they can access this class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass || waliKelasClass !== kelas) {
                 return res.status(403).json({ message: 'Anda hanya dapat mengakses kelas Anda sendiri' });
@@ -248,7 +248,7 @@ router.get('/ipc-card/:userId', auth, async (req, res) => {
         }
 
         // If user is a teacher, check if the student is in their wali kelas class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -330,7 +330,7 @@ router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
         }
 
         // If user is a teacher, check if the student is in their wali kelas class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -463,7 +463,7 @@ router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
         }
 
         // If user is a teacher, check if the student is in their wali kelas class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -593,7 +593,7 @@ router.get('/leger-pdf/:kelas', auth, async (req, res) => {
         const { kelas } = req.params;
         
         // If user is a teacher, check if they can access this class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -727,7 +727,7 @@ router.get('/leger-preview/:kelas', auth, async (req, res) => {
         const { kelas } = req.params;
         
         // If user is a teacher, check if they can access this class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });

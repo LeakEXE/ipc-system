@@ -279,8 +279,7 @@ ipc-system/
 │   │   ├── auth.js, users.js, profile.js, permissions.js, input-access.js
 │   │   ├── prestasi.js, organisasi.js, kepanitiaan.js
 │   │   ├── event.js, pelanggaran.js, perilaku.js
-│   │   ├── approvals-v2.js  # approval aktif (superadmin)
-│   │   ├── approvals.js     # lama, tidak dipakai UI
+│   │   ├── approvals.js     # approval aktif
 │   │   ├── dashboard.js, waliKelas.js, search.js, reports.js
 │   │   ├── logs.js, file-viewer.js, academicYear.js, sync.js
 │   │   └── ipcConfig.js, school-config.js
@@ -315,7 +314,7 @@ ipc-system/
 │   │   │   ├── Profile.js
 │   │   │   ├── Logs.js
 │   │   │   ├── WaliKelas.js
-│   │   │   ├── ApprovalsV2.js (aktif; Approvals.js lama tidak dipakai)
+│   │   │   ├── Approvals.js
 │   │   │   ├── Notifications.js
 │   │   │   ├── NotificationBadge.js
 │   │   │   ├── EditModal.js

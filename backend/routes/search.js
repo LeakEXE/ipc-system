@@ -104,7 +104,14 @@ router.get('/leaderboard/category/:category', auth, async (req, res) => {
             return res.status(400).json({ message: 'Kategori tidak valid' });
         }
 
-        // Special case for pembina leaderboard
+        // Special case for pembina leaderboard: total IPC earned by the
+        // pembina's mentored students (approved prestasi only).
+        // Kelompok lomba counts exactly ONCE per group: rows linked by
+        // grup_lomba collapse to a single contribution; legacy rows without
+        // a group id fall back to matching (nama_lomba, juara, kategori).
+        // Individu rows (and legacy NULLs) sum normally — every member keeps
+        // full personal IPC; only the pembina total counts the group once.
+        // Pembina is joined by id (name match only as legacy fallback).
         if (config.special) {
             const [teachers] = await db.query(`
                 SELECT
@@ -114,13 +121,30 @@ router.get('/leaderboard/category/:category', auth, async (req, res) => {
                     u.role,
                     u.foto,
                     u.detail as jabatan,
-                    COUNT(p.id) as total_point
+                    COALESCE(SUM(x.point), 0) as total_point
                 FROM users u
-                LEFT JOIN prestasi p ON p.pembina = u.nama AND p.status = 'approved'
+                LEFT JOIN (
+                    SELECT COALESCE(p.pembina_id, u2.id) AS pembina_ref, p.point
+                    FROM prestasi p
+                    LEFT JOIN users u2 ON u2.nama = p.pembina AND u2.role IN ('guru', 'pegawai')
+                    WHERE p.status = 'approved'
+                      AND p.pembina IS NOT NULL AND p.pembina <> ''
+                      AND (p.kategori_lomba IS NULL OR p.kategori_lomba <> 'kelompok')
+                    UNION ALL
+                    SELECT COALESCE(p.pembina_id, u2.id) AS pembina_ref, MAX(p.point) AS point
+                    FROM prestasi p
+                    LEFT JOIN users u2 ON u2.nama = p.pembina AND u2.role IN ('guru', 'pegawai')
+                    WHERE p.status = 'approved'
+                      AND p.kategori_lomba = 'kelompok'
+                      AND p.pembina IS NOT NULL AND p.pembina <> ''
+                    GROUP BY
+                        COALESCE(p.pembina_id, u2.id),
+                        COALESCE(p.grup_lomba, p.nama_lomba || '|' || COALESCE(p.juara, '') || '|' || COALESCE(p.kategori, ''))
+                ) x ON x.pembina_ref = u.id
                 WHERE u.role = 'guru' OR u.role = 'pegawai'
                 GROUP BY u.id, u.nama, u.nip, u.role, u.foto, u.detail
-                HAVING COUNT(p.id) > 0
-                ORDER BY total_point DESC, u.nama ASC
+                HAVING COALESCE(SUM(x.point), 0) > 0
+                ORDER BY COALESCE(SUM(x.point), 0) DESC, u.nama ASC
                 LIMIT 20
             `);
 

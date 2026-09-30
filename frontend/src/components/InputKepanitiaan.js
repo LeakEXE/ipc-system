@@ -22,6 +22,7 @@ function InputKepanitiaan() {
   const [loading, setLoading] = useState(false);
   const [submissions, setSubmissions] = useState([]);
   const [userRole, setUserRole] = useState('');
+  const [canApprove, setCanApprove] = useState(false);
   const [hasAccess, setHasAccess] = useState(true);
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [accessMessage, setAccessMessage] = useState('');
@@ -73,6 +74,8 @@ function InputKepanitiaan() {
     fetchIpcConfig();
     if (user.role === 'superadmin') {
       fetchAllKepanitiaan();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllKepanitiaan(); }).catch(() => setCanApprove(false));
     }
   }, []);
 
@@ -117,7 +120,7 @@ function InputKepanitiaan() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.kepanitiaan || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -271,7 +274,7 @@ function InputKepanitiaan() {
         data.append('foto', fileToUpload);
       }
 
-      await api.post('/approvals-v2/kepanitiaan/submit', data);
+      await api.post('/approvals/kepanitiaan/submit', data);
 
       setMessage(userRole === 'superadmin' ? 'Kepanitiaan berhasil ditambahkan!' : 'Kepanitiaan berhasil diajukan untuk persetujuan!');
       if (userRole === 'superadmin') {
@@ -443,6 +446,8 @@ function InputKepanitiaan() {
     );
   };
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (checkingAccess) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -462,7 +467,7 @@ function InputKepanitiaan() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Kepanitiaan</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Kepanitiaan'}
           </button>
@@ -476,7 +481,7 @@ function InputKepanitiaan() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Kepanitiaan</h3>
           {loadingIndex ? (
@@ -491,7 +496,7 @@ function InputKepanitiaan() {
                   placeholder="Cari nama, NIS, jenis, jabatan..."
                   style={{ padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', minWidth: '240px' }}
                 />
-                {selectedIndexIds.length > 0 && (
+                {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <span style={{ fontSize: '13px', color: '#555' }}>{selectedIndexIds.length} dipilih</span>
                     <button
@@ -517,6 +522,7 @@ function InputKepanitiaan() {
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
                     <th>
                       <input
                         type="checkbox"
@@ -531,6 +537,7 @@ function InputKepanitiaan() {
                         onChange={toggleSelectAllFiltered}
                       />
                     </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -544,6 +551,7 @@ function InputKepanitiaan() {
                 <tbody>
                   {filteredKepanitiaan.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
                       <td>
                         <input
                           type="checkbox"
@@ -551,6 +559,7 @@ function InputKepanitiaan() {
                           onChange={() => toggleSelectIndex(item.id)}
                         />
                       </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -566,6 +575,7 @@ function InputKepanitiaan() {
                         >
                           Edit
                         </button>
+                        {userRole === 'superadmin' && (
                         <button 
                           className="btn btn-danger" 
                           onClick={() => handleDelete(item.id)} 
@@ -573,6 +583,7 @@ function InputKepanitiaan() {
                         >
                           Hapus
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -592,7 +603,7 @@ function InputKepanitiaan() {
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -823,8 +834,8 @@ function InputKepanitiaan() {
         </div>
       </EditModal>
 
-      {/* Submission History */}
-      {submissions.length > 0 && (
+      {/* Submission History - Hidden for approvers */}
+      {!canApprove && submissions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Kepanitiaan</h3>
           <div style={{ display: 'grid', gap: '10px' }}>

@@ -169,8 +169,8 @@ function Dashboard() {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   const clockDate = `${days[currentTime.getDay()]}, ${currentTime.getDate()} ${months[currentTime.getMonth()]} ${currentTime.getFullYear()}`;
   const clockTime = currentTime.toLocaleTimeString('id-ID');
-  const roleLabel = user?.role === 'superadmin' ? 'Super Admin' : user?.role === 'guru' ? 'Guru' : user?.role === 'siswa' ? 'Siswa' : 'User';
-  const roleInitial = user?.role === 'superadmin' ? 'SA' : user?.role === 'guru' ? 'G' : user?.role === 'siswa' ? 'S' : 'U';
+  const roleLabel = user?.role === 'superadmin' ? 'Super Admin' : user?.role === 'guru' ? 'Guru' : user?.role === 'pegawai' ? 'Pegawai' : user?.role === 'siswa' ? 'Siswa' : 'User';
+  const roleInitial = user?.role === 'superadmin' ? 'SA' : user?.role === 'guru' ? 'G' : user?.role === 'pegawai' ? 'P' : user?.role === 'siswa' ? 'S' : 'U';
   const valueCls = showLabels ? '' : 'is-blurred';
 
   const studentMin = user?.role === 'siswa' ? minIpcFor(minIpc, user?.kelas) : 0;

@@ -152,8 +152,8 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
         const { page = 1, limit = 50, search = '', role: roleFilter } = req.query;
         const offset = (page - 1) * limit;
 
-        // If guru, only return students (excluding graduated)
-        if (req.user.role === 'guru') {
+        // If guru/pegawai, only return students (excluding graduated)
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             let query = 'SELECT id, nama, nis, nip, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, created_at, tahun_pelajaran, is_graduated, jurusan, detail, alamat, no_hp FROM users WHERE role = ? AND (is_graduated = 0 OR is_graduated IS NULL)';
             let params = ['siswa'];
 
@@ -576,7 +576,7 @@ router.get('/:id', auth, async (req, res) => {
         // 1. User is requesting their own data, OR
         // 2. User is a superadmin, OR
         // 3. User is a teacher
-        if (requestedUserId !== currentUserId && currentUserRole !== 'superadmin' && currentUserRole !== 'guru') {
+        if (requestedUserId !== currentUserId && currentUserRole !== 'superadmin' && currentUserRole !== 'guru' && currentUserRole !== 'pegawai') {
             return res.status(403).json({ message: 'Access denied. You can only view your own profile.' });
         }
 
@@ -957,8 +957,8 @@ router.post('/:id/biodata-request', auth, async (req, res) => {
         const requestedBy = req.user.id;
         const { nama, nis, jurusan, grha, tahun_pelajaran } = req.body;
 
-        // Only guru can request biodata updates
-        if (req.user.role !== 'guru') {
+        // Only guru/pegawai can request biodata updates
+        if (req.user.role !== 'guru' && req.user.role !== 'pegawai') {
             return res.status(403).json({ message: 'Only teachers can request biodata updates' });
         }
         
@@ -1129,7 +1129,7 @@ router.put('/:id/biodata', auth, superAdminOnly, async (req, res) => {
 
             // Log activity
             await logActivity(req.user.id, 'UPDATE_BIODATA_DIRECT', `SuperAdmin ${req.user.nama} directly updated biodata for student ${oldName} (${nis}) to ${nama}`, req.ip);
-        } else if (role === 'guru') {
+        } else if (role === 'guru' || role === 'pegawai') {
             const storedDetail = user[0].detail || null;
             const newJabatan = teacherJabatan || storedDetail;
             // Nilai BARU harus valid; nilai lama (legacy) yang tidak diubah tetap diterima

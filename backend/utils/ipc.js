@@ -1,5 +1,24 @@
 const db = require('../config/database');
 
+// Resolve a pembina to { id, nama } from either a guru user id or a name.
+// Returns { id: null, nama: fallback } when unresolvable (caller decides).
+async function resolvePembina(pembinaId, pembinaName) {
+    if (pembinaId) {
+        const [rows] = await db.query("SELECT id, nama FROM users WHERE id = ? AND role IN ('guru', 'pegawai')", [pembinaId]);
+        if (rows.length > 0) {
+            return { id: rows[0].id, nama: rows[0].nama };
+        }
+    }
+    if (pembinaName) {
+        const [rows] = await db.query("SELECT id, nama FROM users WHERE nama = ? AND role IN ('guru', 'pegawai')", [pembinaName]);
+        if (rows.length > 0) {
+            return { id: rows[0].id, nama: rows[0].nama };
+        }
+        return { id: null, nama: pembinaName };
+    }
+    return { id: null, nama: '' };
+}
+
 // Single source of truth for ipc_history "keterangan" text on every
 // create/approve path (direct superadmin submit AND approval of
 // teacher/student submissions). All inputs must use this so history
@@ -90,4 +109,4 @@ async function applyPerilakuIpcChange(userId, newPoint, keterangan, excludePeril
     return { netChange, supersededCount: previous.length };
 }
 
-module.exports = { resolveStudentIdByNis, applyIpcChange, applyPerilakuIpcChange, buildKeterangan };
+module.exports = { resolveStudentIdByNis, resolvePembina, applyIpcChange, applyPerilakuIpcChange, buildKeterangan };

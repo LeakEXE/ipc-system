@@ -218,7 +218,7 @@ function IzinAkun() {
   // Guru-only permissions require a guru-ONLY selection: if even one siswa is
   // selected, the "Aktifkan Pelanggaran/Perilaku" buttons stay disabled.
   const selectedUsers = users.filter(u => selectedUserIds.has(u.id));
-  const onlyGuruSelected = selectedUsers.length > 0 && selectedUsers.every(u => u.role === 'guru');
+  const onlyGuruSelected = selectedUsers.length > 0 && selectedUsers.every(u => u.role === 'guru' || u.role === 'pegawai');
 
   // Bulk update ONE permission type, but only for the explicitly selected users
   const handleBulkSelectedUpdate = async (jenis, enable) => {

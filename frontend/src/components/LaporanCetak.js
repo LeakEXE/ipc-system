@@ -175,7 +175,7 @@ function LaporanCetak({ user }) {
   }, []);
 
   const checkWaliKelasStatus = async () => {
-    if (user?.role === 'guru') {
+    if (user?.role === 'guru' || user?.role === 'pegawai') {
       try {
         const response = await api.get('/wali-kelas/my-class');
         setIsWaliKelas(true);

@@ -16,13 +16,14 @@ function InputPrestasi() {
     jenis_lomba: 'akademik',
     kategori_lomba: 'individu',
     kelas: '',
-    pembina: '',
+    pembina_id: '',
     grha: '',
     juara: 'juara_i',
     kategori: 'sekolah'
   });
   const [foto, setFoto] = useState(null);
   const [message, setMessage] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [teachers, setTeachers] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -37,6 +38,7 @@ function InputPrestasi() {
   const [selectedIndexIds, setSelectedIndexIds] = useState([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [userRole, setUserRole] = useState('');
+  const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
   const [ipcConfig, setIpcConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
@@ -79,10 +81,9 @@ function InputPrestasi() {
         kelas: user.kelas || '',
         grha: user.grha || ''
       }));
-    } else {
-      // Only fetch students for guru/superadmin
-      fetchStudents();
     }
+    // Student list is needed by the kelompok member picker for every role
+    fetchStudents();
 
     fetchTeachers();
     fetchUserSubmissions();
@@ -90,6 +91,8 @@ function InputPrestasi() {
     checkAccess();
     if (user.role === 'superadmin') {
       fetchAllPrestasi();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPrestasi(); }).catch(() => setCanApprove(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -258,7 +261,7 @@ function InputPrestasi() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.prestasi || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -308,6 +311,11 @@ function InputPrestasi() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+
+    // Switching back to individu discards the kelompok member list
+    if (name === 'kategori_lomba' && value !== 'kelompok') {
+      setSelectedMembers([]);
+    }
 
     // Reset auto-fill flag if user clears the field
     if ((name === 'nis' || name === 'nama') && value === '') {
@@ -422,10 +430,19 @@ function InputPrestasi() {
     setLoading(true);
 
     try {
+      // Kelompok mode needs at least 2 members picked from the dropdown
+      if (formData.kategori_lomba === 'kelompok' && selectedMembers.length < 2) {
+        setMessage('Lomba kelompok membutuhkan minimal 2 anggota');
+        setLoading(false);
+        return;
+      }
       const data = new FormData();
       Object.keys(formData).forEach(key => {
         data.append(key, formData[key]);
       });
+      if (formData.kategori_lomba === 'kelompok') {
+        data.append('anggota', JSON.stringify(selectedMembers.map(m => ({ nama: m.nama, nis: m.nis }))));
+      }
       if (foto) {
         // Prepend NIS to filename if NIS exists
         const fileToUpload = formData.nis
@@ -434,7 +451,7 @@ function InputPrestasi() {
         data.append('foto', fileToUpload);
       }
 
-      const response = await api.post('/approvals-v2/prestasi/submit', data);
+      const response = await api.post('/approvals/prestasi/submit', data);
 
       // Use message from backend response (different for superadmin vs regular user)
       setMessage(response.data?.message || 'Data prestasi berhasil dikirim!');
@@ -449,12 +466,13 @@ function InputPrestasi() {
         jenis_lomba: 'akademik',
         kategori_lomba: 'individu',
         kelas: '',
-        pembina: '',
+        pembina_id: '',
         grha: '',
         juara: 'juara_i',
         kategori: 'sekolah'
       });
       setFoto(null);
+      setSelectedMembers([]);
       setIsAutoFilled(false);
       setShowForm(false);
     } catch (error) {
@@ -484,11 +502,13 @@ function InputPrestasi() {
     );
   }
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Prestasi</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             + Input Prestasi
           </button>
@@ -502,7 +522,7 @@ function InputPrestasi() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Prestasi</h3>
           {loadingIndex ? (
@@ -517,7 +537,7 @@ function InputPrestasi() {
                 onChange={(e) => setIndexSearch(e.target.value)}
                 style={{ padding: '6px 10px', fontSize: '13px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '260px' }}
               />
-              {selectedIndexIds.length > 0 && (
+              {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
                 <>
                   <span style={{ fontSize: '13px' }}>{selectedIndexIds.length} dipilih</span>
                   <button
@@ -543,6 +563,7 @@ function InputPrestasi() {
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
                     <th>
                       <input
                         type="checkbox"
@@ -558,6 +579,7 @@ function InputPrestasi() {
                         onChange={toggleSelectAllFiltered}
                       />
                     </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -575,6 +597,7 @@ function InputPrestasi() {
                 <tbody>
                   {filteredPrestasi.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
                       <td>
                         <input
                           type="checkbox"
@@ -582,6 +605,7 @@ function InputPrestasi() {
                           onChange={() => toggleSelectIndex(item.id)}
                         />
                       </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -595,7 +619,7 @@ function InputPrestasi() {
                       <td>{getStatusBadge(item)}</td>
                       <td>
                         <button className="btn btn-info" onClick={() => handleEdit(item)} style={{ padding: '3px 8px', fontSize: '12px', marginRight: '5px' }}>Edit</button>
-                        <button className="btn btn-danger" onClick={() => handleDelete(item.id)} style={{ padding: '3px 8px', fontSize: '12px' }}>Hapus</button>
+                        {userRole === 'superadmin' && (<button className="btn btn-danger" onClick={() => handleDelete(item.id)} style={{ padding: '3px 8px', fontSize: '12px' }}>Hapus</button>)}
                       </td>
                     </tr>
                   ))}
@@ -614,8 +638,27 @@ function InputPrestasi() {
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="form-group">
+            <label>Kategori Lomba</label>
+            <select name="kategori_lomba" value={formData.kategori_lomba} onChange={handleChange} required>
+              <option value="individu">Individu</option>
+              <option value="kelompok">Kelompok</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Jenis Lomba</label>
+            <select name="jenis_lomba" value={formData.jenis_lomba} onChange={handleChange} required>
+              <option value="akademik">Akademik</option>
+              <option value="non_akademik">Non-akademik</option>
+            </select>
+          </div>
+        </div>
+
+        {formData.kategori_lomba !== 'kelompok' && (
+        <>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
             <label>Nama <span className="required">*</span></label>
@@ -707,6 +750,33 @@ function InputPrestasi() {
             </select>
           </div>
         </div>
+        </>
+        )}
+
+        {formData.kategori_lomba === 'kelompok' && (
+          <div className="form-group">
+            <label>Anggota Kelompok (minimal 2) <span className="required">*</span></label>
+            <Select
+              isMulti
+              value={selectedMembers}
+              onChange={(selected) => setSelectedMembers(selected || [])}
+              options={students.map(student => ({ value: student.nis, label: `${student.nama} (${student.nis})`, nama: student.nama, nis: student.nis, kelas: student.kelas, grha: student.grha }))}
+              placeholder="Pilih 2 siswa atau lebih..."
+              isSearchable
+              styles={{
+                control: (provided) => ({
+                  ...provided,
+                  minHeight: '40px'
+                })
+              }}
+            />
+            {selectedMembers.length > 0 && (
+              <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
+                {selectedMembers.length} siswa dipilih: {selectedMembers.map(m => m.nama).join(', ')}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="form-group">
           <label>Nama Lomba</label>
@@ -720,29 +790,12 @@ function InputPrestasi() {
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div className="form-group">
-            <label>Jenis Lomba</label>
-            <select name="jenis_lomba" value={formData.jenis_lomba} onChange={handleChange} required>
-              <option value="akademik">Akademik</option>
-              <option value="non_akademik">Non-akademik</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Kategori Lomba</label>
-            <select name="kategori_lomba" value={formData.kategori_lomba} onChange={handleChange} required>
-              <option value="individu">Individu</option>
-              <option value="kelompok">Kelompok</option>
-            </select>
-          </div>
-        </div>
-
         <div className="form-group">
           <label>Pembina</label>
-          <select name="pembina" value={formData.pembina} onChange={handleChange}>
+          <select name="pembina_id" value={formData.pembina_id || ''} onChange={handleChange}>
             <option value="" disabled hidden>Pilih Pembina</option>
             {teachers.map(teacher => (
-              <option key={teacher.id} value={teacher.nama}>{teacher.nama} ({teacher.nip})</option>
+              <option key={teacher.id} value={teacher.id}>{teacher.nama} ({teacher.nip})</option>
             ))}
           </select>
         </div>
@@ -890,10 +943,10 @@ function InputPrestasi() {
 
         <div className="form-group">
           <label>Pembina</label>
-          <select name="pembina" value={editModal.editFormData.pembina} onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, pembina: e.target.value })}>
+          <select name="pembina_id" value={editModal.editFormData.pembina_id || ''} onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, pembina_id: e.target.value })}>
             <option value="" disabled hidden>Pilih Pembina</option>
             {teachers.map(teacher => (
-              <option key={teacher.id} value={teacher.nama}>{teacher.nama} ({teacher.nip})</option>
+              <option key={teacher.id} value={teacher.id}>{teacher.nama} ({teacher.nip})</option>
             ))}
           </select>
         </div>
@@ -917,8 +970,8 @@ function InputPrestasi() {
         </div>
       </EditModal>
 
-      {/* Submission History - Hidden for Superadmin */}
-      {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
+      {/* Submission History - Hidden for Superadmin and approvers */}
+      {userRole !== 'superadmin' && !canApprove && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Prestasi</h3>
           {submissions.length === 0 ? (

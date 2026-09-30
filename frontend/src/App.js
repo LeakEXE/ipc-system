@@ -16,8 +16,7 @@ import Profile from './components/Profile';
 import Logs from './components/Logs';
 import WaliKelas from './components/WaliKelas';
 import TeacherWaliKelas from './components/TeacherWaliKelas';
-// import Approvals from './components/Approvals'; // Old approvals component
-import ApprovalsV2 from './components/ApprovalsV2';
+import Approvals from './components/Approvals';
 import DriveViewer from './components/DriveViewer';
 import Notifications from './components/Notifications';
 import LaporanCetak from './components/LaporanCetak';
@@ -165,13 +164,13 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/wali-kelas-guru" element={
-          <ProtectedRoute allowedRoles={['guru']}>
+          <ProtectedRoute allowedRoles={['guru', 'pegawai']}>
             {(user) => <MainLayout user={user}><TeacherWaliKelas /></MainLayout>}
           </ProtectedRoute>
         } />
         <Route path="/approvals" element={
           <ProtectedRoute>
-            {(user) => <MainLayout user={user}><ApprovalsV2 /></MainLayout>}
+            {(user) => <MainLayout user={user}><Approvals /></MainLayout>}
           </ProtectedRoute>
         } />
         <Route path="/drive-viewer" element={
@@ -180,7 +179,7 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/notifications" element={
-          <ProtectedRoute allowedRoles={['siswa', 'guru']}>
+          <ProtectedRoute allowedRoles={['siswa', 'guru', 'pegawai']}>
             {(user) => <MainLayout user={user}><Notifications /></MainLayout>}
           </ProtectedRoute>
         } />
@@ -188,7 +187,7 @@ function App() {
           <ProtectedRoute>
             {(user) => {
               // Allow superadmin always, but for guru only if they are wali kelas
-              if (user.role === 'superadmin' || (user.role === 'guru' && user.wali_kelas)) {
+              if (user.role === 'superadmin' || ((user.role === 'guru' || user.role === 'pegawai') && user.wali_kelas)) {
                 return <MainLayout user={user}><LaporanCetak user={user} /></MainLayout>;
               }
               return <MainLayout user={user}><Dashboard /></MainLayout>;

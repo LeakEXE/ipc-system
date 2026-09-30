@@ -28,6 +28,7 @@ function InputPelanggaran() {
   const [selectedIndexIds, setSelectedIndexIds] = useState([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [userRole, setUserRole] = useState('');
+  const [canApprove, setCanApprove] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(true);
   const editModal = useEditModal();
@@ -62,7 +63,7 @@ function InputPelanggaran() {
     const checkPermission = async () => {
       try {
         const response = await api.get('/permissions/my-permissions');
-        const canAccess = user.role === 'superadmin' || (user.role === 'guru' && response.data.can_input_pelanggaran);
+        const canAccess = user.role === 'superadmin' || ((user.role === 'guru' || user.role === 'pegawai') && response.data.can_input_pelanggaran);
         setHasPermission(canAccess);
       } catch (error) {
         console.error('Error checking permission:', error);
@@ -92,6 +93,8 @@ function InputPelanggaran() {
     fetchUserSubmissions();
     if (user.role === 'superadmin') {
       fetchAllPelanggaran();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPelanggaran(); }).catch(() => setCanApprove(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -134,7 +137,7 @@ function InputPelanggaran() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.pelanggaran || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -290,7 +293,7 @@ function InputPelanggaran() {
         data.append('foto', fileToUpload);
       }
 
-      await api.post('/approvals-v2/pelanggaran/submit', data);
+      await api.post('/approvals/pelanggaran/submit', data);
 
       setMessage(userRole === 'superadmin' ? 'Pelanggaran berhasil ditambahkan!' : 'Pelanggaran berhasil diajukan untuk persetujuan!');
       if (userRole === 'superadmin') {
@@ -428,6 +431,8 @@ function InputPelanggaran() {
     }
   };
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (permissionLoading) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -445,7 +450,7 @@ function InputPelanggaran() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Pelanggaran</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Pelanggaran'}
           </button>
@@ -459,7 +464,7 @@ function InputPelanggaran() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Pelanggaran</h3>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -470,7 +475,7 @@ function InputPelanggaran() {
               placeholder="Cari nama, NIS, detail, jenis..."
               style={{ flex: '1', minWidth: '200px', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px' }}
             />
-            {selectedIndexIds.length > 0 && (
+            {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
               <>
                 <span style={{ fontSize: '13px', color: '#666' }}>{selectedIndexIds.length} dipilih</span>
                 <button
@@ -499,6 +504,7 @@ function InputPelanggaran() {
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
                     <th>
                       <input
                         type="checkbox"
@@ -513,6 +519,7 @@ function InputPelanggaran() {
                         onChange={toggleSelectAllFiltered}
                       />
                     </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -525,13 +532,16 @@ function InputPelanggaran() {
                 <tbody>
                   {filteredPelanggaran.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
                       <td>
                         <input
                           type="checkbox"
                           checked={selectedIndexIds.includes(item.id)}
                           onChange={() => toggleSelectIndex(item.id)}
                         />
-                      </td><td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
+                      </td>
+                      )}
+                      <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
                       <td>{item.keterangan}</td>
@@ -545,13 +555,15 @@ function InputPelanggaran() {
                         >
                           Edit
                         </button>
-                        <button 
-                          className="btn btn-danger" 
-                          onClick={() => handleDelete(item.id)} 
+                        {userRole === 'superadmin' && (
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => handleDelete(item.id)}
                           style={{ padding: '3px 8px', fontSize: '12px' }}
                         >
                           Hapus
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -568,7 +580,7 @@ function InputPelanggaran() {
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -821,8 +833,8 @@ function InputPelanggaran() {
         </div>
       </EditModal>
 
-      {/* Submission History - Hidden for Superadmin */}
-      {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
+      {/* Submission History - Hidden for Superadmin and approvers */}
+      {userRole !== 'superadmin' && !canApprove && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Pelanggaran</h3>
           {submissions.length === 0 ? (

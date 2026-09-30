@@ -392,8 +392,7 @@ ipc-system/
 │   │   ├── auth.js            → /api/auth
 │   │   ├── users.js           → /api/users
 │   │   ├── prestasi|organisasi|kepanitiaan|event|pelanggaran|perilaku.js
-│   │   ├── approvals-v2.js    → /api/approvals-v2 (sistem approval aktif)
-│   │   ├── approvals.js       → /api/approvals (lama, tidak dipakai UI)
+│   │   ├── approvals.js       → /api/approvals (sistem approval aktif)
 │   │   ├── permissions.js + input-access.js
 │   │   ├── logs.js            → /api/logs
 │   │   ├── dashboard.js       → /api/dashboard/stats
@@ -423,7 +422,7 @@ ipc-system/
 │   │   │   ├── Dashboard.js + Dashboard.css
 │   │   │   ├── InputPrestasi|Organisasi|Kepanitiaan|Event|Pelanggaran|Perilaku.js
 │   │   │   ├── KelolaAkun.js + IzinAkun.js
-│   │   │   ├── ApprovalsV2.js (aktif; Approvals.js lama tidak dipakai)
+│   │   │   ├── Approvals.js
 │   │   │   ├── Leaderboard.js + WaliKelas.js + TeacherWaliKelas.js
 │   │   │   ├── KonfigurasiIPC.js + SchoolConfig.js
 │   │   │   ├── LaporanCetak.js + IpcReport.js + IpcPrintSheet.js

@@ -32,6 +32,7 @@ function InputOrganisasi() {
   const [indexSearch, setIndexSearch] = useState('');
   const [selectedIndexIds, setSelectedIndexIds] = useState([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
   const [ipcConfig, setIpcConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
@@ -80,6 +81,8 @@ function InputOrganisasi() {
     fetchOrganisasiOptions();
     if (user.role === 'superadmin') {
       fetchAllOrganisasi();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllOrganisasi(); }).catch(() => setCanApprove(false));
     }
   }, []);
 
@@ -142,7 +145,7 @@ function InputOrganisasi() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.organisasi || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -290,7 +293,7 @@ function InputOrganisasi() {
         data.append('foto', fileToUpload);
       }
 
-      await api.post('/approvals-v2/organisasi/submit', data);
+      await api.post('/approvals/organisasi/submit', data);
 
       setMessage(userRole === 'superadmin' ? 'Organisasi berhasil ditambahkan!' : 'Organisasi berhasil diajukan untuk persetujuan!');
       if (userRole === 'superadmin') {
@@ -459,6 +462,8 @@ function InputOrganisasi() {
     );
   };
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (checkingAccess) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -478,7 +483,7 @@ function InputOrganisasi() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Organisasi</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Organisasi'}
           </button>
@@ -492,7 +497,7 @@ function InputOrganisasi() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Organisasi</h3>
           {loadingIndex ? (
@@ -507,7 +512,7 @@ function InputOrganisasi() {
                 placeholder="Cari nama, NIS, kategori, jabatan..."
                 style={{ flex: 1, minWidth: '200px', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px' }}
               />
-              {selectedIndexIds.length > 0 && (
+              {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <span style={{ fontSize: '13px', color: '#555' }}>{selectedIndexIds.length} dipilih</span>
                   <button
@@ -533,6 +538,7 @@ function InputOrganisasi() {
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
                     <th>
                       <input
                         type="checkbox"
@@ -541,6 +547,7 @@ function InputOrganisasi() {
                         onChange={toggleSelectAllFiltered}
                       />
                     </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -554,6 +561,7 @@ function InputOrganisasi() {
                 <tbody>
                   {filteredOrganisasi.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
                       <td>
                         <input
                           type="checkbox"
@@ -561,6 +569,7 @@ function InputOrganisasi() {
                           onChange={() => toggleSelectIndex(item.id)}
                         />
                       </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -576,6 +585,7 @@ function InputOrganisasi() {
                         >
                           Edit
                         </button>
+                        {userRole === 'superadmin' && (
                         <button 
                           className="btn btn-danger" 
                           onClick={() => handleDelete(item.id)} 
@@ -583,6 +593,7 @@ function InputOrganisasi() {
                         >
                           Hapus
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -600,7 +611,7 @@ function InputOrganisasi() {
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -840,8 +851,8 @@ function InputOrganisasi() {
         </div>
       </EditModal>
 
-      {/* Submission History */}
-      {submissions.length > 0 && (
+      {/* Submission History - Hidden for approvers */}
+      {!canApprove && submissions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Organisasi</h3>
           <div style={{ display: 'grid', gap: '10px' }}>

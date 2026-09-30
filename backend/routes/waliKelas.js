@@ -38,7 +38,7 @@ router.get('/available-teachers', auth, superAdminOnly, async (req, res) => {
         const [teachers] = await db.query(`
             SELECT u.id, u.nama, u.nip, u.detail 
             FROM users u
-            WHERE u.role = 'guru'
+            WHERE (u.role = 'guru' OR u.role = 'pegawai')
             AND u.id NOT IN (
                 SELECT guru_id FROM wali_kelas_assignment 
                 WHERE tahun_ajaran = ?
@@ -486,9 +486,9 @@ router.post('/', auth, superAdminOnly, async (req, res) => {
             return res.status(404).json({ message: 'Guru tidak ditemukan' });
         }
         
-        // Only teachers with role 'guru' can be wali kelas
-        if (guru[0].role !== 'guru') {
-            return res.status(400).json({ message: 'Hanya guru dengan role Guru yang dapat menjadi Wali Kelas' });
+        // Only teachers (guru/pegawai) can be wali kelas
+        if (guru[0].role !== 'guru' && guru[0].role !== 'pegawai') {
+            return res.status(400).json({ message: 'Hanya guru/pegawai yang dapat menjadi Wali Kelas' });
         }
         
         const guruNama = guru[0]?.nama || 'Guru';
