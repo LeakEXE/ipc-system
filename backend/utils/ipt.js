@@ -1,6 +1,25 @@
 const db = require('../config/database');
 
-// Single source of truth for ipc_history "keterangan" text on every
+// Resolve a pembina to { id, nama } from either a guru user id or a name.
+// Returns { id: null, nama: fallback } when unresolvable (caller decides).
+async function resolvePembina(pembinaId, pembinaName) {
+    if (pembinaId) {
+        const [rows] = await db.query("SELECT id, nama FROM users WHERE id = ? AND role IN ('guru', 'pegawai')", [pembinaId]);
+        if (rows.length > 0) {
+            return { id: rows[0].id, nama: rows[0].nama };
+        }
+    }
+    if (pembinaName) {
+        const [rows] = await db.query("SELECT id, nama FROM users WHERE nama = ? AND role IN ('guru', 'pegawai')", [pembinaName]);
+        if (rows.length > 0) {
+            return { id: rows[0].id, nama: rows[0].nama };
+        }
+        return { id: null, nama: pembinaName };
+    }
+    return { id: null, nama: '' };
+}
+
+// Single source of truth for ipt_history "keterangan" text on every
 // create/approve path (direct superadmin submit AND approval of
 // teacher/student submissions). All inputs must use this so history
 // reads identically in /wali-kelas, reports, and profile.
@@ -43,27 +62,27 @@ async function resolveStudentIdByNis(nis, fallbackUserId) {
     return rows[0].id;
 }
 
-async function applyIpcChange(userId, jenis, pointChange, keterangan) {
-    const [user] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [userId]);
+async function applyIptChange(userId, jenis, pointChange, keterangan) {
+    const [user] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [userId]);
     if (user.length === 0) {
         return null;
     }
 
-    const ipcSebelum = user[0].ipc_total;
-    // Allow negative IPC values - remove the minimum constraint
-    const ipcBaru = ipcSebelum + pointChange;
+    const iptSebelum = user[0].ipt_total;
+    // Allow negative IPT values - remove the minimum constraint
+    const iptBaru = iptSebelum + pointChange;
 
-    await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcBaru, userId]);
+    await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptBaru, userId]);
     await db.query(
-        `INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan)
+        `INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, jenis, pointChange, ipcSebelum, ipcBaru, keterangan]
+        [userId, jenis, pointChange, iptSebelum, iptBaru, keterangan]
     );
 
-    return { ipcSebelum, ipcBaru };
+    return { iptSebelum, iptBaru };
 }
 
-async function applyPerilakuIpcChange(userId, newPoint, keterangan, excludePerilakuId = null) {
+async function applyPerilakuIptChange(userId, newPoint, keterangan, excludePerilakuId = null) {
     const params = [userId, 'approved'];
     let sql = 'SELECT id, point FROM perilaku WHERE user_id = ? AND status = ?';
     if (excludePerilakuId) {
@@ -84,10 +103,10 @@ async function applyPerilakuIpcChange(userId, newPoint, keterangan, excludePeril
 
     const netChange = (newPoint || 0) - reversedPoints;
     if (netChange !== 0) {
-        await applyIpcChange(userId, 'perilaku', netChange, keterangan);
+        await applyIptChange(userId, 'perilaku', netChange, keterangan);
     }
 
     return { netChange, supersededCount: previous.length };
 }
 
-module.exports = { resolveStudentIdByNis, applyIpcChange, applyPerilakuIpcChange, buildKeterangan };
+module.exports = { resolveStudentIdByNis, resolvePembina, applyIptChange, applyPerilakuIptChange, buildKeterangan };

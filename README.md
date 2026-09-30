@@ -1,6 +1,6 @@
-# Website IPC Bali Mandara
+# Mandara Talenta
 
-Sistem Individual Point Card untuk sekolah dengan fitur lengkap untuk mengelola prestasi, organisasi, event, pelanggaran, dan perilaku siswa.
+Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) adalah sistem untuk sekolah dengan fitur lengkap untuk mengelola prestasi, organisasi, event, pelanggaran, dan perilaku siswa.
 
 ## Tampilan Web 
 
@@ -39,8 +39,8 @@ Sistem Individual Point Card untuk sekolah dengan fitur lengkap untuk mengelola 
 <p style="text-align: center; font-weight: bold; margin-bottom: 10px;">Kelola Akun</p>
 <img src="screenshots/kelolaakun.png" alt="Kelola Akun" style="width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 
-### Edit Ipc
-<p style="text-align: center; font-weight: bold; margin-bottom: 10px;">Edit Ipc</p>
+### Edit Ipt
+<p style="text-align: center; font-weight: bold; margin-bottom: 10px;">Edit Ipt</p>
 <img src="screenshots/edit pc awal.png" alt="Dashboard" style="width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 
 ### Izin Akun
@@ -68,9 +68,9 @@ Sistem Individual Point Card untuk sekolah dengan fitur lengkap untuk mengelola 
 <p style="text-align: center; font-weight: bold; margin-bottom: 10px;">Laporan & Cetak</p>
 <img src="screenshots/laporancetak.png" alt="Laporan Cetak" style="width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 
-### Individual Point Card
-<p style="text-align: center; font-weight: bold; margin-bottom: 10px;">Individual Point Card</p>
-<img src="screenshots/individual.png" alt="IPC Card" style="width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+### Individual Point Talent
+<p style="text-align: center; font-weight: bold; margin-bottom: 10px;">Individual Point Talent</p>
+<img src="screenshots/individual.png" alt="IPT Card" style="width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 
 </div>
 
@@ -80,7 +80,7 @@ Sistem Individual Point Card untuk sekolah dengan fitur lengkap untuk mengelola 
 - **Input Prestasi**: Mencatat prestasi akademik dan non-akademik dengan sistem poin berdasarkan juara dan kategori (kecamatan, kabupaten, provinsi, nasional, internasional)
 - **Input Organisasi**: Mencatat keanggotaan organisasi dengan poin berdasarkan jabatan
 - **Input Event**: Mencatat partisipasi event dengan poin berdasarkan tingkat
-- **Input Pelanggaran**: Mencatat pelanggaran dengan pengurangan poin IPC
+- **Input Pelanggaran**: Mencatat pelanggaran dengan pengurangan poin IPT
 - **Input Perilaku**: Mencatat karakter siswa dengan penambahan poin
 
 ### Sistem Approval
@@ -101,10 +101,10 @@ Sistem Individual Point Card untuk sekolah dengan fitur lengkap untuk mengelola 
 ### Fitur Lainnya
 - Dashboard statistik untuk semua user
 - Search siswa untuk melihat prestasi
-- Profile dengan biodata dan riwayat IPC
+- Profile dengan biodata dan riwayat IPT
 - Activity logs untuk audit
 - Manajemen Wali Kelas
-- Poin IPC otomatis dihitung
+- Poin IPT otomatis dihitung
 
 ## Teknologi
 
@@ -138,14 +138,14 @@ npm install
 npm run db:setup
 ```
 `npm run db:setup` membaca koneksi dari `backend/.env`, membuat database
-`ipc_school` jika belum ada, lalu mengimpor `database/skema.sql`
-(semua tabel + data awal IPC).
+`ipt_school` jika belum ada, lalu mengimpor `database/skema.sql`
+(semua tabel + data awal IPT).
 
 Cara manual:
-1. Buat database baru bernama `ipc_school` — via pgAdmin
-   (klik kanan *Databases* → *Create*) atau terminal: `createdb -U postgres ipc_school`
-2. Import file `backend/database/skema.sql` ke database `ipc_school`:
-   `psql -U postgres -d ipc_school -f backend/database/skema.sql`
+1. Buat database baru bernama `ipt_school` — via pgAdmin
+   (klik kanan *Databases* → *Create*) atau terminal: `createdb -U postgres ipt_school`
+2. Import file `backend/database/skema.sql` ke database `ipt_school`:
+   `psql -U postgres -d ipt_school -f backend/database/skema.sql`
 3. Pastikan database berhasil dibuat dengan semua tabel (`\dt` di psql)
 
 > 🖱️ Baru pertama kali pakai PostgreSQL? Lihat panduan klik-per-klik
@@ -166,7 +166,7 @@ DB_HOST=localhost
 DB_USER=postgres
 DB_PASSWORD=
 DB_PORT=5432
-DB_NAME=ipc_school
+DB_NAME=ipt_school
 PORT=5000
 JWT_SECRET=your_jwt_secret_key_here_change_in_production
 ```
@@ -208,7 +208,7 @@ Aplikasi akan berjalan di `http://localhost:3000`
 > saat login. Segera ganti password lewat menu Profile, lalu hapus variabel
 > itu dari `.env`.
 
-## Sistem Poin IPC
+## Sistem Poin IPT
 
 ### Prestasi
 | Juara | Kecamatan | Kabupaten | Provinsi | Nasional | Internasional |
@@ -268,7 +268,7 @@ Kelas (X, XI, XII) dihitung otomatis berdasarkan tahun pelajaran saat siswa masu
 ## Struktur Project
 
 ```
-ipc-system/
+mandara-talenta/
 ├── backend/
 │   ├── config/
 │   │   └── database.js
@@ -279,14 +279,13 @@ ipc-system/
 │   │   ├── auth.js, users.js, profile.js, permissions.js, input-access.js
 │   │   ├── prestasi.js, organisasi.js, kepanitiaan.js
 │   │   ├── event.js, pelanggaran.js, perilaku.js
-│   │   ├── approvals-v2.js  # approval aktif (superadmin)
-│   │   ├── approvals.js     # lama, tidak dipakai UI
+│   │   ├── approvals.js     # approval aktif
 │   │   ├── dashboard.js, waliKelas.js, search.js, reports.js
 │   │   ├── logs.js, file-viewer.js, academicYear.js, sync.js
-│   │   └── ipcConfig.js, school-config.js
+│   │   └── iptConfig.js, school-config.js
 │   ├── uploads/             # prestasi|organisasi|kepanitiaan|event|
 │   │                         # pelanggaran|perilaku|approvals|approved|avatars|logos
-│   ├── utils/               # ipc.js, schoolConfig.js, fileUtils.js, ...
+│   ├── utils/               # ipt.js, schoolConfig.js, fileUtils.js, ...
 │   ├── scripts/
 │   │   └── setupDb.js       # npm run db:setup
 │   ├── constants/
@@ -315,26 +314,26 @@ ipc-system/
 │   │   │   ├── Profile.js
 │   │   │   ├── Logs.js
 │   │   │   ├── WaliKelas.js
-│   │   │   ├── ApprovalsV2.js (aktif; Approvals.js lama tidak dipakai)
+│   │   │   ├── Approvals.js
 │   │   │   ├── Notifications.js
 │   │   │   ├── NotificationBadge.js
 │   │   │   ├── EditModal.js
-│   │   │   ├── KonfigurasiIPC.js
+│   │   │   ├── KonfigurasiIPT.js
 │   │   │   ├── SchoolConfig.js
 │   │   │   ├── Leaderboard.js
 │   │   │   ├── StudentDetail.js
 │   │   │   ├── StudentRecordsHistory.js
 │   │   │   ├── TeacherWaliKelas.js
 │   │   │   ├── LaporanCetak.js
-│   │   │   ├── IpcReport.js
-│   │   │   ├── IpcPrintSheet.js
-│   │   │   ├── ipcPrintBranding.js
+│   │   │   ├── IptReport.js
+│   │   │   ├── IptPrintSheet.js
+│   │   │   ├── iptPrintBranding.js
 │   │   │   ├── Dashboard.css
 │   │   │   ├── icons.js
 │   │   │   └── DriveViewer.js
 │   │   ├── hooks/
 │   │   │   └── useEditModal.js
-│   │   ├── utils/           # api.js, minIpc.js, kelasJurusan.js, ...
+│   │   ├── utils/           # api.js, minIpt.js, kelasJurusan.js, ...
 │   │   ├── App.js
 │   │   ├── index.js
 │   │   ├── index.css
@@ -347,7 +346,7 @@ ipc-system/
 │   └── ACADEMIC_YEAR_SYSTEM.md
 ├── screenshots/
 ├── DOCUMENTATION.md, REQUIREMENTS.md, QUICK_GUIDE.md
-├── SECURITY.md, IPC_SYNC_GUIDE.md, DOCS_INDEX.txt
+├── SECURITY.md, IPT_SYNC_GUIDE.md, DOCS_INDEX.txt
 ├── FLOWCHART.html (+ versi sederhana), LICENSE, README.md
 ```
 
@@ -371,9 +370,9 @@ ipc-system/
 
 ### Untuk Siswa
 1. Login dengan NIS atau NISN
-2. Lihat biodata dan IPC di menu Profile
+2. Lihat biodata dan IPT di menu Profile
 3. Input data sesuai izin yang diberikan superadmin
-4. Lihat riwayat IPC
+4. Lihat riwayat IPT
 5. Tidak dapat mengedit biodata sendiri
 
 ## Troubleshooting
@@ -382,7 +381,7 @@ ipc-system/
 - Pastikan PostgreSQL sedang berjalan (`pg_isready` harus menjawab `accepting connections`;
   Windows: cek *Services* → `postgresql-x64-*` → *Running*)
 - Cek konfigurasi di file `backend/.env` (terutama `DB_PASSWORD` = password user `postgres`)
-- Pastikan database `ipc_school` sudah dibuat (`npm run db:setup` membuatnya otomatis)
+- Pastikan database `ipt_school` sudah dibuat (`npm run db:setup` membuatnya otomatis)
 
 ### CORS Error
 - Pastikan backend berjalan di port 5000
@@ -394,8 +393,8 @@ ipc-system/
 
 ## Catatan Penting
 
-- Setiap siswa baru otomatis mendapatkan 80 poin IPC awal
-- Superadmin dapat mengubah IPC siswa kapan saja
+- Setiap siswa baru otomatis mendapatkan 80 poin IPT awal
+- Superadmin dapat mengubah IPT siswa kapan saja
 - Data duplikat (NIS/NISN/NIP sama) tidak dapat dibuat
 - Semua input data memerlukan approval kecuali dari superadmin
 - Foto bukti disimpan di folder `backend/uploads/approvals` di server (local storage)
@@ -408,7 +407,7 @@ ipc-system/
 - **Notification Polling**: Notifikasi dicek setiap 30 detik untuk update real-time
 - **Database Query Optimization**: Query dashboard dioptimasi dengan indexing pada tabel utama
 - **Class Calculation**: Kelas siswa dihitung otomatis berdasarkan tahun pelajaran dan jurusan
-- **IPC Breakdown**: Perhitungan IPC menggunakan fungsi terpusat untuk konsistensi data
+- **IPT Breakdown**: Perhitungan IPT menggunakan fungsi terpusat untuk konsistensi data
 
 ### Catatan Kinerja
 - Aplikasi menggunakan React 18 dengan optimasi rendering

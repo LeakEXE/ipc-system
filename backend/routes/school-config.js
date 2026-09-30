@@ -28,7 +28,7 @@ router.get('/public', async (req, res) => {
     if (rows.length === 0) {
       return res.json({
         school_name: 'SMK Negeri Bali Mandara',
-        school_description: 'Sistem Individual Point Card (IPC) • Panel Admin',
+        school_description: 'Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) • Panel Admin',
         logo_url: null,
         support_link: null
       });
@@ -63,7 +63,7 @@ router.get('/', async (req, res) => {
       return res.json({
         id: null,
         school_name: 'SMK Negeri Bali Mandara',
-        school_description: 'Sistem Individual Card (IPC) • Panel Admin',
+        school_description: 'Sistem Individual Card (IPT) • Panel Admin',
         principal_name: 'Nama Kepala Sekolah',
         principal_nip: '',
         logo_url: null,

@@ -22,7 +22,7 @@ router.get('/', auth, superAdminOnly, async (req, res) => {
 router.get('/user/:userId', auth, async (req, res) => {
     try {
         const [permissions] = await db.query(
-            'SELECT id, user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku FROM permissions WHERE user_id = ?',
+            'SELECT id, user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_approve FROM permissions WHERE user_id = ?',
             [req.params.userId]
         );
         
@@ -34,6 +34,7 @@ router.get('/user/:userId', auth, async (req, res) => {
                 can_input_event: false,
                 can_input_pelanggaran: false,
                 can_input_perilaku: false,
+                can_approve: false,
                 can_view_all_data: false
             });
         }
@@ -50,7 +51,7 @@ router.get('/my-permissions', auth, async (req, res) => {
     try {
         const userId = req.user.id;
         const [permissions] = await db.query(
-            'SELECT id, user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku FROM permissions WHERE user_id = ?',
+            'SELECT id, user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_approve FROM permissions WHERE user_id = ?',
             [userId]
         );
         
@@ -62,6 +63,7 @@ router.get('/my-permissions', auth, async (req, res) => {
                 can_input_event: false,
                 can_input_pelanggaran: false,
                 can_input_perilaku: false,
+                can_approve: false,
                 can_view_all_data: false
             });
         }
@@ -77,7 +79,7 @@ router.get('/my-permissions', auth, async (req, res) => {
 router.put('/user/:userId', auth, superAdminOnly, async (req, res) => {
     try {
         const userId = req.params.userId;
-        const { can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_view_all_data } = req.body;
+        const { can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_view_all_data, can_approve } = req.body;
 
         // Check if permissions exist for this user
         const [existing] = await db.query('SELECT id FROM permissions WHERE user_id = ?', [userId]);
@@ -85,14 +87,14 @@ router.put('/user/:userId', auth, superAdminOnly, async (req, res) => {
         if (existing.length === 0) {
             // Create new permissions record
             await db.query(
-                'INSERT INTO permissions (user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_view_all_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [userId, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_view_all_data]
+                'INSERT INTO permissions (user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_view_all_data, can_approve) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [userId, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_view_all_data, can_approve]
             );
         } else {
             // Update existing permissions
             await db.query(
-                'UPDATE permissions SET can_input_prestasi = ?, can_input_organisasi = ?, can_input_kepanitiaan = ?, can_input_event = ?, can_input_pelanggaran = ?, can_input_perilaku = ?, can_view_all_data = ? WHERE user_id = ?',
-                [can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_view_all_data, userId]
+                'UPDATE permissions SET can_input_prestasi = ?, can_input_organisasi = ?, can_input_kepanitiaan = ?, can_input_event = ?, can_input_pelanggaran = ?, can_input_perilaku = ?, can_view_all_data = ?, can_approve = ? WHERE user_id = ?',
+                [can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_view_all_data, can_approve, userId]
             );
         }
 

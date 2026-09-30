@@ -13,14 +13,17 @@ function InputPrestasi() {
     nama: '',
     nis: '',
     nama_lomba: '',
+    jenis_lomba: 'akademik',
+    kategori_lomba: 'individu',
     kelas: '',
-    pembina: '',
+    pembina_id: '',
     grha: '',
     juara: 'juara_i',
     kategori: 'sekolah'
   });
   const [foto, setFoto] = useState(null);
   const [message, setMessage] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [teachers, setTeachers] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -31,9 +34,13 @@ function InputPrestasi() {
   const [showForm, setShowForm] = useState(false);
   const [allPrestasi, setAllPrestasi] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [userRole, setUserRole] = useState('');
+  const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const FIXED_TINGKAT_OPTIONS = [
     'kecamatan',
@@ -74,17 +81,18 @@ function InputPrestasi() {
         kelas: user.kelas || '',
         grha: user.grha || ''
       }));
-    } else {
-      // Only fetch students for guru/superadmin
-      fetchStudents();
     }
+    // Student list is needed by the kelompok member picker for every role
+    fetchStudents();
 
     fetchTeachers();
     fetchUserSubmissions();
-    fetchIpcConfig();
+    fetchIptConfig();
     checkAccess();
     if (user.role === 'superadmin') {
       fetchAllPrestasi();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPrestasi(); }).catch(() => setCanApprove(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -106,17 +114,79 @@ function InputPrestasi() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
     try {
       await api.delete(`/prestasi/${id}`);
       setMessage('Prestasi berhasil dihapus!');
+      setSelectedIndexIds(prev => prev.filter(selectedId => selectedId !== id));
       fetchAllPrestasi();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menghapus prestasi');
     }
+  };
+
+  const filteredPrestasi = allPrestasi.filter((item) => {
+    const q = indexSearch.trim().toLowerCase();
+    if (!q) return true;
+    const fields = [
+      item.nama,
+      item.nis,
+      item.nama_lomba,
+      item.jenis_lomba,
+      item.kategori_lomba,
+      item.juara,
+      item.kategori,
+      item.pembina,
+      item.point,
+      item.status
+    ];
+    return fields.some((field) => String(field ?? '').toLowerCase().includes(q));
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds(prev => (
+      prev.includes(id) ? prev.filter(selectedId => selectedId !== id) : [...prev, id]
+    ));
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredPrestasi.map(item => item.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIndexIds.includes(id));
+    if (allSelected) {
+      setSelectedIndexIds(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds(prev => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data prestasi? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/prestasi/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(ok + ' data prestasi berhasil dihapus!');
+    } else {
+      setMessage(ok + ' data prestasi berhasil dihapus! ' + failed.length + ' gagal dihapus.');
+    }
+    fetchAllPrestasi();
   };
 
   const handleUpdate = async () => {
@@ -191,7 +261,7 @@ function InputPrestasi() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.prestasi || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -207,16 +277,16 @@ function InputPrestasi() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
       const firstTingkat = response.data.prestasi?.[0]?.field1 || 'sekolah';
       const firstJuara = response.data.prestasi?.[0]?.field2 || 'juara_i';
       setFormData(prev => ({ ...prev, kategori: firstTingkat, juara: firstJuara }));
       setCalculatedPoint(calculatePoint(firstTingkat, firstJuara, response.data));
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
@@ -231,7 +301,7 @@ function InputPrestasi() {
     }
   };
 
-  const calculatePoint = (tingkat, juara, configData = ipcConfig) => {
+  const calculatePoint = (tingkat, juara, configData = iptConfig) => {
     const config = (configData.prestasi || []).find(
       c => c.field1 === tingkat && c.field2 === juara
     );
@@ -241,6 +311,11 @@ function InputPrestasi() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+
+    // Switching back to individu discards the kelompok member list
+    if (name === 'kategori_lomba' && value !== 'kelompok') {
+      setSelectedMembers([]);
+    }
 
     // Reset auto-fill flag if user clears the field
     if ((name === 'nis' || name === 'nama') && value === '') {
@@ -262,7 +337,7 @@ function InputPrestasi() {
       const newFormData = { ...formData, [name]: value };
       // When tingkat changes, keep juara only if it exists for that tingkat
       if (name === 'kategori') {
-        const juaraForTingkat = (ipcConfig.prestasi || [])
+        const juaraForTingkat = (iptConfig.prestasi || [])
           .filter(c => c.field1 === value)
           .map(c => c.field2);
         if (!juaraForTingkat.includes(newFormData.juara)) {
@@ -355,10 +430,19 @@ function InputPrestasi() {
     setLoading(true);
 
     try {
+      // Kelompok mode needs at least 2 members picked from the dropdown
+      if (formData.kategori_lomba === 'kelompok' && selectedMembers.length < 2) {
+        setMessage('Lomba kelompok membutuhkan minimal 2 anggota');
+        setLoading(false);
+        return;
+      }
       const data = new FormData();
       Object.keys(formData).forEach(key => {
         data.append(key, formData[key]);
       });
+      if (formData.kategori_lomba === 'kelompok') {
+        data.append('anggota', JSON.stringify(selectedMembers.map(m => ({ nama: m.nama, nis: m.nis }))));
+      }
       if (foto) {
         // Prepend NIS to filename if NIS exists
         const fileToUpload = formData.nis
@@ -367,7 +451,7 @@ function InputPrestasi() {
         data.append('foto', fileToUpload);
       }
 
-      const response = await api.post('/approvals-v2/prestasi/submit', data);
+      const response = await api.post('/approvals/prestasi/submit', data);
 
       // Use message from backend response (different for superadmin vs regular user)
       setMessage(response.data?.message || 'Data prestasi berhasil dikirim!');
@@ -379,13 +463,16 @@ function InputPrestasi() {
         nama: '',
         nis: '',
         nama_lomba: '',
+        jenis_lomba: 'akademik',
+        kategori_lomba: 'individu',
         kelas: '',
-        pembina: '',
+        pembina_id: '',
         grha: '',
         juara: 'juara_i',
         kategori: 'sekolah'
       });
       setFoto(null);
+      setSelectedMembers([]);
       setIsAutoFilled(false);
       setShowForm(false);
     } catch (error) {
@@ -415,11 +502,13 @@ function InputPrestasi() {
     );
   }
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Prestasi</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             + Input Prestasi
           </button>
@@ -433,20 +522,70 @@ function InputPrestasi() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Prestasi</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
+            <>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Cari nama, NIS, lomba, kategori..."
+                value={indexSearch}
+                onChange={(e) => setIndexSearch(e.target.value)}
+                style={{ padding: '6px 10px', fontSize: '13px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '260px' }}
+              />
+              {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
+                <>
+                  <span style={{ fontSize: '13px' }}>{selectedIndexIds.length} dipilih</span>
+                  <button
+                    className="btn btn-danger"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                    style={{ padding: '5px 10px', fontSize: '12px' }}
+                  >
+                    {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => setSelectedIndexIds([])}
+                    disabled={bulkDeleting}
+                    style={{ padding: '5px 10px', fontSize: '12px' }}
+                  >
+                    Batal
+                  </button>
+                </>
+              )}
+            </div>
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
+                    <th>
+                      <input
+                        type="checkbox"
+                        ref={(el) => {
+                          if (el) {
+                            const filteredIds = filteredPrestasi.map(item => item.id);
+                            el.indeterminate = filteredIds.length > 0
+                              && filteredIds.some(id => selectedIndexIds.includes(id))
+                              && !filteredIds.every(id => selectedIndexIds.includes(id));
+                          }
+                        }}
+                        checked={filteredPrestasi.length > 0 && filteredPrestasi.every(item => selectedIndexIds.includes(item.id))}
+                        onChange={toggleSelectAllFiltered}
+                      />
+                    </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
                     <th>Lomba</th>
+                    <th>Jenis</th>
+                    <th>Kategori</th>
                     <th>Juara</th>
                     <th>Tingkat Lomba</th>
                     <th>Pembina</th>
@@ -456,12 +595,23 @@ function InputPrestasi() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allPrestasi.map(item => (
+                  {filteredPrestasi.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIndexIds.includes(item.id)}
+                          onChange={() => toggleSelectIndex(item.id)}
+                        />
+                      </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
                       <td>{item.nama_lomba}</td>
+                      <td>{formatDisplayText(item.jenis_lomba || 'akademik')}</td>
+                      <td>{formatDisplayText(item.kategori_lomba || 'individu')}</td>
                       <td>{formatDisplayText(item.juara)}</td>
                       <td>{formatDisplayText(item.kategori)}</td>
                       <td>{item.pembina || '-'}</td>
@@ -469,7 +619,7 @@ function InputPrestasi() {
                       <td>{getStatusBadge(item)}</td>
                       <td>
                         <button className="btn btn-info" onClick={() => handleEdit(item)} style={{ padding: '3px 8px', fontSize: '12px', marginRight: '5px' }}>Edit</button>
-                        <button className="btn btn-danger" onClick={() => handleDelete(item.id)} style={{ padding: '3px 8px', fontSize: '12px' }}>Hapus</button>
+                        {userRole === 'superadmin' && (<button className="btn btn-danger" onClick={() => handleDelete(item.id)} style={{ padding: '3px 8px', fontSize: '12px' }}>Hapus</button>)}
                       </td>
                     </tr>
                   ))}
@@ -478,14 +628,37 @@ function InputPrestasi() {
               {allPrestasi.length === 0 && (
                 <p className="text-muted">Belum ada data prestasi</p>
               )}
+              {allPrestasi.length > 0 && filteredPrestasi.length === 0 && (
+                <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+              )}
             </div>
+            </>
           )}
         </div>
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="form-group">
+            <label>Kategori Lomba</label>
+            <select name="kategori_lomba" value={formData.kategori_lomba} onChange={handleChange} required>
+              <option value="individu">Individu</option>
+              <option value="kelompok">Kelompok</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Jenis Lomba</label>
+            <select name="jenis_lomba" value={formData.jenis_lomba} onChange={handleChange} required>
+              <option value="akademik">Akademik</option>
+              <option value="non_akademik">Non-akademik</option>
+            </select>
+          </div>
+        </div>
+
+        {formData.kategori_lomba !== 'kelompok' && (
+        <>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
             <label>Nama <span className="required">*</span></label>
@@ -577,6 +750,33 @@ function InputPrestasi() {
             </select>
           </div>
         </div>
+        </>
+        )}
+
+        {formData.kategori_lomba === 'kelompok' && (
+          <div className="form-group">
+            <label>Anggota Kelompok (minimal 2) <span className="required">*</span></label>
+            <Select
+              isMulti
+              value={selectedMembers}
+              onChange={(selected) => setSelectedMembers(selected || [])}
+              options={students.map(student => ({ value: student.nis, label: `${student.nama} (${student.nis})`, nama: student.nama, nis: student.nis, kelas: student.kelas, grha: student.grha }))}
+              placeholder="Pilih 2 siswa atau lebih..."
+              isSearchable
+              styles={{
+                control: (provided) => ({
+                  ...provided,
+                  minHeight: '40px'
+                })
+              }}
+            />
+            {selectedMembers.length > 0 && (
+              <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
+                {selectedMembers.length} siswa dipilih: {selectedMembers.map(m => m.nama).join(', ')}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="form-group">
           <label>Nama Lomba</label>
@@ -592,10 +792,10 @@ function InputPrestasi() {
 
         <div className="form-group">
           <label>Pembina</label>
-          <select name="pembina" value={formData.pembina} onChange={handleChange}>
+          <select name="pembina_id" value={formData.pembina_id || ''} onChange={handleChange}>
             <option value="" disabled hidden>Pilih Pembina</option>
             {teachers.map(teacher => (
-              <option key={teacher.id} value={teacher.nama}>{teacher.nama} ({teacher.nip})</option>
+              <option key={teacher.id} value={teacher.id}>{teacher.nama} ({teacher.nip})</option>
             ))}
           </select>
         </div>
@@ -626,7 +826,7 @@ function InputPrestasi() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan didapatkan:
+            Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 
@@ -724,12 +924,29 @@ function InputPrestasi() {
           />
         </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="form-group">
+            <label>Jenis Lomba</label>
+            <select name="jenis_lomba" value={editModal.editFormData.jenis_lomba || 'akademik'} onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, jenis_lomba: e.target.value })}>
+              <option value="akademik">Akademik</option>
+              <option value="non_akademik">Non-akademik</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Kategori Lomba</label>
+            <select name="kategori_lomba" value={editModal.editFormData.kategori_lomba || 'individu'} onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, kategori_lomba: e.target.value })}>
+              <option value="individu">Individu</option>
+              <option value="kelompok">Kelompok</option>
+            </select>
+          </div>
+        </div>
+
         <div className="form-group">
           <label>Pembina</label>
-          <select name="pembina" value={editModal.editFormData.pembina} onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, pembina: e.target.value })}>
+          <select name="pembina_id" value={editModal.editFormData.pembina_id || ''} onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, pembina_id: e.target.value })}>
             <option value="" disabled hidden>Pilih Pembina</option>
             {teachers.map(teacher => (
-              <option key={teacher.id} value={teacher.nama}>{teacher.nama} ({teacher.nip})</option>
+              <option key={teacher.id} value={teacher.id}>{teacher.nama} ({teacher.nip})</option>
             ))}
           </select>
         </div>
@@ -753,8 +970,8 @@ function InputPrestasi() {
         </div>
       </EditModal>
 
-      {/* Submission History - Hidden for Superadmin */}
-      {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
+      {/* Submission History - Hidden for Superadmin and approvers */}
+      {userRole !== 'superadmin' && !canApprove && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Prestasi</h3>
           {submissions.length === 0 ? (
@@ -775,7 +992,7 @@ function InputPrestasi() {
                   <div>
                     <strong style={{ fontSize: '14px' }}>{sub.nama_lomba}</strong>
                     <p style={{ margin: '4px 0', fontSize: '13px', color: '#666' }}>
-                      {sub.nama} ({sub.nis}) - {formatDisplayText(sub.juara)}
+                      {sub.nama} ({sub.nis}) - {formatDisplayText(sub.juara)} · {formatDisplayText(sub.jenis_lomba || 'akademik')} · {formatDisplayText(sub.kategori_lomba || 'individu')}
                     </p>
                     <p style={{ margin: '4px 0', fontSize: '13px', color: '#666' }}>
                       Pembina: {sub.pembina || '-'}

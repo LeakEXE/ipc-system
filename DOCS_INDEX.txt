@@ -1,10 +1,10 @@
 ================================================================================
-WEBSITE IPC BALI MANDARA - DOKUMENTASI & FLOWCHART
+WEBSITE IPT BALI MANDARA - DOKUMENTASI & FLOWCHART
 ================================================================================
 
 Dibuat: 8 Mei 2026 — direvisi 27 September 2026
-Sistem: Website IPC Bali Mandara v0.2
-Deskripsi: Sistem Individual Point Card Siswa
+Sistem: Mandara Talenta v0.2
+Deskripsi: Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) Siswa
 
 ================================================================================
 DAFTAR FILE DOKUMENTASI
@@ -31,7 +31,7 @@ DAFTAR FILE DOKUMENTASI
    - VISUAL FLOWCHART INTERAKTIF
    - Buka di browser untuk melihat diagram lengkap
    - Flowcharts untuk semua role (Superadmin, Guru, Siswa)
-   - IPC calculation flow
+   - IPT calculation flow
    - Approval workflow
    - Database schema diagram
    - Bisa di-print sebagai PDF
@@ -94,7 +94,7 @@ C. GURU/PEMBINA WORKFLOW
    - Wali kelas panel
 
 D. SISWA WORKFLOW
-   - View IPC score
+   - View IPT score
    - Leaderboard
    - History tracking
    - Profile management
@@ -105,7 +105,7 @@ E. APPROVAL WORKFLOW
    - Superadmin approval
    - Rejection handling
 
-F. IPC CALCULATION FLOW
+F. IPT CALCULATION FLOW
    - Base score (80)
    - Point calculation
    - Range checking (0-100)
@@ -194,9 +194,9 @@ GURU:
 ✓ Profile
 
 SISWA:
-✓ Dashboard (View IPC score)
+✓ Dashboard (View IPT score)
 ✓ Peringkat (Top 20 per kategori + podium)
-✓ History (IPC change history)
+✓ History (IPT change history)
 ✓ Notifications
 ✓ Profile (biodata, foto, edit terbatas)
 
@@ -211,12 +211,12 @@ Main Tables:
 - event (Events)
 - pelanggaran (Violations)
 - perilaku (Behavior)
-- ipc_history (IPC change log)
+- ipt_history (IPT change log)
 - approvals (Approval workflow)
 - permissions (Access control)
 
 Fields utama:
-- users: id, nama, role, kelas, grha, ipc_total, ipc_awal
+- users: id, nama, role, kelas, grha, ipt_total, ipt_awal
 - prestasi: user_id, jenis, tingkat, peringkat, point, status
 - approvals: user_id, jenis, data, pembina_status, superadmin_status
 
@@ -229,18 +229,18 @@ ALUR KERJA SISTEM
 
 2. DATA INPUT FLOW:
    Select input type -> Select student -> Fill form -> Upload bukti
-   -> Submit -> Pending -> Approval -> IPC update
+   -> Submit -> Pending -> Approval -> IPT update
 
 3. APPROVAL FLOW (satu tingkat — superadmin saja):
    Pending -> Superadmin review (menu Approvals) -> (Approve/Reject + alasan)
-   -> Apply changes -> Update IPC -> Log history -> Notify user
+   -> Apply changes -> Update IPT -> Log history -> Notify user
    Input langsung superadmin otomatis approved tanpa antrean.
 
-4. IPC CALCULATION:
+4. IPT CALCULATION:
    Base: 80 -> Add/subtract points -> Save to DB
    -> Create history -> Update leaderboard
    (Tidak ada batas 0-100; nilai boleh negatif. Batas minimum per
-   tingkat X/XI/XII diatur di Konfigurasi IPC.)
+   tingkat X/XI/XII diatur di Konfigurasi IPT.)
 
 ================================================================================
 SECURITY FEATURES
@@ -283,7 +283,7 @@ CATATAN
 KONTAK & SUPPORT
 ================================================================================
 
-System: Website IPC Bali Mandara v0.2
+System: Mandara Talenta v0.2
 Created: May 8, 2026 — revised September 27, 2026
 
 Dokumentasi ini mencakup:

@@ -1,4 +1,4 @@
-// Query-param parsing for individual IPC printouts (dipakai PDF & Excel).
+// Query-param parsing for individual IPT printouts (dipakai PDF & Excel).
 // Selalu jatuh kembali ke default yang aman bila input tidak valid.
 const getRequestedSemester = (req) => {
     const s = String(req?.query?.semester || '').trim();

@@ -14,9 +14,9 @@ const TRAIT_FIELD_MAP = {
     'kepercayaan diri': 'kepercayaan_diri'
 };
 
-function createEmptyPoints(ipcAwal = 80) {
+function createEmptyPoints(iptAwal = 80) {
     return {
-        point_awal: ipcAwal,
+        point_awal: iptAwal,
         prestasi: 0,
         tanggung_jawab: 0,
         disiplin: 0,
@@ -81,7 +81,7 @@ function calculateBreakdownTotal(points) {
     total += points.kepanitiaan || 0;
     total += points.event || 0;
     // Pelanggaran disimpan sebagai point negatif (pengurangan), sama seperti
-    // yang diterapkan applyIpcChange ke users.ipc_total — jadi cukup dijumlahkan.
+    // yang diterapkan applyIptChange ke users.ipt_total — jadi cukup dijumlahkan.
     total += points.pelanggaran_ringan || 0;
     total += points.pelanggaran_sedang || 0;
     total += points.pelanggaran_berat || 0;
@@ -89,9 +89,9 @@ function calculateBreakdownTotal(points) {
     return total;
 }
 
-async function buildIpcCardBreakdown(userId, cutoff = null) {
+async function buildIptCardBreakdown(userId, cutoff = null) {
     const [students] = await db.query(
-        `SELECT id, nama, nis, kelas, grha, ipc_total, ipc_awal
+        `SELECT id, nama, nis, kelas, grha, ipt_total, ipt_awal
          FROM users
          WHERE id = ? AND role = 'siswa'`,
         [userId]
@@ -102,7 +102,7 @@ async function buildIpcCardBreakdown(userId, cutoff = null) {
     }
 
     const student = students[0];
-    const points = createEmptyPoints(student.ipc_awal ?? 80);
+    const points = createEmptyPoints(student.ipt_awal ?? 80);
 
     // Cutoff opsional (string 'YYYY-MM-DD'): hanya record dengan
     // created_at SEBELUM tanggal ini yang dihitung. Tanpa cutoff = semua.
@@ -134,7 +134,7 @@ async function buildIpcCardBreakdown(userId, cutoff = null) {
     points.event = event.reduce((sum, row) => sum + (row.point || 0), 0);
 
     const [levels] = await db.query(
-        'SELECT id, name, point_value, is_active FROM ipc_pelanggaran_level'
+        'SELECT id, name, point_value, is_active FROM ipt_pelanggaran_level'
     );
 
     // jenis_pelanggaran menyimpan NAMA DETAIL (bukan nama tingkat), jadi record
@@ -145,8 +145,8 @@ async function buildIpcCardBreakdown(userId, cutoff = null) {
         `SELECT p.jenis_pelanggaran, p.point_dikurangi,
                 COALESCE(d.level_id, by_name.id) AS level_id
          FROM pelanggaran p
-         LEFT JOIN ipc_pelanggaran_detail d ON d.name = p.jenis_pelanggaran
-         LEFT JOIN ipc_pelanggaran_level by_name ON by_name.name = p.jenis_pelanggaran
+         LEFT JOIN ipt_pelanggaran_detail d ON d.name = p.jenis_pelanggaran
+         LEFT JOIN ipt_pelanggaran_level by_name ON by_name.name = p.jenis_pelanggaran
          WHERE p.user_id = ? AND p.status = 'approved'${beforeP}`,
         beforeParam([userId])
     );
@@ -217,13 +217,13 @@ async function buildIpcCardBreakdown(userId, cutoff = null) {
     return {
         student,
         points,
-        ipc_total: breakdownTotal,
+        ipt_total: breakdownTotal,
         breakdown_total: breakdownTotal
     };
 }
 
 module.exports = {
-    buildIpcCardBreakdown,
+    buildIptCardBreakdown,
     calculateBreakdownTotal,
     createEmptyPoints
 };

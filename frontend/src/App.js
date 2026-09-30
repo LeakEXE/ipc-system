@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Login from './components/Login';
+import FirstLoginSetup from './components/FirstLoginSetup';
 import Dashboard from './components/Dashboard';
 import Navbar from './components/Navbar';
 import InputPrestasi from './components/InputPrestasi';
@@ -16,13 +17,13 @@ import Profile from './components/Profile';
 import Logs from './components/Logs';
 import WaliKelas from './components/WaliKelas';
 import TeacherWaliKelas from './components/TeacherWaliKelas';
-// import Approvals from './components/Approvals'; // Old approvals component
-import ApprovalsV2 from './components/ApprovalsV2';
+import Approvals from './components/Approvals';
 import DriveViewer from './components/DriveViewer';
 import Notifications from './components/Notifications';
 import LaporanCetak from './components/LaporanCetak';
-import KonfigurasiIPC from './components/KonfigurasiIPC';
+import KonfigurasiIPT from './components/KonfigurasiIPT';
 import SchoolConfig from './components/SchoolConfig';
+import StudentLookup from './components/StudentLookup';
 import api from './utils/api';
 import { Menu, X } from 'lucide-react';
 
@@ -30,6 +31,7 @@ function ProtectedRoute({ children, allowedRoles }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -47,6 +49,17 @@ function ProtectedRoute({ children, allowedRoles }) {
     
     if (allowedRoles && !allowedRoles.includes(parsedUser.role)) {
       console.log('Redirecting to dashboard - role not allowed');
+      navigate('/dashboard');
+      return;
+    }
+
+    // First-login enforcement: flagged users must finish account setup.
+    // The backend gates every /api call the same way.
+    if (parsedUser.must_change_credentials && location.pathname !== '/setup-akun') {
+      navigate('/setup-akun');
+      return;
+    }
+    if (!parsedUser.must_change_credentials && location.pathname === '/setup-akun') {
       navigate('/dashboard');
       return;
     }
@@ -79,7 +92,7 @@ function ProtectedRoute({ children, allowedRoles }) {
     };
 
     fetchFreshUserData();
-  }, [navigate, allowedRoles]);
+  }, [navigate, allowedRoles, location.pathname]);
 
   if (loading) {
     return <div className="loading"><div className="spinner"></div></div>;
@@ -93,6 +106,11 @@ function App() {
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/setup-akun" element={
+          <ProtectedRoute>
+            {() => <FirstLoginSetup />}
+          </ProtectedRoute>
+        } />
         <Route path="/" element={
           <ProtectedRoute>
             {(user) => <MainLayout user={user}><Dashboard /></MainLayout>}
@@ -164,13 +182,13 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/wali-kelas-guru" element={
-          <ProtectedRoute allowedRoles={['guru']}>
+          <ProtectedRoute allowedRoles={['guru', 'pegawai']}>
             {(user) => <MainLayout user={user}><TeacherWaliKelas /></MainLayout>}
           </ProtectedRoute>
         } />
         <Route path="/approvals" element={
-          <ProtectedRoute allowedRoles={['superadmin']}>
-            {(user) => <MainLayout user={user}><ApprovalsV2 /></MainLayout>}
+          <ProtectedRoute>
+            {(user) => <MainLayout user={user}><Approvals /></MainLayout>}
           </ProtectedRoute>
         } />
         <Route path="/drive-viewer" element={
@@ -179,7 +197,7 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/notifications" element={
-          <ProtectedRoute allowedRoles={['siswa', 'guru']}>
+          <ProtectedRoute allowedRoles={['siswa', 'guru', 'pegawai']}>
             {(user) => <MainLayout user={user}><Notifications /></MainLayout>}
           </ProtectedRoute>
         } />
@@ -187,16 +205,27 @@ function App() {
           <ProtectedRoute>
             {(user) => {
               // Allow superadmin always, but for guru only if they are wali kelas
-              if (user.role === 'superadmin' || (user.role === 'guru' && user.wali_kelas)) {
+              if (user.role === 'superadmin' || ((user.role === 'guru' || user.role === 'pegawai') && user.wali_kelas)) {
                 return <MainLayout user={user}><LaporanCetak user={user} /></MainLayout>;
               }
               return <MainLayout user={user}><Dashboard /></MainLayout>;
             }}
           </ProtectedRoute>
         } />
+        <Route path="/konfigurasi-ipt" element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            {(user) => <MainLayout user={user}><KonfigurasiIPT /></MainLayout>}
+          </ProtectedRoute>
+        } />
+        {/* Deprecated alias: pre-rebrand bookmarks still use /konfigurasi-ipc. */}
         <Route path="/konfigurasi-ipc" element={
           <ProtectedRoute allowedRoles={['superadmin']}>
-            {(user) => <MainLayout user={user}><KonfigurasiIPC /></MainLayout>}
+            {(user) => <MainLayout user={user}><KonfigurasiIPT /></MainLayout>}
+          </ProtectedRoute>
+        } />
+        <Route path="/cari-siswa" element={
+          <ProtectedRoute allowedRoles={['superadmin', 'guru', 'pegawai']}>
+            {(user) => <MainLayout user={user}><StudentLookup /></MainLayout>}
           </ProtectedRoute>
         } />
         <Route path="/school-config" element={
@@ -241,7 +270,7 @@ function MainLayout({ user, children }) {
         <button className="mobile-menu-toggle" onClick={toggleMobileMenu} aria-label="Menu navigasi">
           {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
-        <span className="mobile-header-title">Website IPC Bali Mandara</span>
+        <span className="mobile-header-title">Mandara Talenta</span>
       </div>
       <Navbar user={user} onLogout={handleLogout} isMobileMenuOpen={isMobileMenuOpen} toggleMobileMenu={toggleMobileMenu} />
       <div className="content">

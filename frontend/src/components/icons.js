@@ -9,19 +9,21 @@ import {
   CircleCheck,
   CircleX,
   Clock,
-  Medal
+  Medal,
+  GraduationCap
 } from 'lucide-react';
 
 // Single icon language for the app (lucide, stroke-based, currentColor).
 // Category icons — same six everywhere (Dashboard, Leaderboard,
-// IzinAkun, KonfigurasiIPC, WaliKelas history).
+// IzinAkun, KonfigurasiIPT, WaliKelas history).
 export const CATEGORY_ICONS = {
   prestasi: Trophy,
   organisasi: Users,
   kepanitiaan: Handshake,
   event: CalendarDays,
   pelanggaran: TriangleAlert,
-  perilaku: Star
+  perilaku: Star,
+  pembina: GraduationCap
 };
 
 export function CategoryIcon({ name, size = 16, ...rest }) {

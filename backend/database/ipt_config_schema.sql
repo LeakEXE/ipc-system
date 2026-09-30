@@ -1,11 +1,11 @@
--- IPC Configuration Schema (PostgreSQL)
--- Standalone seed / upgrade file for ipc point configuration tables.
+-- IPT Configuration Schema (PostgreSQL)
+-- Standalone seed / upgrade file for ipt point configuration tables.
 -- Safe to run after core tables exist (users must exist for FK on updated_by when inserting with updated_by).
 -- Prefer full install via skema.sql; use this to re-seed or upgrade an existing DB.
 
--- ==================== IPC CONFIGURATION TABLES ====================
+-- ==================== IPT CONFIGURATION TABLES ====================
 
-CREATE TABLE IF NOT EXISTS ipc_organisasi (
+CREATE TABLE IF NOT EXISTS ipt_organisasi (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     is_active BOOLEAN DEFAULT TRUE,
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS ipc_organisasi (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS ipc_perilaku_karakter (
+CREATE TABLE IF NOT EXISTS ipt_perilaku_karakter (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     is_active BOOLEAN DEFAULT TRUE,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS ipc_perilaku_karakter (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS ipc_perilaku_tingkat (
+CREATE TABLE IF NOT EXISTS ipt_perilaku_tingkat (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     is_active BOOLEAN DEFAULT TRUE,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS ipc_perilaku_tingkat (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS ipc_config (
+CREATE TABLE IF NOT EXISTS ipt_config (
     id SERIAL PRIMARY KEY,
     category VARCHAR(50) NOT NULL,
     field1 VARCHAR(100) DEFAULT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS ipc_config (
     FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
-CREATE TABLE IF NOT EXISTS ipc_pelanggaran_level (
+CREATE TABLE IF NOT EXISTS ipt_pelanggaran_level (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     point_value INTEGER NOT NULL,
@@ -55,14 +55,14 @@ CREATE TABLE IF NOT EXISTS ipc_pelanggaran_level (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS ipc_pelanggaran_detail (
+CREATE TABLE IF NOT EXISTS ipt_pelanggaran_detail (
     id SERIAL PRIMARY KEY,
     name VARCHAR(150) NOT NULL UNIQUE,
     level_id INTEGER NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (level_id) REFERENCES ipc_pelanggaran_level(id)
+    FOREIGN KEY (level_id) REFERENCES ipt_pelanggaran_level(id)
         ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
@@ -89,19 +89,19 @@ BEGIN
 END $$;
 
 -- ==================== DEFAULT CONFIGURATION DATA ====================
--- Only inserts when table is empty for ipc_config (avoids duplicate unique key errors on re-run)
+-- Only inserts when table is empty for ipt_config (avoids duplicate unique key errors on re-run)
 
-INSERT INTO ipc_pelanggaran_level (name, point_value, description, is_active)
+INSERT INTO ipt_pelanggaran_level (name, point_value, description, is_active)
 SELECT 'ringan', -1, 'Point untuk pelanggaran ringan', TRUE
-WHERE NOT EXISTS (SELECT 1 FROM ipc_pelanggaran_level LIMIT 1)
+WHERE NOT EXISTS (SELECT 1 FROM ipt_pelanggaran_level LIMIT 1)
 UNION ALL
 SELECT 'sedang', -5, 'Point untuk pelanggaran sedang', TRUE
-WHERE NOT EXISTS (SELECT 1 FROM ipc_pelanggaran_level LIMIT 1)
+WHERE NOT EXISTS (SELECT 1 FROM ipt_pelanggaran_level LIMIT 1)
 UNION ALL
 SELECT 'berat', -25, 'Point untuk pelanggaran berat', TRUE
-WHERE NOT EXISTS (SELECT 1 FROM ipc_pelanggaran_level LIMIT 1);
+WHERE NOT EXISTS (SELECT 1 FROM ipt_pelanggaran_level LIMIT 1);
 
-INSERT INTO ipc_config (category, field1, field2, field3, point_value, description)
+INSERT INTO ipt_config (category, field1, field2, field3, point_value, description)
 SELECT v.category, v.field1, v.field2, v.field3, v.point_value, v.description
 FROM (
     SELECT 'prestasi' AS category, 'kecamatan' AS field1, 'juara 1' AS field2, NULL::VARCHAR(100) AS field3, 50 AS point_value, 'Juara 1 tingkat kecamatan' AS description UNION ALL
@@ -179,31 +179,31 @@ FROM (
     SELECT 'event', 'nasional', NULL, NULL, 25, 'Event tingkat nasional' UNION ALL
     SELECT 'event', 'internasional', NULL, NULL, 30, 'Event tingkat internasional'
 ) AS v
-WHERE NOT EXISTS (SELECT 1 FROM ipc_config LIMIT 1);
+WHERE NOT EXISTS (SELECT 1 FROM ipt_config LIMIT 1);
 
--- Pengaturan tampilan: batas minimum Total IPC (0 = nonaktif)
-INSERT INTO ipc_config (category, field1, field2, field3, point_value, description)
-SELECT 'pengaturan', 'min_ipc', NULL, NULL, 0,
-       'Batas minimum Total IPC - total di bawah nilai ini ditampilkan merah (0 = nonaktif)'
+-- Pengaturan tampilan: batas minimum Total IPT (0 = nonaktif)
+INSERT INTO ipt_config (category, field1, field2, field3, point_value, description)
+SELECT 'pengaturan', 'min_ipt', NULL, NULL, 0,
+       'Batas minimum Total IPT - total di bawah nilai ini ditampilkan merah (0 = nonaktif)'
 WHERE NOT EXISTS (
-    SELECT 1 FROM ipc_config WHERE category = 'pengaturan' AND field1 = 'min_ipc'
+    SELECT 1 FROM ipt_config WHERE category = 'pengaturan' AND field1 = 'min_ipt'
 );
 
-INSERT INTO ipc_organisasi (name)
-SELECT DISTINCT field1 FROM ipc_config
+INSERT INTO ipt_organisasi (name)
+SELECT DISTINCT field1 FROM ipt_config
 WHERE category = 'organisasi' AND field1 IS NOT NULL
 ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO ipc_perilaku_karakter (name) VALUES
+INSERT INTO ipt_perilaku_karakter (name) VALUES
 ('tanggung_jawab'), ('disiplin'), ('kepedulian'), ('kemandirian'),
 ('spiritual'), ('kejujuran'), ('kepercayaan_diri')
 ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO ipc_perilaku_tingkat (name) VALUES
+INSERT INTO ipt_perilaku_tingkat (name) VALUES
 ('sangat baik'), ('baik'), ('cukup baik'), ('kurang baik')
 ON CONFLICT (name) DO NOTHING;
 
-CREATE INDEX IF NOT EXISTS idx_ipc_config_category ON ipc_config(category);
-CREATE INDEX IF NOT EXISTS idx_ipc_config_field1 ON ipc_config(field1);
-CREATE INDEX IF NOT EXISTS idx_ipc_config_field2 ON ipc_config(field2);
-CREATE INDEX IF NOT EXISTS idx_ipc_config_active ON ipc_config(is_active);
+CREATE INDEX IF NOT EXISTS idx_ipt_config_category ON ipt_config(category);
+CREATE INDEX IF NOT EXISTS idx_ipt_config_field1 ON ipt_config(field1);
+CREATE INDEX IF NOT EXISTS idx_ipt_config_field2 ON ipt_config(field2);
+CREATE INDEX IF NOT EXISTS idx_ipt_config_active ON ipt_config(is_active);

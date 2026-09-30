@@ -5,7 +5,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const fs = require('fs');
 const { Client } = require('pg');
 
-const dbName = process.env.DB_NAME || 'ipc_school';
+const dbName = process.env.DB_NAME || 'ipt_school';
 const baseConfig = process.env.DATABASE_URL
     ? { connectionString: process.env.DATABASE_URL }
     : {

@@ -24,18 +24,22 @@ function InputPelanggaran() {
   const [showForm, setShowForm] = useState(false);
   const [allPelanggaran, setAllPelanggaran] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [userRole, setUserRole] = useState('');
+  const [canApprove, setCanApprove] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(true);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const [students, setStudents] = useState([]);
   const [submissions, setSubmissions] = useState([]);
-  const jenisOptions = (ipcConfig['pelanggaran'] || [])
+  const jenisOptions = (iptConfig['pelanggaran'] || [])
     .filter(config => config.field2)
     .map(config => {
-      const level = (ipcConfig['pelanggaran'] || []).find(
+      const level = (iptConfig['pelanggaran'] || []).find(
         candidate => !candidate.field2 && candidate.field1 === config.field2
       );
       return { value: config.field1, label: config.field1, level: config.field2, point: level?.point_value || 0 };
@@ -59,7 +63,7 @@ function InputPelanggaran() {
     const checkPermission = async () => {
       try {
         const response = await api.get('/permissions/my-permissions');
-        const canAccess = user.role === 'superadmin' || (user.role === 'guru' && response.data.can_input_pelanggaran);
+        const canAccess = user.role === 'superadmin' || ((user.role === 'guru' || user.role === 'pegawai') && response.data.can_input_pelanggaran);
         setHasPermission(canAccess);
       } catch (error) {
         console.error('Error checking permission:', error);
@@ -85,10 +89,12 @@ function InputPelanggaran() {
       fetchStudents();
     }
 
-    fetchIpcConfig();
+    fetchIptConfig();
     fetchUserSubmissions();
     if (user.role === 'superadmin') {
       fetchAllPelanggaran();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPelanggaran(); }).catch(() => setCanApprove(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -105,17 +111,17 @@ function InputPelanggaran() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
       const firstDetail = (response.data.pelanggaran || []).find(config => config.field2);
       if (firstDetail) {
         setFormData(prev => ({ ...prev, jenis_pelanggaran: firstDetail.field1 }));
         setCalculatedPoint(calculatePoint(firstDetail.field1, response.data));
       }
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
@@ -131,14 +137,14 @@ function InputPelanggaran() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.pelanggaran || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
     }
   };
 
-  const calculatePoint = (jenis, configData = ipcConfig) => {
+  const calculatePoint = (jenis, configData = iptConfig) => {
     const pelanggaranConfigs = configData.pelanggaran || [];
     const config = pelanggaranConfigs.find(
       c => c.field1 === jenis
@@ -287,7 +293,7 @@ function InputPelanggaran() {
         data.append('foto', fileToUpload);
       }
 
-      await api.post('/approvals-v2/pelanggaran/submit', data);
+      await api.post('/approvals/pelanggaran/submit', data);
 
       setMessage(userRole === 'superadmin' ? 'Pelanggaran berhasil ditambahkan!' : 'Pelanggaran berhasil diajukan untuk persetujuan!');
       if (userRole === 'superadmin') {
@@ -317,17 +323,68 @@ function InputPelanggaran() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
     try {
       await api.delete(`/pelanggaran/${id}`);
       setMessage('Pelanggaran berhasil dihapus!');
+      setSelectedIndexIds((prev) => prev.filter((selectedId) => selectedId !== id));
       fetchAllPelanggaran();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menghapus pelanggaran');
     }
+  };
+
+  const filteredPelanggaran = allPelanggaran.filter((item) => {
+    const query = indexSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [item.nama, item.nis, item.keterangan, item.jenis_pelanggaran, item.point_dikurangi]
+      .some((value) => String(value ?? '').toLowerCase().includes(query));
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds((prev) => (
+      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
+    ));
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredPelanggaran.map((item) => item.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIndexIds.includes(id));
+    if (allSelected) {
+      setSelectedIndexIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds((prev) => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data pelanggaran? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/pelanggaran/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(`${ok} data pelanggaran berhasil dihapus!`);
+    } else {
+      setMessage(`${ok} data pelanggaran berhasil dihapus, ${failed.length} gagal dihapus.`);
+    }
+    fetchAllPelanggaran();
   };
 
   const handleEditFileChange = (e) => {
@@ -374,6 +431,8 @@ function InputPelanggaran() {
     }
   };
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (permissionLoading) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -391,7 +450,7 @@ function InputPelanggaran() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Pelanggaran</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Pelanggaran'}
           </button>
@@ -405,9 +464,39 @@ function InputPelanggaran() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Pelanggaran</h3>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={indexSearch}
+              onChange={(e) => setIndexSearch(e.target.value)}
+              placeholder="Cari nama, NIS, detail, jenis..."
+              style={{ flex: '1', minWidth: '200px', padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px' }}
+            />
+            {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
+              <>
+                <span style={{ fontSize: '13px', color: '#666' }}>{selectedIndexIds.length} dipilih</span>
+                <button
+                  className="btn btn-danger"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                >
+                  {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setSelectedIndexIds([])}
+                  disabled={bulkDeleting}
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                >
+                  Batal
+                </button>
+              </>
+            )}
+          </div>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -415,6 +504,22 @@ function InputPelanggaran() {
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={filteredPelanggaran.length > 0 && filteredPelanggaran.every((item) => selectedIndexIds.includes(item.id))}
+                        ref={(el) => {
+                          if (el) {
+                            const filteredIds = filteredPelanggaran.map((item) => item.id);
+                            const selectedCount = filteredIds.filter((id) => selectedIndexIds.includes(id)).length;
+                            el.indeterminate = selectedCount > 0 && selectedCount < filteredIds.length;
+                          }
+                        }}
+                        onChange={toggleSelectAllFiltered}
+                      />
+                    </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -425,8 +530,17 @@ function InputPelanggaran() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allPelanggaran.map(item => (
+                  {filteredPelanggaran.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIndexIds.includes(item.id)}
+                          onChange={() => toggleSelectIndex(item.id)}
+                        />
+                      </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -441,28 +555,32 @@ function InputPelanggaran() {
                         >
                           Edit
                         </button>
-                        <button 
-                          className="btn btn-danger" 
-                          onClick={() => handleDelete(item.id)} 
+                        {userRole === 'superadmin' && (
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => handleDelete(item.id)}
                           style={{ padding: '3px 8px', fontSize: '12px' }}
                         >
                           Hapus
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {allPelanggaran.length === 0 && (
+              {allPelanggaran.length === 0 ? (
                 <p className="text-muted">Belum ada data pelanggaran</p>
-              )}
+              ) : filteredPelanggaran.length === 0 ? (
+                <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+              ) : null}
             </div>
           )}
         </div>
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -582,7 +700,7 @@ function InputPelanggaran() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan dikurangi:
+            Point IPT yang akan dikurangi:
           </label>
           <span style={{ 
             fontSize: '18px', 
@@ -715,8 +833,8 @@ function InputPelanggaran() {
         </div>
       </EditModal>
 
-      {/* Submission History - Hidden for Superadmin */}
-      {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
+      {/* Submission History - Hidden for Superadmin and approvers */}
+      {userRole !== 'superadmin' && !canApprove && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Pelanggaran</h3>
           {submissions.length === 0 ? (

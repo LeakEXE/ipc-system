@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website IPC Bali Mandara - Flowchart Diagram</title>
+    <title>Mandara Talenta - Flowchart Diagram</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
         * {
@@ -187,7 +187,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>🎓 Website IPC Bali Mandara</h1>
+        <h1>🎓 Mandara Talenta</h1>
         <p>Flowchart & System Documentation</p>
         <p style="font-size: 0.9em; margin-top: 10px;">
             <a href="DOCUMENTATION.md" class="btn">📄 Dokumentasi Lengkap</a>
@@ -240,7 +240,7 @@ flowchart TD
     GU --> GU7[🔔 Notifikasi Pengajuan]
     GU --> GU8[📋 Wali Kelas Panel]
     
-    SI --> SI1[📈 My IPC Score]
+    SI --> SI1[📈 My IPT Score]
     SI --> SI2[🏆 Leaderboard]
     SI --> SI3[📜 History]
     SI --> SI4[🔔 Notifications]
@@ -259,7 +259,7 @@ flowchart TD
     SA3 --> Approved[✅ Approved]
     SA3 --> Rejected[❌ Rejected]
     
-    Approved --> Update[Update IPC]
+    Approved --> Update[Update IPT]
     Update --> Notify[Send Notification]
     Update --> History[Create History]
                 </pre>
@@ -411,7 +411,7 @@ flowchart TD
             <table>
                 <tr>
                     <th>Input Type</th>
-                    <th>IPC Effect</th>
+                    <th>IPT Effect</th>
                     <th>Requires Proof</th>
                 </tr>
                 <tr>
@@ -456,9 +456,9 @@ flowchart TD
 flowchart LR
     A[Siswa Login] --> B[Dashboard]
     
-    B --> C[View IPC]
+    B --> C[View IPT]
     C --> C1[Current Score]
-    C --> C2[IPC History]
+    C --> C2[IPT History]
     C --> C3[Score Changes]
     
     B --> D[Peringkat]
@@ -472,7 +472,7 @@ flowchart LR
     E --> E3[View Details]
     
     B --> F[Notifications]
-    F --> F1[IPC Changes]
+    F --> F1[IPT Changes]
     F --> F2[Approval Updates]
     F --> F3[Mark as Read]
     
@@ -490,7 +490,7 @@ flowchart LR
                     <th>Notes</th>
                 </tr>
                 <tr>
-                    <td>View IPC</td>
+                    <td>View IPT</td>
                     <td>✅ Yes</td>
                     <td>Real-time score display</td>
                 </tr>
@@ -532,7 +532,7 @@ flowchart TD
     J -->|Reject + Alasan| N[Status: Rejected]
     
     M --> O[Apply Changes]
-    O --> P[Update IPC]
+    O --> P[Update IPT]
     P --> Q[Create History]
     Q --> R[Notify User]
     
@@ -550,14 +550,14 @@ flowchart TD
             </div>
         </div>
 
-        <!-- IPC Calculation -->
+        <!-- IPT Calculation -->
         <div class="section">
-            <h2>📈 IPC Calculation Flow</h2>
+            <h2>📈 IPT Calculation Flow</h2>
             
             <div class="diagram-container">
                 <pre class="mermaid">
 flowchart TD
-    Start([Base IPC]) --> Base[80 Points]
+    Start([Base IPT]) --> Base[80 Points]
     
     Base --> Input{Input Types}
     
@@ -573,7 +573,7 @@ flowchart TD
     Pel --> Sum
     Per --> Sum
     
-    Sum --> Total[Total IPC]
+    Sum --> Total[Total IPT]
     Total --> Save[Save to Database]
     
     Save --> Log[Create History Log]
@@ -583,9 +583,9 @@ flowchart TD
             </div>
 
             <div class="success-box">
-                <strong>IPC Range:</strong> tidak dibatasi 0–100, nilai boleh negatif<br>
+                <strong>IPT Range:</strong> tidak dibatasi 0–100, nilai boleh negatif<br>
                 <strong>Base Score:</strong> 80 points<br>
-                <strong>Batas minimum:</strong> per tingkat X/XI/XII, diatur di Konfigurasi IPC
+                <strong>Batas minimum:</strong> per tingkat X/XI/XII, diatur di Konfigurasi IPT
             </div>
         </div>
 
@@ -602,7 +602,7 @@ erDiagram
     USERS ||--o{ EVENT : has
     USERS ||--o{ PELANGGARAN : has
     USERS ||--o{ PERILAKU : has
-    USERS ||--o{ IPC_HISTORY : tracks
+    USERS ||--o{ IPT_HISTORY : tracks
     USERS ||--o{ PERMISSIONS : has
     USERS ||--o{ NOTIFICATIONS : receives
     
@@ -616,8 +616,8 @@ erDiagram
         string kelas
         string grha
         string jurusan
-        int ipc_total
-        int ipc_awal
+        int ipt_total
+        int ipt_awal
         string foto
     }
     
@@ -634,11 +634,11 @@ erDiagram
         enum status
     }
     
-    IPC_HISTORY {
+    IPT_HISTORY {
         int id PK
         int user_id FK
-        int ipc_sebelum
-        int ipc_sesudah
+        int ipt_sebelum
+        int ipt_sesudah
         string keterangan
         timestamp created_at
     }
@@ -682,7 +682,7 @@ flowchart LR
     </div>
 
     <div class="header" style="margin-top: 50px;">
-        <p style="font-size: 0.9em;">© 2026 Website IPC Bali Mandara | Dokumentasi Sistem Individual Point Card</p>
+        <p style="font-size: 0.9em;">© 2026 Mandara Talenta | Dokumentasi Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta)</p>
     </div>
 
     <script>

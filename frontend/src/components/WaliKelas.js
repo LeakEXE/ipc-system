@@ -1,12 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { buildEvidenceMap } from '../utils/historyEvidence';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
-import { formatDisplayText } from '../utils/formatDisplayText';
-import { EvidenceViewer } from './EvidenceViewer';
-import { GraduationCap, BarChart3, Users, User, Settings, Search, Pencil, Lightbulb, CircleCheck, Paperclip, X, History, FileText, TriangleAlert } from 'lucide-react';
-import { CATEGORY_ICONS } from './icons';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
+import StudentDetail from './StudentDetail';
+import { GraduationCap, BarChart3, Users, User, Settings, Search, Pencil, Lightbulb, CircleCheck, TriangleAlert } from 'lucide-react';
 
 function getCurrentAcademicYear() {
   const now = new Date();
@@ -22,7 +19,7 @@ function getAcademicYearOptions() {
   });
 }
 
-function getIpcDetailRows(points = {}) {
+function getIptDetailRows(points = {}) {
   return [
     ['Prestasi', Number(points.prestasi) || 0],
     ['Perilaku', ['tanggung_jawab', 'disiplin', 'kepedulian', 'kemandirian', 'spiritual', 'kejujuran', 'kepercayaan_diri']
@@ -36,7 +33,7 @@ function getIpcDetailRows(points = {}) {
 }
 
 function WaliKelas() {
-  const minIpc = useMinIpcPerGrade();
+  const minIpt = useMinIptPerGrade();
   const [assignments, setAssignments] = useState([]);
   const [classStats, setClassStats] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -50,10 +47,6 @@ function WaliKelas() {
   const [showMismatches, setShowMismatches] = useState(false);
   const [mismatches, setMismatches] = useState(null);
   const [loadingMismatches, setLoadingMismatches] = useState(false);
-  const [studentHistory, setStudentHistory] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [studentRecords, setStudentRecords] = useState(null);
-  const [evidenceImage, setEvidenceImage] = useState(null);
   
   const currentAcademicYear = getCurrentAcademicYear();
   const academicYearOptions = getAcademicYearOptions();
@@ -160,52 +153,11 @@ function WaliKelas() {
     setShowClassDetail(true);
   };
 
-  const handleViewStudentDetail = async (student) => {
-    setSelectedStudent(student);
+  const handleViewStudentDetail = (student) => {
+    // StudentDetail fetches its own history/records/evidence.
+    // Carry the class context for the below-minimum IPT badge.
+    setSelectedStudent({ ...student, kelas: student.kelas || student.current_kelas || selectedClass?.kelas });
     setShowStudentDetail(true);
-    setEvidenceImage(null);
-    setStudentRecords(null);
-    setLoadingHistory(true);
-    try {
-      const historyRes = await api.get(`/users/${student.id}/ipc-history`);
-      setStudentHistory(historyRes.data);
-    } catch (err) {
-      console.error('Error fetching student history:', err);
-      setStudentHistory([]);
-    }
-    try {
-      const recordsRes = await api.get(`/users/${student.id}/records`);
-      setStudentRecords(recordsRes.data);
-    } catch (err) {
-      console.error('Error fetching student records for evidence:', err);
-      setStudentRecords(null);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
-  // Evidence photo per history row, matched by exact keterangan text.
-  const evidenceMap = useMemo(() => buildEvidenceMap(studentRecords), [studentRecords]);
-
-  const groupHistoryByCategory = (history = []) => {
-    const grouped = {};
-    const categoryOrder = ['prestasi', 'perilaku', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran', 'initial', 'manual'];
-    
-    categoryOrder.forEach(cat => {
-      grouped[cat] = [];
-    });
-    
-    history.forEach(record => {
-      const jenis = record.jenis_perubahan || 'initial';
-      if (!grouped[jenis]) {
-        grouped[jenis] = [];
-      }
-      grouped[jenis].push(record);
-    });
-    
-    return categoryOrder
-      .filter(cat => grouped[cat] && grouped[cat].length > 0)
-      .map(cat => ({ category: cat, records: grouped[cat] }));
   };
 
   const handleCheckMismatches = async () => {
@@ -444,7 +396,7 @@ function WaliKelas() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '999px', background: cls.totalPelanggaran > 0 ? '#ffebee' : '#dcfce7', color: cls.totalPelanggaran > 0 ? '#ef4444' : '#16a34a' }}>{cls.totalPelanggaran} Pelanggaran</span>
-                <span style={{ fontSize: '.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '999px', background: '#cffafe', color: '#0891b2' }}>Rata-rata IPC: {cls.rataRataIPC}</span>
+                <span style={{ fontSize: '.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '999px', background: '#cffafe', color: '#0891b2' }}>Rata-rata IPT: {cls.rataRataIPT}</span>
               </div>
               <button onClick={() => handleViewClassDetail(cls)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '9px 16px', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', background: '#2563eb', color: '#fff', whiteSpace: 'nowrap', transition: 'all 0.2s' }}>Lihat Detail</button>
             </div>
@@ -674,8 +626,8 @@ function WaliKelas() {
                       <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>No</th>
                       <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Nama</th>
                       <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>NIS</th>
-                      <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Detail IPC</th>
-                      <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>IPC</th>
+                      <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Detail IPT</th>
+                      <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>IPT</th>
                       <th style={{ background: '#f8fafc', textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Aksi</th>
                     </tr>
                   </thead>
@@ -698,7 +650,7 @@ function WaliKelas() {
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>{student.nis}</td>
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '.8rem' }}>
-                            {getIpcDetailRows(student.ipc_points).map(([label, value]) => (
+                            {getIptDetailRows(student.ipt_points).map(([label, value]) => (
                               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '24px', color: '#334155' }}>
                                 <span>{label}</span>
                                 <span style={{ fontWeight: 700, color: '#0f172a' }}>{value > 0 ? '+' : ''}{value}</span>
@@ -707,7 +659,7 @@ function WaliKelas() {
                           </div>
                         </td>
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: isBelowMinIpc(student.ipc_total || 80, minIpcFor(minIpc, selectedClass?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '.85rem' }}>{student.ipc_total || 80}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: isBelowMinIpt(student.ipt_total || 80, minIptFor(minIpt, selectedClass?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '.85rem' }}>{student.ipt_total || 80}</span>
                         </td>
                         <td style={{ padding: '13px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>
                           <button onClick={() => handleViewStudentDetail(student)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#2563eb', color: '#fff', transition: 'all 0.2s' }}>Detail</button>
@@ -722,134 +674,9 @@ function WaliKelas() {
         </div>
       )}
 
-      {/* DETAIL SISWA MODAL */}
+      {/* DETAIL SISWA MODAL — shared StudentDetail component */}
       {showStudentDetail && selectedStudent && (
-        <div className="modal-overlay app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1500 }} onClick={(e) => { if (e.target === e.currentTarget) { setShowStudentDetail(false); setEvidenceImage(null); } }}>
-          <div className="modal-content" style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(15,23,42,.25)' }}>
-            <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#fff', border: '2px solid #2563eb', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', overflow: 'hidden' }}>
-                  {selectedStudent.foto ? (
-                    <img src={getImageUrl(selectedStudent.foto)} alt={selectedStudent.nama} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <User size={16} />
-                  )}
-                </div>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><User size={18} /> Detail Siswa</h3>
-              </div>
-              <button onClick={() => { setShowStudentDetail(false); setEvidenceImage(null); }} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#ef4444', color: '#fff', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>Tutup</button>
-            </div>
-
-            <div style={{ padding: '16px 20px 22px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Nama</div>
-                <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{selectedStudent.nama}</div>
-              </div>
-              <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>NIS</div>
-                <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{selectedStudent.nis}</div>
-              </div>
-              <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Grha</div>
-                <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{selectedStudent.grha || '-'}</div>
-              </div>
-              <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Detail IPC</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {getIpcDetailRows(selectedStudent.ipc_points).map(([label, value]) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.88rem', fontWeight: 400, color: '#334155' }}>
-                      <span>{label}</span>
-                      <span style={{ fontWeight: 700, color: '#0f172a' }}>{value > 0 ? '+' : ''}{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Riwayat IPC</div>
-                {loadingHistory ? (
-                  <div style={{ textAlign: 'center', padding: '10px' }}>
-                    <div className="spinner" style={{ margin: '0 auto 8px', border: '2px solid #e2e8f0', borderTop: '2px solid #2563eb', borderRadius: '50%', width: '20px', height: '20px' }}></div>
-                    <div style={{ fontSize: '.75rem', color: '#64748b' }}>Memuat...</div>
-                  </div>
-                ) : studentHistory.length === 0 ? (
-                  <div style={{ fontSize: '.85rem', color: '#94a3b8', textAlign: 'center', padding: '6px' }}>Belum ada riwayat</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '320px', overflowY: 'auto' }}>
-                    {groupHistoryByCategory(studentHistory).map(group => {
-                      const categoryIcons = {
-                        prestasi: CATEGORY_ICONS.prestasi,
-                        perilaku: CATEGORY_ICONS.perilaku,
-                        organisasi: CATEGORY_ICONS.organisasi,
-                        kepanitiaan: CATEGORY_ICONS.kepanitiaan,
-                        event: CATEGORY_ICONS.event,
-                        pelanggaran: CATEGORY_ICONS.pelanggaran,
-                        initial: History,
-                        manual: Pencil
-                      };
-                      const categoryLabels = {
-                        prestasi: 'Prestasi',
-                        perilaku: 'Perilaku',
-                        organisasi: 'Organisasi',
-                        kepanitiaan: 'Kepanitiaan',
-                        event: 'Event',
-                        pelanggaran: 'Pelanggaran',
-                        initial: 'Initial',
-                        manual: 'Manual'
-                      };
-                      return (
-                        <div key={group.category} style={{ border: '1px solid #e2e8f0', borderRadius: '8px'}}>
-                          <div style={{ background: '#f1f5f9', padding: '8px 12px', fontSize: '.75rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {(() => { const CatIcon = categoryIcons[group.category] || FileText; return <CatIcon size={14} />; })()}
-                            <span>{categoryLabels[group.category] || group.category}</span>
-                            <span style={{ marginLeft: 'auto', fontSize: '.68rem', color: '#64748b' }}>{group.records.length} record</span>
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            {group.records.map(record => {
-                              const evidenceFoto = evidenceMap[record.keterangan];
-                              return (
-                              <div key={record.id} style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                                  <span style={{ color: '#334155', fontSize: '.78rem', wordBreak: 'break-word', flex: 1 }}>
-                                    {formatDisplayText(record.keterangan || '-')}
-                                  </span>
-                                  <span style={{ fontWeight: 700, color: record.point_change > 0 ? '#16a34a' : record.point_change < 0 ? '#ef4444' : '#64748b', fontSize: '.78rem', whiteSpace: 'nowrap' }}>
-                                    {record.point_change > 0 ? '+' : ''}{record.point_change}
-                                  </span>
-                                </div>
-                                {evidenceFoto && (
-                                  <span onClick={() => setEvidenceImage(evidenceFoto)} style={{ color: '#2563eb', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Paperclip size={12} /> Lihat Bukti</span>
-                                )}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.68rem', color: '#94a3b8' }}>
-                                  <span>{new Date(record.created_at).toLocaleString('id-ID')}</span>
-                                  <span>{record.ipc_sebelum} → {record.ipc_sesudah}</span>
-                                </div>
-                              </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Total IPC</div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: isBelowMinIpc(selectedStudent.ipc_total || 80, minIpcFor(minIpc, selectedClass?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '1rem' }}>{selectedStudent.ipc_total || 80}</span>
-              </div>
-            </div>
-          </div>
-          {evidenceImage && (
-            <div className="app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1600 }} onClick={() => setEvidenceImage(null)}>
-              <div style={{ position: 'relative', maxWidth: '90%', width: 'min(880px, 90vw)', maxHeight: '85vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                <EvidenceViewer src={getImageUrl(evidenceImage)} alt="Bukti" pdfHeight="70vh" imgStyle={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,.4)', display: 'block' }} />
-                <button onClick={() => setEvidenceImage(null)} style={{ position: 'absolute', top: '-14px', right: '-14px', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={16} /></button>
-              </div>
-            </div>
-          )}
-        </div>
+        <StudentDetail student={selectedStudent} onClose={() => setShowStudentDetail(false)} />
       )}
     </div>
   );

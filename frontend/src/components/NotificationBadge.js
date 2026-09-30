@@ -17,7 +17,7 @@ function NotificationBadge() {
 
   const fetchNotificationCount = async () => {
     try {
-      const response = await api.get('/approvals-v2/notifications/count');
+      const response = await api.get('/approvals/notifications/count');
       
       const newCount = response.data.count;
       if (newCount > count && count > 0) {
@@ -32,9 +32,9 @@ function NotificationBadge() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await api.get('/approvals-v2/notifications');
+      const response = await api.get('/approvals/notifications');
       setNotifications(response.data);
-      await api.put('/approvals-v2/notifications/read-all', {});
+      await api.put('/approvals/notifications/read-all', {});
       setCount(0);
     } catch (error) {
       console.error('Error fetching notifications:', error);

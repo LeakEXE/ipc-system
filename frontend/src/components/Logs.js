@@ -44,7 +44,7 @@ function Logs() {
               <tr key={log.id}>
                 <td>{new Date(log.created_at).toLocaleString('id-ID')}</td>
                 <td>{log.nama}</td>
-                <td><span className={`badge badge-${log.role === 'superadmin' ? 'danger' : log.role === 'guru' ? 'warning' : 'info'}`}>{log.role}</span></td>
+                <td><span className={`badge badge-${log.role === 'superadmin' ? 'danger' : (log.role === 'guru' || log.role === 'pegawai') ? 'warning' : 'info'}`}>{log.role}</span></td>
                 <td>{log.action}</td>
                 <td>{log.details}</td>
               </tr>

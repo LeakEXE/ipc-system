@@ -27,11 +27,15 @@ function InputPerilaku() {
   const [showForm, setShowForm] = useState(false);
   const [allPerilaku, setAllPerilaku] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [userRole, setUserRole] = useState('');
   const [hasPermission, setHasPermission] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(true);
+  const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoints, setCalculatedPoints] = useState({});
   const [students, setStudents] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -50,7 +54,7 @@ function InputPerilaku() {
     const checkPermission = async () => {
       try {
         const response = await api.get('/permissions/my-permissions');
-        const canAccess = user.role === 'superadmin' || (user.role === 'guru' && response.data.can_input_perilaku);
+        const canAccess = user.role === 'superadmin' || ((user.role === 'guru' || user.role === 'pegawai') && response.data.can_input_perilaku);
         setHasPermission(canAccess);
       } catch (error) {
         console.error('Error checking permission:', error);
@@ -76,11 +80,13 @@ function InputPerilaku() {
       fetchStudents();
     }
 
-    fetchIpcConfig();
+    fetchIptConfig();
     fetchPerilakuRatings();
     fetchUserSubmissions();
     if (user.role === 'superadmin') {
       fetchAllPerilaku();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPerilaku(); }).catch(() => setCanApprove(false));
     }
   }, []);
 
@@ -102,18 +108,18 @@ function InputPerilaku() {
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
   const fetchPerilakuRatings = async () => {
     try {
-      const response = await api.get('/ipc-config/perilaku-ratings');
+      const response = await api.get('/ipt-config/perilaku-ratings');
       if (!Array.isArray(response.data)) {
         throw new Error('Invalid perilaku rating response');
       }
@@ -135,7 +141,7 @@ function InputPerilaku() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.perilaku || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -145,7 +151,7 @@ function InputPerilaku() {
   // Point perilaku hanya bergantung pada tingkat penilaian (shared semua karakter).
   // Cocokkan field1 (format baru) atau field2 (format lama, sebelum migrasi).
   const calculatePoint = (karakter, tingkat) => {
-    const perilakuConfigs = ipcConfig['perilaku'] || [];
+    const perilakuConfigs = iptConfig['perilaku'] || [];
     const config = perilakuConfigs.find(
       c => c.field1 === tingkat || c.field2 === tingkat
     );
@@ -314,6 +320,83 @@ function InputPerilaku() {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
+      return;
+    }
+
+    try {
+      await api.delete('/perilaku/' + id);
+      setMessage('Perilaku berhasil dihapus!');
+      setSelectedIndexIds(prev => prev.filter(selectedId => selectedId !== id));
+      fetchAllPerilaku();
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Gagal menghapus perilaku');
+    }
+  };
+
+  const filteredPerilaku = allPerilaku.filter((item) => {
+    const q = indexSearch.trim().toLowerCase();
+    if (!q) return true;
+    const fields = [
+      item.nama,
+      item.nis,
+      item.tanggung_jawab,
+      item.disiplin,
+      item.kepedulian,
+      item.kemandirian,
+      item.spiritual,
+      item.kejujuran,
+      item.kepercayaan_diri
+    ];
+    return fields.some((field) => String(field ?? '').toLowerCase().includes(q));
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds(prev => (
+      prev.includes(id) ? prev.filter(selectedId => selectedId !== id) : [...prev, id]
+    ));
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredPerilaku.map(item => item.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIndexIds.includes(id));
+    if (allSelected) {
+      setSelectedIndexIds(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds(prev => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data perilaku? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/perilaku/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(ok + ' data perilaku berhasil dihapus!');
+    } else {
+      setMessage(ok + ' data perilaku berhasil dihapus! ' + failed.length + ' gagal dihapus.');
+    }
+    fetchAllPerilaku();
+  };
+
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (permissionLoading) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -331,7 +414,7 @@ function InputPerilaku() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Perilaku</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Perilaku'}
           </button>
@@ -345,16 +428,64 @@ function InputPerilaku() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Perilaku</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
+            <>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Cari nama, NIS..."
+                value={indexSearch}
+                onChange={(e) => setIndexSearch(e.target.value)}
+                style={{ padding: '6px 10px', fontSize: '13px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '260px' }}
+              />
+              {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
+                <>
+                  <span style={{ fontSize: '13px' }}>{selectedIndexIds.length} dipilih</span>
+                  <button
+                    className="btn btn-danger"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                    style={{ padding: '5px 10px', fontSize: '12px' }}
+                  >
+                    {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => setSelectedIndexIds([])}
+                    disabled={bulkDeleting}
+                    style={{ padding: '5px 10px', fontSize: '12px' }}
+                  >
+                    Batal
+                  </button>
+                </>
+              )}
+            </div>
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
+                    <th>
+                      <input
+                        type="checkbox"
+                        ref={(el) => {
+                          if (el) {
+                            const filteredIds = filteredPerilaku.map(item => item.id);
+                            el.indeterminate = filteredIds.length > 0
+                              && filteredIds.some(id => selectedIndexIds.includes(id))
+                              && !filteredIds.every(id => selectedIndexIds.includes(id));
+                          }
+                        }}
+                        checked={filteredPerilaku.length > 0 && filteredPerilaku.every(item => selectedIndexIds.includes(item.id))}
+                        onChange={toggleSelectAllFiltered}
+                      />
+                    </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -369,8 +500,17 @@ function InputPerilaku() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allPerilaku.map(item => (
+                  {filteredPerilaku.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIndexIds.includes(item.id)}
+                          onChange={() => toggleSelectIndex(item.id)}
+                        />
+                      </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -389,6 +529,15 @@ function InputPerilaku() {
                         >
                           Edit
                         </button>
+                        {userRole === 'superadmin' && (
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => handleDelete(item.id)}
+                          style={{ padding: '3px 8px', fontSize: '12px', marginLeft: '5px' }}
+                        >
+                          Hapus
+                        </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -397,13 +546,17 @@ function InputPerilaku() {
               {allPerilaku.length === 0 && (
                 <p className="text-muted">Belum ada data perilaku</p>
               )}
+              {allPerilaku.length > 0 && filteredPerilaku.length === 0 && (
+                <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+              )}
             </div>
+            </>
           )}
         </div>
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -575,7 +728,7 @@ function InputPerilaku() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Total Point IPC yang akan didapatkan:
+            Total Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 
@@ -669,8 +822,8 @@ function InputPerilaku() {
         </div>
       </EditModal>
 
-      {/* Submission History - Hidden for Superadmin */}
-      {JSON.parse(localStorage.getItem('user') || '{}').role !== 'superadmin' && (
+      {/* Submission History - Hidden for Superadmin and approvers */}
+      {userRole !== 'superadmin' && !canApprove && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Perilaku</h3>
           {submissions.length === 0 ? (

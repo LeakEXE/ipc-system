@@ -1,6 +1,6 @@
 const path = require('path');
 
-// Shared upload policy for IPC record evidence (bukti) across all inputs.
+// Shared upload policy for IPT record evidence (bukti) across all inputs.
 // Accepts images + PDF (NOT office docs). Avatars and school logos keep
 // their own image-only configs in profile.js / school-config.js.
 const EVIDENCE_MAX_SIZE = 10 * 1024 * 1024; // 10MB

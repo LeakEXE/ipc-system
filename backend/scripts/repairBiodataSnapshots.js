@@ -64,9 +64,9 @@ async function buildRenameMaps() {
         m = details && details.match(/for teacher (.+?) \((\S+)\) to (.+)$/);
         if (m) {
             const [, oldName, newNip, newName] = m;
-            let [u] = await db.query("SELECT id FROM users WHERE nip = ? AND role = 'guru'", [newNip]);
+            let [u] = await db.query("SELECT id FROM users WHERE nip = ? AND role IN ('guru', 'pegawai')", [newNip]);
             if (u.length === 0) {
-                const [byName] = await db.query("SELECT id FROM users WHERE nama = ? AND role = 'guru'", [newName]);
+                const [byName] = await db.query("SELECT id FROM users WHERE nama = ? AND role IN ('guru', 'pegawai')", [newName]);
                 if (byName.length === 1) {
                     u = byName;
                 }

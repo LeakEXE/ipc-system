@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import { formatDisplayText } from '../utils/formatDisplayText';
 
 function Search() {
-  const minIpc = useMinIpcPerGrade();
+  const minIpt = useMinIptPerGrade();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -78,7 +78,7 @@ function Search() {
                 <th>NIS</th>
                 <th>Kelas</th>
                 <th>Grha</th>
-                <th>IPC</th>
+                <th>IPT</th>
                 <th>Prestasi</th>
                 <th>Aksi</th>
               </tr>
@@ -90,7 +90,7 @@ function Search() {
                   <td>{student.nis}</td>
                   <td>{student.kelas}</td>
                   <td>{student.grha}</td>
-                  <td style={isBelowMinIpc(student.ipc_total, minIpcFor(minIpc, student.kelas)) ? { color: '#dc2626', fontWeight: 'bold' } : undefined}>{student.ipc_total}</td>
+                  <td style={isBelowMinIpt(student.ipt_total, minIptFor(minIpt, student.kelas)) ? { color: '#dc2626', fontWeight: 'bold' } : undefined}>{student.ipt_total}</td>
                   <td>{student.total_prestasi}</td>
                   <td>
                     <button className="btn btn-info" onClick={() => handleViewDetails(student)} style={{ padding: '5px 10px' }}>
@@ -113,7 +113,7 @@ function Search() {
             <p><strong>NIS:</strong> {selectedStudent.student.nis}</p>
             <p><strong>Kelas:</strong> {selectedStudent.student.kelas}</p>
             <p><strong>Grha:</strong> {selectedStudent.student.grha}</p>
-            <p><strong>IPC Total:</strong> <span style={isBelowMinIpc(selectedStudent.student.ipc_total, minIpcFor(minIpc, selectedStudent.student.kelas)) ? { color: '#dc2626', fontWeight: 'bold' } : undefined}>{selectedStudent.student.ipc_total}</span></p>
+            <p><strong>IPT Total:</strong> <span style={isBelowMinIpt(selectedStudent.student.ipt_total, minIptFor(minIpt, selectedStudent.student.kelas)) ? { color: '#dc2626', fontWeight: 'bold' } : undefined}>{selectedStudent.student.ipt_total}</span></p>
           </div>
 
           <h4>Prestasi: {selectedStudent.total_prestasi}</h4>

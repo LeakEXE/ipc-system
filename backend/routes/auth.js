@@ -32,12 +32,12 @@ router.post('/login', async (req, res) => {
         const { username, password } = req.body;
 
         const [users] = await db.query(
-            'SELECT id, nama, nis, nip, password, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, alamat, no_hp, detail, foto, tahun_pelajaran, is_graduated, jurusan FROM users WHERE nis = ? OR nip = ?',
-            [username, username]
+            'SELECT id, nama, nis, nip, username, password, role, kelas, grha, wali_kelas, ipt_total, ipt_awal, alamat, no_hp, detail, foto, tahun_pelajaran, is_graduated, jurusan, must_change_credentials FROM users WHERE LOWER(username) = LOWER(?)',
+            [username]
         );
 
         if (users.length === 0) {
-            return res.status(400).json({ message: 'User not found. Pastikan database sudah di-setup dengan benar.' });
+            return res.status(400).json({ message: 'Username tidak ditemukan. Gunakan username Anda (bukan NIS/NIP).' });
         }
 
 const user = users[0];
@@ -62,7 +62,7 @@ const user = users[0];
         }
 
         const token = jwt.sign(
-            { id: user.id, nama: user.nama, role: user.role, nis: user.nis },
+            { id: user.id, nama: user.nama, role: user.role, nis: user.nis, username: user.username },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -87,12 +87,14 @@ const user = users[0];
                 nama: user.nama,
                 nis: user.nis,
                 nip: user.nip,
+                username: user.username,
                 role: user.role,
                 kelas: user.kelas,
                 grha: user.grha,
                 wali_kelas: user.wali_kelas,
-                ipc_total: user.ipc_total,
-                foto: user.foto || null
+                ipt_total: user.ipt_total,
+                foto: user.foto || null,
+                must_change_credentials: !!user.must_change_credentials
             }
         });
     } catch (error) {

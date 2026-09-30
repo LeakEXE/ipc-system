@@ -1,4 +1,4 @@
-# 📦 Website IPC Bali Mandara - Requirements
+# 📦 Mandara Talenta - Requirements
 
 ## 🖥️ System Requirements
 
@@ -109,24 +109,24 @@ karena `db:setup` membaca password dari file `.env`):
 cd backend
 npm run db:setup
 ```
-Perintah `db:setup` akan membuat database `ipc_school` (jika belum ada)
+Perintah `db:setup` akan membuat database `ipt_school` (jika belum ada)
 dan mengimpor seluruh tabel + data awal dari `database/skema.sql`.
 
 **Cara manual (kalau ingin lewat pgAdmin / psql):**
-1. Buka pgAdmin 4 → klik kanan *Databases* → *Create* → beri nama `ipc_school`
-2. Klik kanan database `ipc_school` → *Query Tool* → buka file
+1. Buka pgAdmin 4 → klik kanan *Databases* → *Create* → beri nama `ipt_school`
+2. Klik kanan database `ipt_school` → *Query Tool* → buka file
    `backend/database/skema.sql` → jalankan (F5)
    (Panduan klik-per-klik lengkap ada di bawah: *Panduan pgAdmin 4 di Windows*)
 3. Atau lewat terminal:
    ```bash
-   createdb -U postgres ipc_school
-   psql -U postgres -d ipc_school -f backend/database/skema.sql
+   createdb -U postgres ipt_school
+   psql -U postgres -d ipt_school -f backend/database/skema.sql
    ```
    (Windows: jalankan dari folder instalasi PostgreSQL `bin`,
    atau tambahkan folder `bin` ke PATH agar `psql`/`createdb` dikenal CMD)
 4. Selesai! Verifikasi tabel sudah ada:
    ```bash
-   psql -U postgres -d ipc_school -c "\dt"
+   psql -U postgres -d ipt_school -c "\dt"
    ```
 
 #### Panduan pgAdmin 4 di Windows (langkah demi langkah untuk pemula)
@@ -146,27 +146,27 @@ phpMyAdmin, tapi berjalan sebagai aplikasi desktop + dibuka di browser.
    buka *Services* (Win+R → `services.msc`) → cari `postgresql-x64-16` →
    klik kanan → *Start*.
 
-**2. Buat database `ipc_school`**
+**2. Buat database `ipt_school`**
 1. Klik kanan **Databases** → **Create → Database...**
-2. Isi *Database name*: `ipc_school` → klik **Save**.
+2. Isi *Database name*: `ipt_school` → klik **Save**.
 3. Database baru muncul di daftar. (Kalau belum muncul, klik kanan
    *Databases* → *Refresh*.)
 
 **3. Impor skema (`skema.sql`)**
-1. Klik kanan database **`ipc_school`** → **Query Tool**.
+1. Klik kanan database **`ipt_school`** → **Query Tool**.
 2. Di toolbar Query Tool, klik ikon **Open File** (folder) → arahkan ke
    `backend/database/skema.sql` di folder project → **Select**.
 3. Klik tombol **Execute** (▶, atau tekan **F5**), tunggu sampai muncul
    pesan hijau *Query returned successfully*.
 4. Kalau ada error merah, baca pesannya — umumnya karena database
-   `ipc_school` belum dipilih (pastikan dropdown database di Query Tool
-   menunjukkan `ipc_school`, bukan `postgres`).
+   `ipt_school` belum dipilih (pastikan dropdown database di Query Tool
+   menunjukkan `ipt_school`, bukan `postgres`).
 
 **4. Verifikasi tabel sudah ada**
-1. Di panel kiri: **Databases → ipc_school → Schemas → public → Tables**.
+1. Di panel kiri: **Databases → ipt_school → Schemas → public → Tables**.
 2. Klik kanan *Tables* → *Refresh* — Anda harus melihat tabel-tabel seperti
    `users`, `prestasi`, `organisasi`, `event`, `pelanggaran`, `perilaku`,
-   `ipc_config`, dll.
+   `ipt_config`, dll.
 
 **5. Melihat / memeriksa data**
 - Klik kanan nama tabel (mis. `users`) → **View/Edit Data → All Rows**
@@ -184,7 +184,7 @@ phpMyAdmin, tapi berjalan sebagai aplikasi desktop + dibuka di browser.
    lalu restart backend (`npm start`).
 
 **7. Reset total (mulai dari nol)**
-- Cara GUI: klik kanan `ipc_school` → **Delete/Drop** → buat lagi +
+- Cara GUI: klik kanan `ipt_school` → **Delete/Drop** → buat lagi +
   impor ulang `skema.sql` seperti langkah 2–3.
 - Cara cepat: `cd backend && npm run db:setup` (aman dijalankan ulang).
 
@@ -263,9 +263,9 @@ DB_HOST=localhost
 DB_USER=postgres
 DB_PASSWORD=your_postgres_password
 DB_PORT=5432
-DB_NAME=ipc_school
+DB_NAME=ipt_school
 # Alternatif: satu connection string (opsional)
-#DATABASE_URL=postgres://postgres:your_postgres_password@localhost:5432/ipc_school
+#DATABASE_URL=postgres://postgres:your_postgres_password@localhost:5432/ipt_school
 
 # Security
 JWT_SECRET=your_random_secret_64_chars_minimum

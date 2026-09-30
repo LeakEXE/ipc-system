@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { RefreshCw, ListChecks, User, Search } from 'lucide-react';
+import { RefreshCw, ListChecks, User, Search, BadgeCheck } from 'lucide-react';
 import { CATEGORY_ICONS, CategoryIcon } from './icons';
 
 function IzinAkun() {
@@ -128,10 +128,23 @@ function IzinAkun() {
       can_input_event: user.can_input_event,
       can_input_pelanggaran: user.can_input_pelanggaran,
       can_input_perilaku: user.can_input_perilaku,
+      can_approve: user.can_approve,
       [permKey]: newValue
     };
     
     handleIndividualUpdate(user.id, newPermissions);
+  };
+
+  const handleApprovalToggle = (user) => {
+    handleIndividualUpdate(user.id, {
+      can_input_prestasi: user.can_input_prestasi,
+      can_input_organisasi: user.can_input_organisasi,
+      can_input_kepanitiaan: user.can_input_kepanitiaan,
+      can_input_event: user.can_input_event,
+      can_input_pelanggaran: user.can_input_pelanggaran,
+      can_input_perilaku: user.can_input_perilaku,
+      can_approve: !user.can_approve
+    });
   };
 
   // Reset all permissions
@@ -205,7 +218,7 @@ function IzinAkun() {
   // Guru-only permissions require a guru-ONLY selection: if even one siswa is
   // selected, the "Aktifkan Pelanggaran/Perilaku" buttons stay disabled.
   const selectedUsers = users.filter(u => selectedUserIds.has(u.id));
-  const onlyGuruSelected = selectedUsers.length > 0 && selectedUsers.every(u => u.role === 'guru');
+  const onlyGuruSelected = selectedUsers.length > 0 && selectedUsers.every(u => u.role === 'guru' || u.role === 'pegawai');
 
   // Bulk update ONE permission type, but only for the explicitly selected users
   const handleBulkSelectedUpdate = async (jenis, enable) => {
@@ -679,6 +692,7 @@ function IzinAkun() {
                     <th className="col-event"><span className="th-ic"><CategoryIcon name="event" size={14} /></span>Event</th>
                     <th className="col-pelanggaran"><span className="th-ic"><CategoryIcon name="pelanggaran" size={14} /></span>Pelanggaran<br/><span style={{ fontWeight: 500 }}>(GURU ONLY)</span></th>
                     <th className="col-perilaku"><span className="th-ic"><CategoryIcon name="perilaku" size={14} /></span>Perilaku<br/><span style={{ fontWeight: 500 }}>(GURU ONLY)</span></th>
+                    <th className="col-approval"><span className="th-ic"><BadgeCheck size={14} /></span>Approval<br/><span style={{ fontWeight: 500 }}>(GURU ONLY)</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -741,10 +755,20 @@ function IzinAkun() {
                           </td>
                           <td style={{ color: '#94a3b8' }}>—</td>
                           <td style={{ color: '#94a3b8' }}>—</td>
+                          <td style={{ color: '#94a3b8' }} title="Siswa tidak dapat memiliki Izin Approval">—</td>
+                        </>
+                      ) : user.role === 'superadmin' ? (
+                        <>
+                          {jenisInputs.map(({ key }) => (
+                            <td key={key} style={{ color: '#94a3b8' }}>—</td>
+                          ))}
+                          <td>
+                            <span className="toggle-cell on" title="Superadmin selalu dapat menyetujui">✓</span>
+                          </td>
                         </>
                       ) : (
-                        /* Guru sees all 5 columns */
-                        jenisInputs.map(({ key }) => {
+                        /* Guru sees all 5 input columns + approval toggle */
+                        [...jenisInputs.map(({ key }) => {
                           const permKey = `can_input_${key}`;
                           const isEnabled = user[permKey];
                           return (
@@ -757,7 +781,17 @@ function IzinAkun() {
                               </button>
                             </td>
                           );
-                        })
+                        }),
+                        <td key="approval">
+                          <button
+                            onClick={() => handleApprovalToggle(user)}
+                            className={`toggle-cell ${user.can_approve ? 'on' : 'off'}`}
+                            title="Izin menyetujui pengajuan (Approval)"
+                          >
+                            {user.can_approve ? '✓' : '✕'}
+                          </button>
+                        </td>
+                        ]
                       )}
                     </tr>
                   ))}

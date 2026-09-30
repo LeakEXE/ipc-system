@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website IPC Bali Mandara - Flowchart Sederhana</title>
+    <title>Mandara Talenta - Flowchart Sederhana</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
         * {
@@ -149,7 +149,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎓 Website IPC Bali Mandara</h1>
+            <h1>🎓 Mandara Talenta</h1>
             <p>Flowchart Sederhana - Bahasa Indonesia</p>
         </div>
 
@@ -281,13 +281,13 @@ flowchart TD
     A([Login Siswa]) --> B[Dashboard]
     B --> C{Pilih Menu}
     
-    C -->|Dashboard| D[View IPC]
+    C -->|Dashboard| D[View IPT]
     C -->|Leaderboard| E[Leaderboard]
-    C -->|Histori| F[Histori IPC]
+    C -->|Histori| F[Histori IPT]
     C -->|Notifikasi| G[Notifikasi]
     C -->|Profile| H[Profile]
     
-    D --> D1[Lihat Skor IPC]
+    D --> D1[Lihat Skor IPT]
     D --> D2[Lihat Perubahan Terbaru]
     
     E --> E1[Top 20 per Kategori]
@@ -309,10 +309,10 @@ flowchart TD
             <div class="features">
                 <h3>📋 Fitur yang Bisa Diakses:</h3>
                 <ul>
-                    <li>Lihat skor IPC sendiri (Real-time)</li>
+                    <li>Lihat skor IPT sendiri (Real-time)</li>
                     <li>Lihat Leaderboard (Ranking siswa)</li>
-                    <li>Lihat histori perubahan IPC</li>
-                    <li>Lihat notifikasi (Perubahan IPC, status pengajuan)</li>
+                    <li>Lihat histori perubahan IPT</li>
+                    <li>Lihat notifikasi (Perubahan IPT, status pengajuan)</li>
                     <li>Edit profil terbatas (foto, No HP)</li>
                     <li>TIDAK BISA input data (Hanya Guru/Superadmin)</li>
                 </ul>
@@ -340,11 +340,11 @@ flowchart TD
     J -->|Approve| N[Status: Approved]
     J -->|Reject + Alasan| L[Status: Rejected]
     
-    N --> O[Update IPC Siswa]
+    N --> O[Update IPT Siswa]
     O --> P[Buat Histori]
     P --> Q[Kirim Notifikasi ke Siswa]
     
-    E --> R[Lihat IPC]
+    E --> R[Lihat IPT]
     R --> S[Lihat Notifikasi]
     
     L --> T[Kirim Alasan ke Guru]
@@ -356,7 +356,7 @@ flowchart TD
                 <ul>
                     <li>Guru/Siswa input data → Status Pending</li>
                     <li>Superadmin review (menu Approvals) → Approve/Reject + alasan</li>
-                    <li>Jika Approved: IPC siswa di-update</li>
+                    <li>Jika Approved: IPT siswa di-update</li>
                     <li>Siswa menerima notifikasi perubahan</li>
                     <li>Siswa bisa lihat histori perubahan</li>
                 </ul>

@@ -20,7 +20,7 @@ router.get('/students', auth, async (req, res) => {
                 u.nis,
                 u.kelas,
                 u.grha,
-                u.ipc_total,
+                u.ipt_total,
                 COALESCE(prestasi.count, 0) as total_prestasi
             FROM users u
             LEFT JOIN (
@@ -47,7 +47,7 @@ router.get('/student/:userId', auth, async (req, res) => {
         const userId = req.params.userId;
 
         const [student] = await db.query(
-            'SELECT id, nama, nis, kelas, grha, ipc_total FROM users WHERE id = ? AND role = ?',
+            'SELECT id, nama, nis, kelas, grha, ipt_total FROM users WHERE id = ? AND role = ?',
             [userId, 'siswa']
         );
 
@@ -83,7 +83,7 @@ router.get('/student/:userId', auth, async (req, res) => {
     }
 });
 
-// IPC category leaderboards (Top 20) — ranked by approved IPC points.
+// IPT category leaderboards (Top 20) — ranked by approved IPT points.
 // Pelanggaran stores deductions as negative points, so it ranks most-negative first.
 const LEADERBOARD_CATEGORIES = {
     prestasi: { table: 'prestasi', pointCol: 'point' },
@@ -91,10 +91,11 @@ const LEADERBOARD_CATEGORIES = {
     kepanitiaan: { table: 'kepanitiaan', pointCol: 'point' },
     event: { table: 'event', pointCol: 'point' },
     pelanggaran: { table: 'pelanggaran', pointCol: 'point_dikurangi', order: 'ASC' },
-    perilaku: { table: 'perilaku', pointCol: 'point' }
+    perilaku: { table: 'perilaku', pointCol: 'point' },
+    pembina: { table: 'pembina', special: true } // Special case for pembina leaderboard
 };
 
-// Get leaderboard for one IPC category — GET /search/leaderboard/category/:category
+// Get leaderboard for one IPT category — GET /search/leaderboard/category/:category
 router.get('/leaderboard/category/:category', auth, async (req, res) => {
     try {
         // Whitelisted map only — no raw user input reaches the SQL
@@ -102,6 +103,61 @@ router.get('/leaderboard/category/:category', auth, async (req, res) => {
         if (!config) {
             return res.status(400).json({ message: 'Kategori tidak valid' });
         }
+
+        // Special case for pembina leaderboard: total IPT earned by the
+        // pembina's mentored students (approved prestasi only).
+        // Kelompok lomba counts exactly ONCE per group: rows linked by
+        // grup_lomba collapse to a single contribution; legacy rows without
+        // a group id fall back to matching (nama_lomba, juara, kategori).
+        // Individu rows (and legacy NULLs) sum normally — every member keeps
+        // full personal IPT; only the pembina total counts the group once.
+        // Pembina is joined by id (name match only as legacy fallback).
+        if (config.special) {
+            const [teachers] = await db.query(`
+                SELECT
+                    u.id,
+                    u.nama,
+                    u.nip,
+                    u.role,
+                    u.foto,
+                    u.detail as jabatan,
+                    COALESCE(SUM(x.point), 0) as total_point
+                FROM users u
+                LEFT JOIN (
+                    SELECT COALESCE(p.pembina_id, u2.id) AS pembina_ref, p.point
+                    FROM prestasi p
+                    LEFT JOIN users u2 ON u2.nama = p.pembina AND u2.role IN ('guru', 'pegawai')
+                    WHERE p.status = 'approved'
+                      AND p.pembina IS NOT NULL AND p.pembina <> ''
+                      AND (p.kategori_lomba IS NULL OR p.kategori_lomba <> 'kelompok')
+                    UNION ALL
+                    SELECT COALESCE(p.pembina_id, u2.id) AS pembina_ref, MAX(p.point) AS point
+                    FROM prestasi p
+                    LEFT JOIN users u2 ON u2.nama = p.pembina AND u2.role IN ('guru', 'pegawai')
+                    WHERE p.status = 'approved'
+                      AND p.kategori_lomba = 'kelompok'
+                      AND p.pembina IS NOT NULL AND p.pembina <> ''
+                    GROUP BY
+                        COALESCE(p.pembina_id, u2.id),
+                        COALESCE(p.grup_lomba, p.nama_lomba || '|' || COALESCE(p.juara, '') || '|' || COALESCE(p.kategori, ''))
+                ) x ON x.pembina_ref = u.id
+                WHERE u.role = 'guru' OR u.role = 'pegawai'
+                GROUP BY u.id, u.nama, u.nip, u.role, u.foto, u.detail
+                HAVING COALESCE(SUM(x.point), 0) > 0
+                ORDER BY COALESCE(SUM(x.point), 0) DESC, u.nama ASC
+                LIMIT 20
+            `);
+
+            console.log('Pembina leaderboard data:', teachers);
+
+            return res.json(teachers.map((teacher, index) => ({
+                ...teacher,
+                jabatan: teacher.jabatan || 'Guru', // Default to 'Guru' if empty
+                total_point: Number(teacher.total_point) || 0,
+                rank: index + 1
+            })));
+        }
+
         const order = config.order === 'ASC' ? 'ASC' : 'DESC';
 
         const [students] = await db.query(`

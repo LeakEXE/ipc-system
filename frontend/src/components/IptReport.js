@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
-import './IpcReport.css';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
+import './IptReport.css';
 
 function formatTahunPelajaran(date = new Date()) {
   const year = date.getFullYear();
@@ -17,10 +17,10 @@ function formatPrintDate(date = new Date()) {
   return date.toLocaleDateString('id-ID', options);
 }
 
-function IpcReport({ studentId, onClose }) {
-  const minIpc = useMinIpcPerGrade();
+function IptReport({ studentId, onClose }) {
+  const minIpt = useMinIptPerGrade();
   const [studentData, setStudentData] = useState(null);
-  const [ipcData, setIpcData] = useState(null);
+  const [iptData, setIptData] = useState(null);
   const [schoolConfig, setSchoolConfig] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,11 +34,11 @@ function IpcReport({ studentId, onClose }) {
       // Fetch student data
       const studentResponse = await api.get(`/users/${studentId}`);
 
-      // Fetch IPC card data (includes breakdown)
-      const ipcResponse = await api.get(`/reports/ipc-card/${studentId}`);
+      // Fetch IPT card data (includes breakdown)
+      const iptResponse = await api.get(`/reports/ipt-card/${studentId}`);
 
-      // Extract wali kelas data from IPC card response
-      const waliKelasData = ipcResponse.data.wali || { nama: null, nip: null };
+      // Extract wali kelas data from IPT card response
+      const waliKelasData = iptResponse.data.wali || { nama: null, nip: null };
 
       // Merge wali kelas data into student data
       const studentDataWithWali = {
@@ -48,7 +48,7 @@ function IpcReport({ studentId, onClose }) {
       };
 
       setStudentData(studentDataWithWali);
-      setIpcData(ipcResponse.data.points);
+      setIptData(iptResponse.data.points);
     } catch (error) {
       console.error('Error fetching report data:', error);
     } finally {
@@ -75,22 +75,22 @@ function IpcReport({ studentId, onClose }) {
   };
 
   // Use the breakdown total from backend for consistency
-  const calculatedTotal = ipcData ? (
-    (Number(ipcData.point_awal) || 80) +
-    (Number(ipcData.prestasi) || 0) +
-    (Number(ipcData.tanggung_jawab) || 0) +
-    (Number(ipcData.disiplin) || 0) +
-    (Number(ipcData.kepedulian) || 0) +
-    (Number(ipcData.kemandirian) || 0) +
-    (Number(ipcData.spiritual) || 0) +
-    (Number(ipcData.kejujuran) || 0) +
-    (Number(ipcData.kepercayaan_diri) || 0) +
-    (Number(ipcData.organisasi) || 0) +
-    (Number(ipcData.kepanitiaan) || 0) +
-    (Number(ipcData.event) || 0) -
-    (Number(ipcData.pelanggaran_ringan) || 0) -
-    (Number(ipcData.pelanggaran_sedang) || 0) -
-    (Number(ipcData.pelanggaran_berat) || 0)
+  const calculatedTotal = iptData ? (
+    (Number(iptData.point_awal) || 80) +
+    (Number(iptData.prestasi) || 0) +
+    (Number(iptData.tanggung_jawab) || 0) +
+    (Number(iptData.disiplin) || 0) +
+    (Number(iptData.kepedulian) || 0) +
+    (Number(iptData.kemandirian) || 0) +
+    (Number(iptData.spiritual) || 0) +
+    (Number(iptData.kejujuran) || 0) +
+    (Number(iptData.kepercayaan_diri) || 0) +
+    (Number(iptData.organisasi) || 0) +
+    (Number(iptData.kepanitiaan) || 0) +
+    (Number(iptData.event) || 0) -
+    (Number(iptData.pelanggaran_ringan) || 0) -
+    (Number(iptData.pelanggaran_sedang) || 0) -
+    (Number(iptData.pelanggaran_berat) || 0)
   ) : 0;
 
   // Format total with negative indicator
@@ -109,15 +109,15 @@ function IpcReport({ studentId, onClose }) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
 
-  if (!studentData || !ipcData) {
+  if (!studentData || !iptData) {
     return <div className="card">Data tidak tersedia</div>;
   }
 
   const total = calculatedTotal;
 
   return (
-    <div className="ipc-report-container">
-      <div className="ipc-report">
+    <div className="ipt-report-container">
+      <div className="ipt-report">
         {/* Header */}
         <div className="report-header">
           <img src="./public/logo.png" alt="Logo" />
@@ -127,7 +127,7 @@ function IpcReport({ studentId, onClose }) {
 
         {/* Title */}
         <div className="report-title">
-          <h2>INDIVIDUAL POINT CARD</h2>
+          <h2>INDIVIDUAL POINT TALENT</h2>
           <p>Tahun Ajaran {formatTahunPelajaran()}</p>
         </div>
 
@@ -159,12 +159,12 @@ function IpcReport({ studentId, onClose }) {
           </div>
         </div>
 
-        {/* IPC Points Table */}
-        <div className="ipc-table-container">
-          <table className="ipc-table">
+        {/* IPT Points Table */}
+        <div className="ipt-table-container">
+          <table className="ipt-table">
             <thead>
               <tr>
-                <th colSpan="2">Point IPC</th>
+                <th colSpan="2">Point IPT</th>
               </tr>
             </thead>
             <tbody>
@@ -173,7 +173,7 @@ function IpcReport({ studentId, onClose }) {
               </tr>
               <tr>
                 <td></td>
-                <td className="point-value">{ipcData?.point_awal || 80}</td>
+                <td className="point-value">{iptData?.point_awal || 80}</td>
               </tr>
 
               <tr className="section-header">
@@ -181,7 +181,7 @@ function IpcReport({ studentId, onClose }) {
               </tr>
               <tr>
                 <td><strong>Jumlah Prestasi</strong></td>
-                <td className="point-value subtotal"><strong>{Number(ipcData?.prestasi) || 0}</strong></td>
+                <td className="point-value subtotal"><strong>{Number(iptData?.prestasi) || 0}</strong></td>
               </tr>
 
               <tr className="section-header">
@@ -189,35 +189,35 @@ function IpcReport({ studentId, onClose }) {
               </tr>
               <tr>
                 <td>1. Tanggung Jawab</td>
-                <td className="point-value">{ipcData?.tanggung_jawab || 0}</td>
+                <td className="point-value">{iptData?.tanggung_jawab || 0}</td>
               </tr>
               <tr>
                 <td>2. Disiplin</td>
-                <td className="point-value">{ipcData?.disiplin || 0}</td>
+                <td className="point-value">{iptData?.disiplin || 0}</td>
               </tr>
               <tr>
                 <td>3. Kepedulian</td>
-                <td className="point-value">{ipcData?.kepedulian || 0}</td>
+                <td className="point-value">{iptData?.kepedulian || 0}</td>
               </tr>
               <tr>
                 <td>4. Kemandirian</td>
-                <td className="point-value">{ipcData?.kemandirian || 0}</td>
+                <td className="point-value">{iptData?.kemandirian || 0}</td>
               </tr>
               <tr>
                 <td>5. Spiritual</td>
-                <td className="point-value">{ipcData?.spiritual || 0}</td>
+                <td className="point-value">{iptData?.spiritual || 0}</td>
               </tr>
               <tr>
                 <td>6. Kejujuran</td>
-                <td className="point-value">{ipcData?.kejujuran || 0}</td>
+                <td className="point-value">{iptData?.kejujuran || 0}</td>
               </tr>
               <tr>
                 <td>7. Kepercayaan Diri</td>
-                <td className="point-value">{ipcData?.kepercayaan_diri || 0}</td>
+                <td className="point-value">{iptData?.kepercayaan_diri || 0}</td>
               </tr>
               <tr className="subtotal-row">
                 <td><strong>Jumlah Perkembangan Karakter</strong></td>
-                <td className="point-value subtotal"><strong>{(Number(ipcData?.tanggung_jawab) || 0) + (Number(ipcData?.disiplin) || 0) + (Number(ipcData?.kepedulian) || 0) + (Number(ipcData?.kemandirian) || 0) + (Number(ipcData?.spiritual) || 0) + (Number(ipcData?.kejujuran) || 0) + (Number(ipcData?.kepercayaan_diri) || 0)}</strong></td>
+                <td className="point-value subtotal"><strong>{(Number(iptData?.tanggung_jawab) || 0) + (Number(iptData?.disiplin) || 0) + (Number(iptData?.kepedulian) || 0) + (Number(iptData?.kemandirian) || 0) + (Number(iptData?.spiritual) || 0) + (Number(iptData?.kejujuran) || 0) + (Number(iptData?.kepercayaan_diri) || 0)}</strong></td>
               </tr>
 
               <tr className="section-header">
@@ -225,7 +225,7 @@ function IpcReport({ studentId, onClose }) {
               </tr>
               <tr>
                 <td></td>
-                <td className="point-value">{ipcData?.organisasi || 0}</td>
+                <td className="point-value">{iptData?.organisasi || 0}</td>
               </tr>
 
               <tr className="section-header">
@@ -233,7 +233,7 @@ function IpcReport({ studentId, onClose }) {
               </tr>
               <tr>
                 <td></td>
-                <td className="point-value">{ipcData?.kepanitiaan || 0}</td>
+                <td className="point-value">{iptData?.kepanitiaan || 0}</td>
               </tr>
 
               <tr className="section-header">
@@ -241,12 +241,12 @@ function IpcReport({ studentId, onClose }) {
               </tr>
               <tr>
                 <td></td>
-                <td className="point-value">{ipcData?.event || 0}</td>
+                <td className="point-value">{iptData?.event || 0}</td>
               </tr>
 
               <tr className="subtotal-row">
                 <td><strong>Jumlah Keaktifan</strong></td>
-                <td className="point-value subtotal"><strong>{(Number(ipcData?.organisasi) || 0) + (Number(ipcData?.kepanitiaan) || 0) + (Number(ipcData?.event) || 0)}</strong></td>
+                <td className="point-value subtotal"><strong>{(Number(iptData?.organisasi) || 0) + (Number(iptData?.kepanitiaan) || 0) + (Number(iptData?.event) || 0)}</strong></td>
               </tr>
 
               <tr className="section-header">
@@ -254,24 +254,24 @@ function IpcReport({ studentId, onClose }) {
               </tr>
               <tr>
                 <td>1. Ringan</td>
-                <td className="point-value negative">{ipcData?.pelanggaran_ringan || 0}</td>
+                <td className="point-value negative">{iptData?.pelanggaran_ringan || 0}</td>
               </tr>
               <tr>
                 <td>2. Sedang</td>
-                <td className="point-value negative">{ipcData?.pelanggaran_sedang || 0}</td>
+                <td className="point-value negative">{iptData?.pelanggaran_sedang || 0}</td>
               </tr>
               <tr>
                 <td>3. Berat</td>
-                <td className="point-value negative">{ipcData?.pelanggaran_berat || 0}</td>
+                <td className="point-value negative">{iptData?.pelanggaran_berat || 0}</td>
               </tr>
               <tr className="subtotal-row">
                 <td><strong>Jumlah Pelanggaran</strong></td>
-                <td className="point-value subtotal negative"><strong>{(Number(ipcData?.pelanggaran_ringan) || 0) + (Number(ipcData?.pelanggaran_sedang) || 0) + (Number(ipcData?.pelanggaran_berat) || 0)}</strong></td>
+                <td className="point-value subtotal negative"><strong>{(Number(iptData?.pelanggaran_ringan) || 0) + (Number(iptData?.pelanggaran_sedang) || 0) + (Number(iptData?.pelanggaran_berat) || 0)}</strong></td>
               </tr>
 
               <tr className="total-row">
-                <td><strong>TOTAL POINT IPC</strong></td>
-                <td className={`point-value total ${total < 0 || isBelowMinIpc(total, minIpcFor(minIpc, studentData?.kelas)) ? 'total-minus' : ''}`}><strong>{formatTotal(total)}</strong></td>
+                <td><strong>TOTAL POINT IPT</strong></td>
+                <td className={`point-value total ${total < 0 || isBelowMinIpt(total, minIptFor(minIpt, studentData?.kelas)) ? 'total-minus' : ''}`}><strong>{formatTotal(total)}</strong></td>
               </tr>
             </tbody>
           </table>
@@ -305,4 +305,4 @@ function IpcReport({ studentId, onClose }) {
   );
 }
 
-export default IpcReport;
+export default IptReport;

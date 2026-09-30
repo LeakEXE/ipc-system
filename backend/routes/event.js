@@ -21,7 +21,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage, fileFilter: evidenceFileFilter, limits: EVIDENCE_LIMITS });
 const { calculateEventPoints } = require('../constants/points');
-const { buildKeterangan } = require('../utils/ipc');
+const { buildKeterangan } = require('../utils/ipt');
 
 // Get all event (for approvals)
 router.get('/all', auth, async (req, res) => {
@@ -114,16 +114,16 @@ router.put('/:id/approve', auth, superAdminOnly, async (req, res) => {
         // Update status and photo path
         await db.query('UPDATE event SET status = ?, foto = ? WHERE id = ?', ['approved', newFotoPath, eventId]);
         
-        // Update user IPC (can go negative due to pelanggaran, can recover with event)
-        const [user] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [eventData.user_id]);
-        const ipcSebelum = user[0].ipc_total;
-        const ipcSesudah = ipcSebelum + eventData.point;
+        // Update user IPT (can go negative due to pelanggaran, can recover with event)
+        const [user] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [eventData.user_id]);
+        const iptSebelum = user[0].ipt_total;
+        const iptSesudah = iptSebelum + eventData.point;
         
-        await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, eventData.user_id]);
+        await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, eventData.user_id]);
         
         await db.query(
-            'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-            [eventData.user_id, 'event', eventData.point, ipcSebelum, ipcSesudah, buildKeterangan('event', eventData)]
+            'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+            [eventData.user_id, 'event', eventData.point, iptSebelum, iptSesudah, buildKeterangan('event', eventData)]
         );
 
         await db.query(
@@ -199,18 +199,18 @@ router.put('/:id', auth, upload.single('foto'), async (req, res) => {
             [nama, nis, kelas, grha, nama_event, tingkat, foto, point, eventId]
         );
 
-        // If status is approved and point changed, update user IPC
+        // If status is approved and point changed, update user IPT
         if (eventData.status === 'approved' && eventData.point !== point) {
             const pointDiff = point - eventData.point;
-            const [userBefore] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [eventData.user_id]);
-            const ipcSebelum = userBefore[0].ipc_total;
-            const ipcSesudah = ipcSebelum + pointDiff;
+            const [userBefore] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [eventData.user_id]);
+            const iptSebelum = userBefore[0].ipt_total;
+            const iptSesudah = iptSebelum + pointDiff;
             
-            await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, eventData.user_id]);
+            await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, eventData.user_id]);
             
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [eventData.user_id, 'event_update', pointDiff, ipcSebelum, ipcSesudah, `Update Event: ${nama_event}`]
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [eventData.user_id, 'event_update', pointDiff, iptSebelum, iptSesudah, `Update Event: ${nama_event}`]
             );
         }
 
@@ -239,18 +239,18 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
 
         const eventData = event[0];
 
-        // If approved, revert IPC change
+        // If approved, revert IPT change
         if (eventData.status === 'approved') {
-            const [user] = await db.query('SELECT ipc_total FROM users WHERE id = ?', [eventData.user_id]);
-            const ipcSebelum = user[0].ipc_total;
-            const ipcSesudah = ipcSebelum - eventData.point;
+            const [user] = await db.query('SELECT ipt_total FROM users WHERE id = ?', [eventData.user_id]);
+            const iptSebelum = user[0].ipt_total;
+            const iptSesudah = iptSebelum - eventData.point;
             
-            await db.query('UPDATE users SET ipc_total = ? WHERE id = ?', [ipcSesudah, eventData.user_id]);
+            await db.query('UPDATE users SET ipt_total = ? WHERE id = ?', [iptSesudah, eventData.user_id]);
             
-            // Log IPC history
+            // Log IPT history
             await db.query(
-                'INSERT INTO ipc_history (user_id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [eventData.user_id, 'event_delete', -eventData.point, ipcSebelum, ipcSesudah, `Delete Event: ${eventData.nama_event}`]
+                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+                [eventData.user_id, 'event_delete', -eventData.point, iptSebelum, iptSesudah, `Delete Event: ${eventData.nama_event}`]
             );
         }
 

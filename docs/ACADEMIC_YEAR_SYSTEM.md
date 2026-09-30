@@ -167,7 +167,7 @@ This should be called:
 
 3. **Managing Graduated Students**
    - Graduated students appear with "Lulus" badge
-   - Can still view their records and IPC history
+   - Can still view their records and IPT history
    - Can reactivate if marked graduated by mistake
 
 ### For Teachers

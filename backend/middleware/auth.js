@@ -34,6 +34,60 @@ const auth = async (req, res, next) => {
     }
 };
 
+// Paths that stay reachable while must_change_credentials is set:
+// login/logout plus reading + completing the first-login setup itself.
+const CREDENTIAL_SETUP_PATHS = new Set([
+    '/api/auth/login',
+    '/api/auth/logout',
+    '/api/profile/change-password',
+    '/api/profile/username',
+    '/api/profile/check-username'
+]);
+
+// Blocks every /api call (except the setup paths above and GET /api/profile)
+// for users that still must change their credentials on first login.
+// Must be mounted globally AFTER cookie parsing. Verifies the JWT inline
+// (instead of reusing auth()) so failed auth always terminates the request.
+const enforceCredentialsChanged = async (req, res, next) => {
+    try {
+        if (!req.path.startsWith('/api/')) {
+            return next();
+        }
+        if (CREDENTIAL_SETUP_PATHS.has(req.path)) {
+            return next();
+        }
+        if (req.method === 'GET' && req.path === '/api/profile') {
+            return next();
+        }
+        const token = req.cookies?.token || req.header('Authorization')?.replace('Bearer ', '');
+        if (!token) {
+            return res.status(401).json({ message: 'No token, authorization denied' });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET);
+        } catch {
+            return res.status(401).json({ message: 'Token is not valid' });
+        }
+        req.user = decoded;
+        const [rows] = await db.query(
+            'SELECT must_change_credentials FROM users WHERE id = ?',
+            [decoded.id]
+        );
+        if (rows.length > 0 && (rows[0].must_change_credentials === true || rows[0].must_change_credentials === 1)) {
+            return res.status(403).json({
+                message: 'Anda harus mengganti username dan password terlebih dahulu',
+                mustChangeCredentials: true
+            });
+        }
+        next();
+    } catch (error) {
+        if (!res.headersSent) {
+            res.status(500).json({ message: 'Server error' });
+        }
+    }
+};
+
 // Middleware to check if user has permission for specific input type
 const checkPermission = (permissionType) => {
   return async (req, res, next) => {
@@ -51,8 +105,8 @@ const checkPermission = (permissionType) => {
         return res.status(403).json({ message: 'Anda tidak memiliki izin untuk mengakses halaman ini.' });
       }
       
-      // For teachers, check individual permission
-      if (userRole === 'guru' && (permissionType === 'pelanggaran' || permissionType === 'perilaku')) {
+      // For teachers and pegawai, check individual permission
+      if ((userRole === 'guru' || userRole === 'pegawai') && (permissionType === 'pelanggaran' || permissionType === 'perilaku')) {
         const [permissions] = await db.query(
           `SELECT can_input_${permissionType} as has_permission FROM permissions WHERE user_id = ?`,
           [userId]
@@ -82,15 +136,41 @@ const superAdminOnly = (req, res, next) => {
     next();
 };
 
+// Superadmin OR guru explicitly granted approval permission
+// (permissions.can_approve, managed by superadmin in Izin Akun).
+// Siswa can never approve, even if a flag were ever set.
+const approverOnly = async (req, res, next) => {
+    try {
+        if (req.user.role === 'superadmin') {
+            return next();
+        }
+        if (req.user.role === 'siswa') {
+            return res.status(403).json({ message: 'Access denied. Approval permission required.' });
+        }
+        const [rows] = await db.query(
+            'SELECT can_approve FROM permissions WHERE user_id = ?',
+            [req.user.id]
+        );
+        const allowed = rows.length > 0 && (rows[0].can_approve === true || rows[0].can_approve === 1);
+        if (!allowed) {
+            return res.status(403).json({ message: 'Access denied. Approval permission required.' });
+        }
+        next();
+    } catch (error) {
+        console.error('Error checking approval permission:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 const teacherOrSuperAdmin = (req, res, next) => {
-    if (req.user.role !== 'superadmin' && req.user.role !== 'guru') {
+    if (req.user.role !== 'superadmin' && req.user.role !== 'guru' && req.user.role !== 'pegawai') {
         return res.status(403).json({ message: 'Access denied. Teacher or Superadmin only.' });
     }
     next();
 };
 
 const teacherOnly = (req, res, next) => {
-    if (req.user.role !== 'guru') {
+    if (req.user.role !== 'guru' && req.user.role !== 'pegawai') {
         return res.status(403).json({ message: 'Access denied. Teachers only.' });
     }
     next();
@@ -175,4 +255,4 @@ const checkInputAccess = (jenisInput) => {
   };
 };
 
-module.exports = { auth, superAdminOnly, teacherOrSuperAdmin, teacherOnly, checkInputAccess, checkPermission };
+module.exports = { auth, superAdminOnly, approverOnly, enforceCredentialsChanged, teacherOrSuperAdmin, teacherOnly, checkInputAccess, checkPermission };

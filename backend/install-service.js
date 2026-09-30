@@ -3,8 +3,8 @@ const path = require('path');
 
 // Create a new service object
 const svc = new Service({
-  name: 'IPC Backend Service',
-  description: 'IPC School System Backend API',
+  name: 'Mandara Talenta Backend Service',
+  description: 'Mandara Talenta Backend API',
   script: path.join(__dirname, 'server.js'),
   nodeOptions: [
     '--max-old-space-size=4096'
@@ -25,7 +25,7 @@ svc.on('install', () => {
 // Listen for the "start" event
 svc.on('start', () => {
   console.log('Service started successfully!');
-  console.log('Service name: IPC Backend Service');
+  console.log('Service name: Mandara Talenta Backend Service');
 });
 
 // Listen for the "alreadyinstalled" event

@@ -174,9 +174,9 @@ async function syncBiodataChange(userId, oldValues = {}) {
         }
     }
 
-    // Guru renames must also update the pembina name stored as free text.
+    // Guru/pegawai renames must also update the pembina name stored as free text.
     // Scoped by role so a student sharing a name with a teacher is never touched.
-    if (user.role === 'guru' && oldValues.nama && oldValues.nama !== user.nama) {
+    if ((user.role === 'guru' || user.role === 'pegawai') && oldValues.nama && oldValues.nama !== user.nama) {
         const pembinaTables = await getPembinaTables();
         for (const { table, hasId } of pembinaTables) {
             if (hasId) {

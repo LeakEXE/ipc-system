@@ -1,5 +1,5 @@
 /**
- * Maps ipc_history `keterangan` text to the source record's evidence photo.
+ * Maps ipt_history `keterangan` text to the source record's evidence photo.
  *
  * History rows carry no record id — only free text like `Prestasi: Lomba X`
  * (direct-submit path) or `Prestasi: Lomba X - Juara I Akademik` (approval

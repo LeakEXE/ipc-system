@@ -1,8 +1,8 @@
 import ExcelJS from 'exceljs';
 
 // ------------------------------------------------------------------
-// Individual Point Card Excel ("Raport IPC")
-// Layout direplika dari dokumen resmi sekolah (format_ipc.xlsx):
+// Individual Point Talent Excel ("Raport IPT")
+// Layout direplika dari dokumen resmi sekolah (format_ipt.xlsx):
 // kop di baris 1-8, judul 9-13, biodata 15-17, tabel point 19-37,
 // tanda tangan 40-46. Area cetak A1:L46, portrait A4.
 // Prestasi ditulis SATU baris gabungan (II, tanpa rincian Akademik/Non-Akademik).
@@ -17,11 +17,11 @@ const INK = 'FF000000';
 // Password proteksi sheet untuk SEMUA unduhan Excel /laporan-cetak
 // (kartu individual & leger kelas). Satu sumber supaya konsisten;
 // admin memakai password ini untuk Unprotect di Excel bila perlu mengedit.
-export const IPC_SHEET_PASSWORD = 'balimandara-ipc';
+export const IPT_SHEET_PASSWORD = 'balimandara-ipt';
 
 // Opsi proteksi: seluruh sel terkunci (anti-edit), pengguna hanya boleh
 // menyeleksi (lihat/salin) — seleksi tidak mengubah isi & tidak merusak cetak.
-const IPC_SHEET_PROTECT_OPTIONS = { selectLockedCells: true, selectUnlockedCells: true };
+const IPT_SHEET_PROTECT_OPTIONS = { selectLockedCells: true, selectUnlockedCells: true };
 
 // Lebar kolom A..L (satuan Excel) sesuai dokumen asli
 const COL_WIDTHS = [4.22, 4.11, 3.33, 3.22, 6.78, 7.78, 14.22, 7.22, 2.11, 3.22, 12, 4.44];
@@ -53,7 +53,7 @@ const MERGES = [
   'B30:G30', 'H30:K30', 'B31:G31', 'H31:K31', 'B32:G32', 'H32:K32',
 ];
 // Merge bagian bawah tabel (baris 35: header VII, item, dan TOTAL) dibangun
-// dinamis di createIndividualIpcExcelBuffer sesuai jumlah tingkat pelanggaran.
+// dinamis di createIndividualIptExcelBuffer sesuai jumlah tingkat pelanggaran.
 
 const ROW_HEIGHTS = {
   9: 14.55, 10: 1.95, 11: 15.6, 12: 15.6, 13: 15.6, 14: 15.6,
@@ -156,7 +156,7 @@ export function calcIndividualPoints(points = {}) {
   const pelanggaranSedang = num(points.pelanggaran_sedang);
   const pelanggaranBerat = num(points.pelanggaran_berat);
   const pelanggaranLainnya = num(points.pelanggaran_lainnya);
-  // Pelanggaran disimpan negatif (pengurangan) — sama seperti users.ipc_total —
+  // Pelanggaran disimpan negatif (pengurangan) — sama seperti users.ipt_total —
   // jadi total di sini cukup penjumlahan biasa, bukan pengurangan.
   const total =
     pointAwal +
@@ -173,26 +173,26 @@ export function calcIndividualPoints(points = {}) {
   };
 }
 
-// Susun workbook "Raport IPC" untuk satu siswa.
+// Susun workbook "Raport IPT" untuk satu siswa.
 // school: { school_name, principal_name, principal_nip }
 // kopImage: { base64, extension, dims: { w, h } } | null
-export async function createIndividualIpcExcelBuffer({
+export async function createIndividualIptExcelBuffer({
   student = {},
   wali = null,
   points = {},
-  ipcTotal = null,
+  iptTotal = null,
   school = {},
   semester = 'Ganjil', // sama seperti default backend (templateData semester)
   tahunPelajaran = null,
   tanggal = null,
   kopImage = null,
-  minIpc = 0, // batas minimum Total IPC (0 = nonaktif)
+  minIpt = 0, // batas minimum Total IPT (0 = nonaktif)
 }) {
   const p = calcIndividualPoints(points);
-  const total = ipcTotal ?? p.total;
+  const total = iptTotal ?? p.total;
   // Total di bawah batas minimum diketak merah — hanya nilai Total (kolom H),
-  // label "TOTAL POINT IPC" tetap hitam.
-  const totalBelowMin = Number(minIpc) > 0 && Number(total) < Number(minIpc);
+  // label "TOTAL POINT IPT" tetap hitam.
+  const totalBelowMin = Number(minIpt) > 0 && Number(total) < Number(minIpt);
 
   // Baris Pelanggaran: SEMUA tingkat dari konfigurasi, urut dari point
   // terkecil (-1) ke terbesar. Fallback lama: Ringan/Sedang/Berat.
@@ -208,7 +208,7 @@ export async function createIndividualIpcExcelBuffer({
   const nRows = langgarRows.length;
   const delta = nRows - 3;              // >0: tabel & blok bawah memanjang
   const lastItemRow = 33 + nRows;       // baris item terakhir Pelanggaran
-  const totalRow = 37 + delta;          // baris TOTAL POINT IPC
+  const totalRow = 37 + delta;          // baris TOTAL POINT IPT
   const signRow = 40 + delta;           // baris awal blok tanda tangan
 
   const schoolName = school.school_name || 'SMK Negeri Bali Mandara';
@@ -221,7 +221,7 @@ export async function createIndividualIpcExcelBuffer({
   const tgl = tanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Raport IPC', {
+  const sheet = workbook.addWorksheet('Raport IPT', {
     pageSetup: { paperSize: 9, orientation: 'portrait'},
   });
   // Margin sesuai cetakan resmi: kiri 3,6 cm, kanan 0,2 cm.
@@ -258,7 +258,7 @@ export async function createIndividualIpcExcelBuffer({
   }
 
   // Judul
-  setCell(sheet, 'A9', 'INDIVIDUAL POINT CARD', { font: F_TITLE, alignment: A_CENTER });
+  setCell(sheet, 'A9', 'INDIVIDUAL POINT TALENT', { font: F_TITLE, alignment: A_CENTER });
   setCell(sheet, 'A11', String(schoolName).toUpperCase(), { font: F_TITLE, alignment: A_CENTER });
   setCell(sheet, 'A12', 'TAHUN PELAJARAN', { font: F_TITLE, alignment: A_CENTER });
   setCell(sheet, 'A13', tp, { font: F_TITLE, alignment: A_CENTER });
@@ -286,7 +286,7 @@ export async function createIndividualIpcExcelBuffer({
   setCell(sheet, 'K17', semester, { font: F_TEXT, alignment: A_LEFT });
 
   // Tabel point
-  setCell(sheet, 'A19', 'Point IPC', { font: F_BOLD, alignment: A_CENTER });
+  setCell(sheet, 'A19', 'Point IPT', { font: F_BOLD, alignment: A_CENTER });
   setCell(sheet, 'H19', 'Point', { font: F_BOLD, alignment: A_CENTER });
 
   setCell(sheet, 'A20', 'I', { font: F_BOLD, alignment: A_CENTER });
@@ -333,7 +333,7 @@ export async function createIndividualIpcExcelBuffer({
     setCell(sheet, `H${r}`, val, { font: F_TEXT, alignment: A_CENTER });
   });
 
-  setCell(sheet, `A${totalRow}`, 'TOTAL POINT IPC', { font: F_BOLD, alignment: A_CENTER });
+  setCell(sheet, `A${totalRow}`, 'TOTAL POINT IPT', { font: F_BOLD, alignment: A_CENTER });
   setCell(sheet, `H${totalRow}`, total, { font: totalBelowMin ? F_BOLD_RED : F_BOLD, alignment: A_CENTER });
 
   styleTableGrid(sheet, totalRow);
@@ -379,7 +379,7 @@ export async function createIndividualIpcExcelBuffer({
   }
 
   // Proteksi tulis: dokumen resmi — kunci sebelum tulis buffer.
-  await sheet.protect(IPC_SHEET_PASSWORD, IPC_SHEET_PROTECT_OPTIONS);
+  await sheet.protect(IPT_SHEET_PASSWORD, IPT_SHEET_PROTECT_OPTIONS);
 
   return workbook.xlsx.writeBuffer();
 }

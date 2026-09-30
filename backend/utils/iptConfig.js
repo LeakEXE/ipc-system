@@ -1,12 +1,12 @@
 const db = require('../config/database');
 
-// Cache for IPC configurations to avoid frequent database queries
+// Cache for IPT configurations to avoid frequent database queries
 let configCache = null;
 let cacheTimestamp = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Get IPC configuration from database with caching.
+ * Get IPT configuration from database with caching.
  * Shape matches what calculators expect:
  * - prestasi.byKey['tingkat|juara'] / prestasi.juara[juara] (legacy)
  * - organisasi.byKey['org|jabatan'] / organisasi.jabatan[jabatan] (legacy)
@@ -15,7 +15,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
  * - pelanggaran.jenis[level]
  * - perilaku.byKey['character|rating'] / perilaku.karakter[rating] (legacy)
  */
-async function getIPCConfig() {
+async function getIPTConfig() {
   const now = Date.now();
 
   if (configCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) {
@@ -25,7 +25,7 @@ async function getIPCConfig() {
   try {
     const [configs] = await db.query(`
       SELECT category, field1, field2, point_value
-      FROM ipc_config
+      FROM ipt_config
       WHERE is_active = TRUE
       ORDER BY category, field1, field2
     `);
@@ -75,7 +75,7 @@ async function getIPCConfig() {
     // Merge pelanggaran levels from dedicated table
     try {
       const [levels] = await db.query(
-        `SELECT name, point_value FROM ipc_pelanggaran_level WHERE is_active = TRUE`
+        `SELECT name, point_value FROM ipt_pelanggaran_level WHERE is_active = TRUE`
       );
       levels.forEach((level) => {
         grouped.pelanggaran.jenis[level.name] = level.point_value;
@@ -88,7 +88,7 @@ async function getIPCConfig() {
     cacheTimestamp = now;
     return grouped;
   } catch (error) {
-    console.error('Error fetching IPC configuration:', error);
+    console.error('Error fetching IPT configuration:', error);
     return getDefaultConfig();
   }
 }
@@ -101,48 +101,48 @@ function clearConfigCache() {
   cacheTimestamp = null;
 }
 
-// ---- IPC awal defaults per grade (X, XI, XII) ----
-// Stored in ipc_config (category='pengaturan', field1='ipc_awal_X' | ...).
+// ---- IPT awal defaults per grade (X, XI, XII) ----
+// Stored in ipt_config (category='pengaturan', field1='ipt_awal_X' | ...).
 // Queried directly (uncached): values change rarely but must be fresh when
-// creating students. Missing rows fall back to IPC_AWAL_DEFAULT.
-const IPC_AWAL_DEFAULT = 80;
-const IPC_AWAL_GRADES = ['X', 'XI', 'XII'];
-const ipcAwalField = (grade) => `ipc_awal_${grade}`;
+// creating students. Missing rows fall back to IPT_AWAL_DEFAULT.
+const IPT_AWAL_DEFAULT = 80;
+const IPT_AWAL_GRADES = ['X', 'XI', 'XII'];
+const iptAwalField = (grade) => `ipt_awal_${grade}`;
 
 function gradePrefixFromKelas(kelas) {
   if (!kelas) return null;
   const prefix = String(kelas).split(' ')[0].toUpperCase();
-  return IPC_AWAL_GRADES.includes(prefix) ? prefix : null;
+  return IPT_AWAL_GRADES.includes(prefix) ? prefix : null;
 }
 
-async function getIpcAwalPerGrade() {
-  const result = { X: IPC_AWAL_DEFAULT, XI: IPC_AWAL_DEFAULT, XII: IPC_AWAL_DEFAULT };
+async function getIptAwalPerGrade() {
+  const result = { X: IPT_AWAL_DEFAULT, XI: IPT_AWAL_DEFAULT, XII: IPT_AWAL_DEFAULT };
   try {
     const [rows] = await db.query(
-      `SELECT field1, point_value FROM ipc_config
-       WHERE category = 'pengaturan' AND field1 IN ('ipc_awal_X', 'ipc_awal_XI', 'ipc_awal_XII')`
+      `SELECT field1, point_value FROM ipt_config
+       WHERE category = 'pengaturan' AND field1 IN ('ipt_awal_X', 'ipt_awal_XI', 'ipt_awal_XII')`
     );
     for (const row of rows) {
-      const grade = String(row.field1).replace('ipc_awal_', '');
+      const grade = String(row.field1).replace('ipt_awal_', '');
       const value = parseInt(row.point_value, 10);
-      if (IPC_AWAL_GRADES.includes(grade) && Number.isFinite(value) && value >= 0) {
+      if (IPT_AWAL_GRADES.includes(grade) && Number.isFinite(value) && value >= 0) {
         result[grade] = value;
       }
     }
   } catch (error) {
-    console.error('Error fetching IPC awal per grade:', error.message);
+    console.error('Error fetching IPT awal per grade:', error.message);
   }
   return result;
 }
 
-async function getIpcAwalForGrade(gradePrefix) {
-  if (!IPC_AWAL_GRADES.includes(gradePrefix)) return IPC_AWAL_DEFAULT;
-  const all = await getIpcAwalPerGrade();
+async function getIptAwalForGrade(gradePrefix) {
+  if (!IPT_AWAL_GRADES.includes(gradePrefix)) return IPT_AWAL_DEFAULT;
+  const all = await getIptAwalPerGrade();
   return all[gradePrefix];
 }
 
 /**
- * Get default configuration (fallback) — aligned with ipc_config_schema.sql
+ * Get default configuration (fallback) — aligned with ipt_config_schema.sql
  */
 function getDefaultConfig() {
   return {
@@ -210,12 +210,12 @@ function getDefaultConfig() {
 }
 
 module.exports = {
-  getIPCConfig,
+  getIPTConfig,
   clearConfigCache,
   getDefaultConfig,
-  getIpcAwalPerGrade,
-  getIpcAwalForGrade,
+  getIptAwalPerGrade,
+  getIptAwalForGrade,
   gradePrefixFromKelas,
-  IPC_AWAL_DEFAULT,
-  IPC_AWAL_GRADES
+  IPT_AWAL_DEFAULT,
+  IPT_AWAL_GRADES
 };

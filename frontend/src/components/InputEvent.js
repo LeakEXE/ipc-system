@@ -30,8 +30,12 @@ function InputEvent() {
   const [showForm, setShowForm] = useState(false);
   const [allEvent, setAllEvent] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const [students, setStudents] = useState([]);
 
@@ -68,9 +72,11 @@ function InputEvent() {
 
     fetchUserSubmissions();
     checkAccess();
-    fetchIpcConfig();
+    fetchIptConfig();
     if (user.role === 'superadmin') {
       fetchAllEvent();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllEvent(); }).catch(() => setCanApprove(false));
     }
   }, []);
 
@@ -115,17 +121,17 @@ function InputEvent() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.event || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
       const firstTingkat = response.data.event?.[0]?.field1;
       if (firstTingkat) {
         setFormData(prev => {
@@ -135,7 +141,7 @@ function InputEvent() {
         setCalculatedPoint(response.data.event[0].point_value || 0);
       }
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
@@ -150,7 +156,7 @@ function InputEvent() {
   };
 
   const calculatePoint = (tingkat) => {
-    const eventConfigs = ipcConfig['event'] || [];
+    const eventConfigs = iptConfig['event'] || [];
     const config = eventConfigs.find(
       c => c.field1 === tingkat
     );
@@ -277,7 +283,7 @@ function InputEvent() {
         data.append('foto', fileToUpload);
       }
 
-      await api.post('/approvals-v2/event/submit', data);
+      await api.post('/approvals/event/submit', data);
 
       setMessage(userRole === 'superadmin' ? 'Event berhasil ditambahkan!' : 'Event berhasil diajukan untuk persetujuan!');
       if (userRole === 'superadmin') {
@@ -307,17 +313,74 @@ function InputEvent() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
     try {
       await api.delete(`/event/${id}`);
       setMessage('Event berhasil dihapus!');
+      setSelectedIndexIds((prev) => prev.filter((selectedId) => selectedId !== id));
       fetchAllEvent();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menghapus event');
     }
+  };
+
+  const filteredEvent = allEvent.filter((item) => {
+    const query = indexSearch.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      String(item.nama || '').toLowerCase().includes(query) ||
+      String(item.nis || '').toLowerCase().includes(query) ||
+      String(item.nama_event || '').toLowerCase().includes(query) ||
+      String(item.tingkat || '').toLowerCase().includes(query) ||
+      String(item.point ?? '').toLowerCase().includes(query) ||
+      String(item.status || '').toLowerCase().includes(query)
+    );
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds((prev) =>
+      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredEvent.map((item) => item.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIndexIds.includes(id));
+    if (allSelected) {
+      setSelectedIndexIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds((prev) => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data event? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/event/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(ok + ' data event berhasil dihapus!');
+    } else {
+      setMessage(ok + ' data event berhasil dihapus, ' + failed.length + ' gagal dihapus.');
+    }
+    fetchAllEvent();
   };
 
   const handleEditFileChange = (e) => {
@@ -391,6 +454,8 @@ function InputEvent() {
     );
   };
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (checkingAccess) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -410,7 +475,7 @@ function InputEvent() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Event</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Event'}
           </button>
@@ -424,9 +489,39 @@ function InputEvent() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Event</h3>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={indexSearch}
+              onChange={(e) => setIndexSearch(e.target.value)}
+              placeholder="Cari nama, NIS, event, tingkat..."
+              style={{ padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', minWidth: '240px' }}
+            />
+            {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', color: '#666' }}>{selectedIndexIds.length} dipilih</span>
+                <button
+                  className="btn btn-danger"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                >
+                  {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setSelectedIndexIds([])}
+                  disabled={bulkDeleting}
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                >
+                  Batal
+                </button>
+              </div>
+            )}
+          </div>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
@@ -434,6 +529,21 @@ function InputEvent() {
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={filteredEvent.length > 0 && filteredEvent.every((item) => selectedIndexIds.includes(item.id))}
+                          ref={(el) => {
+                            if (el) {
+                              const filteredIds = filteredEvent.map((item) => item.id);
+                              el.indeterminate = filteredIds.some((id) => selectedIndexIds.includes(id)) && !filteredIds.every((id) => selectedIndexIds.includes(id));
+                            }
+                          }}
+                          onChange={toggleSelectAllFiltered}
+                        />
+                      </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -445,8 +555,17 @@ function InputEvent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allEvent.map(item => (
+                  {filteredEvent.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedIndexIds.includes(item.id)}
+                            onChange={() => toggleSelectIndex(item.id)}
+                          />
+                        </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -462,28 +581,32 @@ function InputEvent() {
                         >
                           Edit
                         </button>
-                        <button 
-                          className="btn btn-danger" 
-                          onClick={() => handleDelete(item.id)} 
-                          style={{ padding: '3px 8px', fontSize: '12px' }}
-                        >
-                          Hapus
-                        </button>
+                        {userRole === 'superadmin' && (
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => handleDelete(item.id)}
+                            style={{ padding: '3px 8px', fontSize: '12px' }}
+                          >
+                            Hapus
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {allEvent.length === 0 && (
+              {allEvent.length === 0 ? (
                 <p className="text-muted">Belum ada data event</p>
-              )}
+              ) : filteredEvent.length === 0 ? (
+                <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+              ) : null}
             </div>
           )}
         </div>
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -606,7 +729,7 @@ function InputEvent() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan didapatkan:
+            Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 
@@ -723,8 +846,8 @@ function InputEvent() {
         </div>
       </EditModal>
 
-      {/* Submission History */}
-      {submissions.length > 0 && (
+      {/* Submission History - Hidden for approvers */}
+      {!canApprove && submissions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Event</h3>
           <div style={{ display: 'grid', gap: '10px' }}>

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
+import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import { GraduationCap, TriangleAlert, ClipboardList, User } from 'lucide-react';
 
-function getIpcDetailRows(points = {}) {
+function getIptDetailRows(points = {}) {
   return [
     ['Prestasi', Number(points.prestasi) || 0],
     ['Perilaku', ['tanggung_jawab', 'disiplin', 'kepedulian', 'kemandirian', 'spiritual', 'kejujuran', 'kepercayaan_diri']
@@ -17,14 +17,14 @@ function getIpcDetailRows(points = {}) {
 }
 
 function TeacherWaliKelas() {
-  const minIpc = useMinIpcPerGrade();
+  const minIpt = useMinIptPerGrade();
   const [classData, setClassData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showStudentDetail, setShowStudentDetail] = useState(false);
-  const [loadingIpcDetail, setLoadingIpcDetail] = useState(false);
-  const [ipcDetail, setIpcDetail] = useState(null);
+  const [loadingIptDetail, setLoadingIptDetail] = useState(false);
+  const [iptDetail, setIptDetail] = useState(null);
 
   useEffect(() => {
     fetchMyClass();
@@ -45,23 +45,23 @@ function TeacherWaliKelas() {
   const handleViewStudentDetail = async (student) => {
     setSelectedStudent(student);
     setShowStudentDetail(true);
-    setLoadingIpcDetail(true);
-    setIpcDetail(null);
+    setLoadingIptDetail(true);
+    setIptDetail(null);
     
     try {
-      const response = await api.get(`/reports/ipc-card/${student.id}`);
-      setIpcDetail(response.data);
+      const response = await api.get(`/reports/ipt-card/${student.id}`);
+      setIptDetail(response.data);
     } catch (error) {
-      console.error('Error fetching IPC detail:', error);
+      console.error('Error fetching IPT detail:', error);
     } finally {
-      setLoadingIpcDetail(false);
+      setLoadingIptDetail(false);
     }
   };
 
-  const getIpcColor = (ipc) => {
-    if (ipc >= 90) return 'var(--success-color)';
-    if (ipc >= 80) return 'var(--teal)';
-    if (ipc >= 70) return 'var(--warning-color)';
+  const getIptColor = (ipt) => {
+    if (ipt >= 90) return 'var(--success-color)';
+    if (ipt >= 80) return 'var(--teal)';
+    if (ipt >= 70) return 'var(--warning-color)';
     return 'var(--danger-color)';
   };
 
@@ -204,7 +204,7 @@ function TeacherWaliKelas() {
           <div style={{ color: 'var(--slate)' }}>Total Pelanggaran</div>
         </div>
 
-        {/* Rata-rata IPC */}
+        {/* Rata-rata IPT */}
         <div style={{ 
           background: 'var(--bg-primary)',
           padding: '20px',
@@ -215,11 +215,11 @@ function TeacherWaliKelas() {
           <div style={{ 
             fontSize: '36px', 
             fontWeight: 'bold', 
-            color: getIpcColor(classData.rataRataIPC)
+            color: getIptColor(classData.rataRataIPT)
           }}>
-            {classData.rataRataIPC}
+            {classData.rataRataIPT}
           </div>
-          <div style={{ color: 'var(--slate)' }}>Rata-rata IPC Kelas</div>
+          <div style={{ color: 'var(--slate)' }}>Rata-rata IPT Kelas</div>
         </div>
       </div>
 
@@ -243,7 +243,7 @@ function TeacherWaliKelas() {
                 <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid var(--border-color)' }}>Event</th>
                 <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid var(--border-color)' }}>Organisasi</th>
                 <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid var(--border-color)' }}>Pelanggaran</th>
-                <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid var(--border-color)' }}>IPC</th>
+                <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid var(--border-color)' }}>IPT</th>
                 <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid var(--border-color)' }}>Aksi</th>
               </tr>
             </thead>
@@ -303,13 +303,13 @@ function TeacherWaliKelas() {
                   </td>
                   <td style={{ padding: '12px', textAlign: 'center' }}>
                     <span style={{ 
-                      backgroundColor: isBelowMinIpc(student.ipc_total || 80, minIpcFor(minIpc, classData?.kelas)) ? 'var(--danger-color)' : getIpcColor(student.ipc_total),
+                      backgroundColor: isBelowMinIpt(student.ipt_total || 80, minIptFor(minIpt, classData?.kelas)) ? 'var(--danger-color)' : getIptColor(student.ipt_total),
                       color: 'white',
                       padding: '4px 8px',
                       borderRadius: '4px',
                       fontWeight: 'bold'
                     }}>
-                      {student.ipc_total || 80}
+                      {student.ipt_total || 80}
                     </span>
                   </td>
                   <td style={{ padding: '12px', textAlign: 'center' }}>
@@ -482,8 +482,8 @@ function TeacherWaliKelas() {
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-              <h4 style={{ marginBottom: '15px', color: 'var(--purple)' }}>Detail IPC</h4>
-              {loadingIpcDetail ? (
+              <h4 style={{ marginBottom: '15px', color: 'var(--purple)' }}>Detail IPT</h4>
+              {loadingIptDetail ? (
                 <div style={{ textAlign: 'center', padding: '20px' }}>
                   <div className="spinner" style={{ 
                     border: '4px solid var(--bg-tertiary)',
@@ -494,16 +494,16 @@ function TeacherWaliKelas() {
                     animation: 'spin 1s linear infinite',
                     margin: '0 auto 10px'
                   }}></div>
-                  <p style={{ color: 'var(--slate)' }}>Memuat detail IPC...</p>
+                  <p style={{ color: 'var(--slate)' }}>Memuat detail IPT...</p>
                 </div>
-              ) : ipcDetail ? (
+              ) : iptDetail ? (
                 <div style={{ 
                   backgroundColor: 'var(--bg-tertiary)', 
                   padding: '15px', 
                   borderRadius: '8px'
                 }}>
                   <div style={{ display: 'grid', gap: '8px', marginBottom: '15px' }}>
-                    {getIpcDetailRows(ipcDetail.points || {}).map(([label, value]) => (
+                    {getIptDetailRows(iptDetail.points || {}).map(([label, value]) => (
                       <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '8px', backgroundColor: 'white', borderRadius: '4px' }}>
                         <span style={{ fontWeight: '500' }}>{label}</span>
                         <strong style={{ color: value < 0 ? 'var(--danger-color)' : 'var(--success-color)' }}>
@@ -514,15 +514,15 @@ function TeacherWaliKelas() {
                   </div>
                   <div style={{ 
                     padding: '15px', 
-                    backgroundColor: isBelowMinIpc(selectedStudent.ipc_total || 80, minIpcFor(minIpc, classData?.kelas)) ? 'var(--danger-color)' : getIpcColor(selectedStudent.ipc_total || 80), 
+                    backgroundColor: isBelowMinIpt(selectedStudent.ipt_total || 80, minIptFor(minIpt, classData?.kelas)) ? 'var(--danger-color)' : getIptColor(selectedStudent.ipt_total || 80), 
                     borderRadius: '8px',
                     textAlign: 'center',
                     color: 'white'
                   }}>
                     <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '5px' }}>
-                      {selectedStudent.ipc_total || 80}
+                      {selectedStudent.ipt_total || 80}
                     </div>
-                    <div style={{ fontSize: '14px' }}>Total IPC</div>
+                    <div style={{ fontSize: '14px' }}>Total IPT</div>
                   </div>
                 </div>
               ) : (
@@ -533,7 +533,7 @@ function TeacherWaliKelas() {
                   textAlign: 'center',
                   color: 'var(--amber-text)'
                 }}>
-                  Gagal memuat detail IPC
+                  Gagal memuat detail IPT
                 </div>
               )}
             </div>

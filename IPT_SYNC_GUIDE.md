@@ -1,14 +1,14 @@
-# IPC Synchronization Guide
+# IPT Synchronization Guide
 
 ## Overview
 
-This guide explains how to synchronize IPC (Individual Point Card) points across all output formats (Database, PDF Preview, Excel Export, etc.) to ensure consistency.
+This guide explains how to synchronize IPT (Individual Point Talent) points across all output formats (Database, PDF Preview, Excel Export, etc.) to ensure consistency.
 
 ## Problem Statement
 
-Due to various calculation methods in different parts of the system, IPC totals might become inconsistent:
-- **Database**: Stores the current IPC total in `users.ipc_total`
-- **PDF Preview**: Calculates IPC from breakdown data
+Due to various calculation methods in different parts of the system, IPT totals might become inconsistent:
+- **Database**: Stores the current IPT total in `users.ipt_total`
+- **PDF Preview**: Calculates IPT from breakdown data
 - **Excel Export**: Uses its own calculation logic
 - **Frontend Display**: May use cached or calculated values
 
@@ -19,13 +19,13 @@ Due to various calculation methods in different parts of the system, IPC totals 
 #### Script-based Sync
 ```bash
 cd backend
-node scripts/syncIpc.js
+node scripts/syncIpt.js
 ```
 
 This script:
-- Recalculates IPC for all students using the `buildIpcCardBreakdown` function
-- Updates `users.ipc_total` with the correct calculated value
-- Logs all changes in `ipc_history` table
+- Recalculates IPT for all students using the `buildIptCardBreakdown` function
+- Updates `users.ipt_total` with the correct calculated value
+- Logs all changes in `ipt_history` table
 - Provides detailed summary of changes
 
 #### API-based Sync
@@ -35,13 +35,13 @@ New API endpoints added for manual synchronization:
 ```http
 GET /api/sync/status
 ```
-Returns list of students with IPC discrepancies.
+Returns list of students with IPT discrepancies.
 
 **Sync Single Student:**
 ```http
 POST /api/sync/student/:userId
 ```
-Synchronizes IPC for a specific student.
+Synchronizes IPT for a specific student.
 
 **Sync All Students:**
 ```http
@@ -55,7 +55,7 @@ Updated all frontend components to use the **same calculation formula** as backe
 
 #### Formula:
 ```
-Total IPC = Point Awal (80) 
+Total IPT = Point Awal (80) 
             + Prestasi Akademik 
             + Prestasi Non-Akademik 
             + Tanggung Jawab 
@@ -74,16 +74,16 @@ Total IPC = Point Awal (80)
 ```
 
 #### Components Updated:
-- `IpcReport.js` - PDF preview calculation
-- `IpcPrintSheet.js` - Print sheet calculation  
+- `IptReport.js` - PDF preview calculation
+- `IptPrintSheet.js` - Print sheet calculation  
 - `LaporanCetak.js` - Excel and PDF export calculation
 - Added `kemandirian` field that was missing in some calculations
 - Added `point_awal` column in exports for transparency
 
 ### 3. Database Consistency
 
-The `buildIpcCardBreakdown` function in `backend/utils/ipcCardBreakdown.js` is now the **single source of truth** for:
-- All IPC calculations
+The `buildIptCardBreakdown` function in `backend/utils/iptCardBreakdown.js` is now the **single source of truth** for:
+- All IPT calculations
 - PDF generation
 - Excel exports
 - API responses
@@ -110,27 +110,27 @@ The `buildIpcCardBreakdown` function in `backend/utils/ipcCardBreakdown.js` is n
 2. Navigate to backend directory
 3. Run sync script:
    ```bash
-   cd /path/to/ipc-system/backend
-   node scripts/syncIpc.js
+   cd /path/to/mandara-talenta/backend
+   node scripts/syncIpt.js
    ```
 
 ### For Developers:
 
-When adding new features that affect IPC:
-1. **Always** use `buildIpcCardBreakdown` for calculations
-2. **Never** implement custom IPC calculation logic
+When adding new features that affect IPT:
+1. **Always** use `buildIptCardBreakdown` for calculations
+2. **Never** implement custom IPT calculation logic
 3. **Test** against the sync status endpoint
 4. **Run** the sync script after database changes
 
 ## Troubleshooting
 
-### Issue: PDF shows different IPC than Excel
+### Issue: PDF shows different IPT than Excel
 
 **Solution**: Run the sync script to ensure database has correct values, then regenerate exports.
 
-### Issue: Negative IPC values
+### Issue: Negative IPT values
 
-**Solution**: This is expected behavior when pelanggaran points exceed total points. The system allows negative IPC.
+**Solution**: This is expected behavior when pelanggaran points exceed total points. The system allows negative IPT.
 
 ### Issue: Missing kemandirian field
 
@@ -141,7 +141,7 @@ When adding new features that affect IPC:
 1. **Run sync after major data changes**: After bulk imports or manual database changes
 2. **Check sync status regularly**: Monitor for discrepancies
 3. **Use API for automation**: Integrate sync into deployment process
-4. **Keep calculation logic centralized**: Always use `buildIpcCardBreakdown`
+4. **Keep calculation logic centralized**: Always use `buildIptCardBreakdown`
 
 ## Future Improvements
 
@@ -153,7 +153,7 @@ When adding new features that affect IPC:
 
 ## Technical Details
 
-### IPC Calculation Constants
+### IPT Calculation Constants
 
 Located in `backend/constants/points.js`:
 - Prestasi points based on juara and kategori
@@ -164,19 +164,19 @@ Located in `backend/constants/points.js`:
 
 ### Database Tables Involved
 
-- `users` - Stores `ipc_total` and `ipc_awal`
+- `users` - Stores `ipt_total` and `ipt_awal`
 - `prestasi` - Academic and non-academic achievements
 - `organisasi` - Organization memberships
 - `kepanitiaan` - Committee participation
 - `event` - Event participation
 - `pelanggaran` - Violations (subtract points)
 - `perilaku` - Character assessments (add points)
-- `ipc_history` - Audit trail of IPC changes
+- `ipt_history` - Audit trail of IPT changes
 
 ## Support
 
-For issues or questions about IPC synchronization:
+For issues or questions about IPT synchronization:
 1. Check this guide first
 2. Review sync status endpoint
-3. Check ipc_history for recent changes
+3. Check ipt_history for recent changes
 4. Contact system administrator with details

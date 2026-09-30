@@ -1,4 +1,4 @@
-# 🔒 Website IPC Bali Mandara — Dokumentasi Keamanan
+# 🔒 Mandara Talenta — Dokumentasi Keamanan
 
 > File ini mendeskripsikan langkah keamanan yang **benar-benar diimplementasikan**
 > di kode (`backend/middleware/security.js`, `backend/middleware/auth.js`,
@@ -27,7 +27,7 @@
 - [ ] `SUPERADMIN_SETUP_PASSWORD` dihapus dari `.env` setelah login pertama berhasil
 - [ ] `NODE_ENV=production` + HTTPS (wajib bila diakses lewat internet)
 - [ ] `ALLOWED_ORIGINS` diisi domain produksi, tanpa wildcard
-- [ ] Backup berkala database `ipc_school` + folder `backend/uploads/`
+- [ ] Backup berkala database `ipt_school` + folder `backend/uploads/`
 - [ ] `npm audit` berkala; update dependensi tiap kuartal
 - [ ] Jangan commit file `.env` ke git (sudah ada di `.gitignore` — verifikasi)
 

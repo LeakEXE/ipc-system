@@ -1,7 +1,7 @@
--- PostgreSQL schema for IPC School System
--- Import into an existing database, e.g.:  psql -d ipc_school -f skema.sql
+-- PostgreSQL schema for Mandara Talenta
+-- Import into an existing database, e.g.:  psql -d ipt_school -f skema.sql
 -- This file contains all tables: users, permissions, prestasi, organisasi, event, pelanggaran, perilaku,
--- ipc configuration, activity_logs, ipc_history, wali_kelas_assignment, approvals,
+-- ipt configuration, activity_logs, ipt_history, wali_kelas_assignment, approvals,
 -- notifications, input_access_control
 --
 -- Notes vs the legacy MySQL schema:
@@ -29,25 +29,28 @@ CREATE TABLE users (
     nama VARCHAR(100) NOT NULL,
     nis VARCHAR(20) UNIQUE,
     nip VARCHAR(20) UNIQUE,
+    username VARCHAR(20) UNIQUE,
     password VARCHAR(255) NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('superadmin', 'guru', 'siswa')),
+    role TEXT NOT NULL CHECK (role IN ('superadmin', 'guru', 'pegawai', 'siswa')),
     kelas VARCHAR(50),
     grha VARCHAR(50),
     jurusan VARCHAR(50) DEFAULT NULL,
     wali_kelas VARCHAR(50),
-    ipc_total INTEGER DEFAULT 80,
-    ipc_awal INTEGER DEFAULT 80,
+    ipt_total INTEGER DEFAULT 80,
+    ipt_awal INTEGER DEFAULT 80,
     alamat TEXT,
     no_hp VARCHAR(20),
     detail VARCHAR(100),
     foto VARCHAR(255),
     tahun_pelajaran VARCHAR(9) DEFAULT NULL,
     is_graduated SMALLINT DEFAULT 0,
+    must_change_credentials BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TRIGGER trg_users_updated BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower ON users (LOWER(username));
 
 -- Permissions Table
 DROP TABLE IF EXISTS permissions CASCADE;
@@ -61,48 +64,49 @@ CREATE TABLE permissions (
     can_input_pelanggaran BOOLEAN DEFAULT FALSE,
     can_input_perilaku BOOLEAN DEFAULT FALSE,
     can_view_all_data BOOLEAN DEFAULT FALSE,
+    can_approve BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- ==================== IPC CONFIGURATION TABLES ====================
+-- ==================== IPT CONFIGURATION TABLES ====================
 
--- Organization options managed by IPC configuration
-DROP TABLE IF EXISTS ipc_organisasi CASCADE;
-CREATE TABLE ipc_organisasi (
+-- Organization options managed by IPT configuration
+DROP TABLE IF EXISTS ipt_organisasi CASCADE;
+CREATE TABLE ipt_organisasi (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TRIGGER trg_ipc_organisasi_updated BEFORE UPDATE ON ipc_organisasi
+CREATE TRIGGER trg_ipt_organisasi_updated BEFORE UPDATE ON ipt_organisasi
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-DROP TABLE IF EXISTS ipc_perilaku_karakter CASCADE;
-CREATE TABLE ipc_perilaku_karakter (
+DROP TABLE IF EXISTS ipt_perilaku_karakter CASCADE;
+CREATE TABLE ipt_perilaku_karakter (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TRIGGER trg_ipc_perilaku_karakter_updated BEFORE UPDATE ON ipc_perilaku_karakter
+CREATE TRIGGER trg_ipt_perilaku_karakter_updated BEFORE UPDATE ON ipt_perilaku_karakter
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-DROP TABLE IF EXISTS ipc_perilaku_tingkat CASCADE;
-CREATE TABLE ipc_perilaku_tingkat (
+DROP TABLE IF EXISTS ipt_perilaku_tingkat CASCADE;
+CREATE TABLE ipt_perilaku_tingkat (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TRIGGER trg_ipc_perilaku_tingkat_updated BEFORE UPDATE ON ipc_perilaku_tingkat
+CREATE TRIGGER trg_ipt_perilaku_tingkat_updated BEFORE UPDATE ON ipt_perilaku_tingkat
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Main IPC point configuration
-DROP TABLE IF EXISTS ipc_config CASCADE;
-CREATE TABLE ipc_config (
+-- Main IPT point configuration
+DROP TABLE IF EXISTS ipt_config CASCADE;
+CREATE TABLE ipt_config (
     id SERIAL PRIMARY KEY,
     category VARCHAR(50) NOT NULL,
     field1 VARCHAR(100) DEFAULT NULL,
@@ -117,13 +121,13 @@ CREATE TABLE ipc_config (
     CONSTRAINT unique_config UNIQUE (category, field1, field2, field3),
     FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 );
-CREATE TRIGGER trg_ipc_config_updated BEFORE UPDATE ON ipc_config
+CREATE TRIGGER trg_ipt_config_updated BEFORE UPDATE ON ipt_config
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Pelanggaran configuration is split into levels and coarse details
-DROP TABLE IF EXISTS ipc_pelanggaran_detail CASCADE;
-DROP TABLE IF EXISTS ipc_pelanggaran_level CASCADE;
-CREATE TABLE ipc_pelanggaran_level (
+DROP TABLE IF EXISTS ipt_pelanggaran_detail CASCADE;
+DROP TABLE IF EXISTS ipt_pelanggaran_level CASCADE;
+CREATE TABLE ipt_pelanggaran_level (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     point_value INTEGER NOT NULL,
@@ -132,20 +136,20 @@ CREATE TABLE ipc_pelanggaran_level (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TRIGGER trg_ipc_pelanggaran_level_updated BEFORE UPDATE ON ipc_pelanggaran_level
+CREATE TRIGGER trg_ipt_pelanggaran_level_updated BEFORE UPDATE ON ipt_pelanggaran_level
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TABLE ipc_pelanggaran_detail (
+CREATE TABLE ipt_pelanggaran_detail (
     id SERIAL PRIMARY KEY,
     name VARCHAR(150) NOT NULL UNIQUE,
     level_id INTEGER NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (level_id) REFERENCES ipc_pelanggaran_level(id)
+    FOREIGN KEY (level_id) REFERENCES ipt_pelanggaran_level(id)
         ON UPDATE CASCADE ON DELETE RESTRICT
 );
-CREATE TRIGGER trg_ipc_pelanggaran_detail_updated BEFORE UPDATE ON ipc_pelanggaran_detail
+CREATE TRIGGER trg_ipt_pelanggaran_detail_updated BEFORE UPDATE ON ipt_pelanggaran_detail
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ==================== DATA TABLES ====================
@@ -164,11 +168,16 @@ CREATE TABLE prestasi (
     grha VARCHAR(50),
     juara VARCHAR(100) NOT NULL,
     kategori VARCHAR(100) NOT NULL,
+    jenis_lomba VARCHAR(50) DEFAULT 'akademik',
+    kategori_lomba VARCHAR(50) DEFAULT 'individu',
+    pembina_id INTEGER NULL,
+    grup_lomba VARCHAR(64) NULL,
     point INTEGER NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     rejection_reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (pembina_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Organisasi Table
@@ -284,15 +293,15 @@ CREATE TABLE activity_logs (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- IPC History Table
-DROP TABLE IF EXISTS ipc_history CASCADE;
-CREATE TABLE ipc_history (
+-- IPT History Table
+DROP TABLE IF EXISTS ipt_history CASCADE;
+CREATE TABLE ipt_history (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     jenis_perubahan TEXT NOT NULL CHECK (jenis_perubahan IN ('prestasi', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran', 'perilaku', 'initial', 'manual', 'sync', 'prestasi_update', 'perilaku_update', 'event_update', 'event_delete', 'perilaku_delete')),
     point_change INTEGER NOT NULL,
-    ipc_sebelum INTEGER NOT NULL,
-    ipc_sesudah INTEGER NOT NULL,
+    ipt_sebelum INTEGER NOT NULL,
+    ipt_sesudah INTEGER NOT NULL,
     keterangan TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -328,6 +337,9 @@ CREATE TABLE prestasi_approvals (
     grha VARCHAR(50),
     juara VARCHAR(50),
     kategori VARCHAR(50),
+    jenis_lomba VARCHAR(50) DEFAULT 'akademik',
+    kategori_lomba VARCHAR(50) DEFAULT 'individu',
+    grup_lomba VARCHAR(64) NULL,
     foto VARCHAR(255),
     pembina_status TEXT DEFAULT 'pending' CHECK (pembina_status IN ('pending', 'approved', 'rejected')),
     superadmin_status TEXT DEFAULT 'pending' CHECK (superadmin_status IN ('pending', 'approved', 'rejected')),
@@ -446,7 +458,7 @@ CREATE TABLE siswa_approvals (
     kelas VARCHAR(50),
     grha VARCHAR(50),
     password_hash VARCHAR(255),
-    ipc_awal INTEGER DEFAULT 80,
+    ipt_awal INTEGER DEFAULT 80,
     created_by INTEGER NOT NULL,
     superadmin_status TEXT DEFAULT 'pending' CHECK (superadmin_status IN ('pending', 'approved', 'rejected')),
     superadmin_approved_at TIMESTAMP NULL,
@@ -531,7 +543,7 @@ DROP TABLE IF EXISTS school_config CASCADE;
 CREATE TABLE school_config (
     id SERIAL PRIMARY KEY,
     school_name VARCHAR(255) DEFAULT 'SMK Negeri Bali Mandara',
-    school_description VARCHAR(255) DEFAULT 'Sistem Individual Point Card (IPC) • Panel Admin',
+    school_description VARCHAR(255) DEFAULT 'Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) • Panel Admin',
     principal_name VARCHAR(255) DEFAULT 'Nama Kepala Sekolah',
     principal_nip VARCHAR(50) DEFAULT '',
     logo_url VARCHAR(255) DEFAULT NULL,
@@ -549,7 +561,7 @@ DROP TABLE IF EXISTS input_access_control CASCADE;
 CREATE TABLE input_access_control (
     id SERIAL PRIMARY KEY,
     control_type TEXT NOT NULL CHECK (control_type IN ('global', 'role')),
-    role_target TEXT DEFAULT 'all' CHECK (role_target IN ('siswa', 'guru', 'all')),
+    role_target TEXT DEFAULT 'all' CHECK (role_target IN ('siswa', 'guru', 'pegawai', 'all')),
     jenis_input TEXT NOT NULL CHECK (jenis_input IN ('prestasi', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran', 'perilaku', 'all')),
     is_enabled BOOLEAN DEFAULT TRUE,
     updated_by INTEGER NOT NULL,
@@ -565,7 +577,7 @@ DROP TABLE IF EXISTS input_access_logs CASCADE;
 CREATE TABLE input_access_logs (
     id SERIAL PRIMARY KEY,
     control_type TEXT NOT NULL CHECK (control_type IN ('global', 'role', 'individual')),
-    target_role TEXT DEFAULT NULL CHECK (target_role IN ('siswa', 'guru', 'all')),
+    target_role TEXT DEFAULT NULL CHECK (target_role IN ('siswa', 'guru', 'pegawai', 'all')),
     target_user_id INTEGER DEFAULT NULL,
     jenis_input VARCHAR(50) NOT NULL,
     action TEXT NOT NULL CHECK (action IN ('enabled', 'disabled')),
@@ -580,6 +592,10 @@ CREATE TABLE input_access_logs (
 -- Indexes for Prestasi Approvals
 CREATE INDEX idx_prestasi_user ON prestasi_approvals(user_id);
 CREATE INDEX idx_prestasi_status ON prestasi_approvals(pembina_status, superadmin_status);
+CREATE INDEX IF NOT EXISTS idx_prestasi_approvals_grup ON prestasi_approvals(grup_lomba);
+
+-- Indexes for Prestasi (pembina leaderboard joins/filters on pembina_id)
+CREATE INDEX IF NOT EXISTS idx_prestasi_pembina ON prestasi(pembina_id);
 
 -- Indexes for Event Approvals
 CREATE INDEX idx_event_user ON event_approvals(user_id);
@@ -603,7 +619,7 @@ CREATE INDEX idx_jurusan ON users(jurusan);
 -- Insert Superadmin Account
 -- Note: replace the placeholder hash with a real bcrypt hash of your password:
 --   node -e "console.log(require('bcryptjs').hashSync('admin123', 10))"
-INSERT INTO users (nama, nis, password, role, ipc_total, ipc_awal) VALUES
+INSERT INTO users (nama, nis, password, role, ipt_total, ipt_awal) VALUES
 ('Super Admin', 'ADMIN001', '$2a$10$YourHashedPasswordHere', 'superadmin', 0, 0);
 
 -- Insert default values for input access control (semua input diaktifkan secara default)
@@ -615,15 +631,15 @@ INSERT INTO input_access_control (control_type, role_target, jenis_input, is_ena
 ('global', 'all', 'pelanggaran', TRUE, 1),
 ('global', 'all', 'perilaku', TRUE, 1);
 
--- ==================== DEFAULT IPC POINT CONFIGURATION ====================
--- Matches KonfigurasiIPC reset-defaults / ipc_config_schema.sql
+-- ==================== DEFAULT IPT POINT CONFIGURATION ====================
+-- Matches KonfigurasiIPT reset-defaults / ipt_config_schema.sql
 
-INSERT INTO ipc_pelanggaran_level (name, point_value, description, is_active) VALUES
+INSERT INTO ipt_pelanggaran_level (name, point_value, description, is_active) VALUES
 ('ringan', -1, 'Point untuk pelanggaran ringan', TRUE),
 ('sedang', -5, 'Point untuk pelanggaran sedang', TRUE),
 ('berat', -25, 'Point untuk pelanggaran berat', TRUE);
 
-INSERT INTO ipc_config (category, field1, field2, field3, point_value, description) VALUES
+INSERT INTO ipt_config (category, field1, field2, field3, point_value, description) VALUES
 -- PRESTASI (field1=tingkat, field2=juara)
 ('prestasi', 'sekolah', 'juara_i', NULL, 5, 'Juara I tingkat sekolah'),
 ('prestasi', 'sekolah', 'juara_ii', NULL, 4, 'Juara II tingkat sekolah'),
@@ -742,23 +758,23 @@ INSERT INTO ipc_config (category, field1, field2, field3, point_value, descripti
 ('event', 'nasional', NULL, NULL, 10, 'Event tingkat nasional'),
 ('event', 'internasional', NULL, NULL, 12, 'Event tingkat internasional'),
 -- PENGATURAN (bukan poin: field1 = nama pengaturan, point_value = nilainya; 0 = nonaktif)
-('pengaturan', 'min_ipc', NULL, NULL, 0, 'Batas minimum Total IPC - total di bawah nilai ini ditampilkan merah (0 = nonaktif)');
+('pengaturan', 'min_ipt', NULL, NULL, 0, 'Batas minimum Total IPT - total di bawah nilai ini ditampilkan merah (0 = nonaktif)');
 
-INSERT INTO ipc_organisasi (name)
-SELECT DISTINCT field1 FROM ipc_config
+INSERT INTO ipt_organisasi (name)
+SELECT DISTINCT field1 FROM ipt_config
 WHERE category = 'organisasi' AND field1 IS NOT NULL
 ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO ipc_perilaku_karakter (name) VALUES
+INSERT INTO ipt_perilaku_karakter (name) VALUES
 ('tanggung_jawab'), ('disiplin'), ('kepedulian'), ('kemandirian'),
 ('spiritual'), ('kejujuran'), ('kepercayaan_diri')
 ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO ipc_perilaku_tingkat (name) VALUES
+INSERT INTO ipt_perilaku_tingkat (name) VALUES
 ('sangat baik'), ('baik'), ('cukup baik'), ('kurang baik')
 ON CONFLICT (name) DO NOTHING;
 
-CREATE INDEX IF NOT EXISTS idx_ipc_config_category ON ipc_config(category);
-CREATE INDEX IF NOT EXISTS idx_ipc_config_field1 ON ipc_config(field1);
-CREATE INDEX IF NOT EXISTS idx_ipc_config_field2 ON ipc_config(field2);
-CREATE INDEX IF NOT EXISTS idx_ipc_config_active ON ipc_config(is_active);
+CREATE INDEX IF NOT EXISTS idx_ipt_config_category ON ipt_config(category);
+CREATE INDEX IF NOT EXISTS idx_ipt_config_field1 ON ipt_config(field1);
+CREATE INDEX IF NOT EXISTS idx_ipt_config_field2 ON ipt_config(field2);
+CREATE INDEX IF NOT EXISTS idx_ipt_config_active ON ipt_config(is_active);

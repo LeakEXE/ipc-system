@@ -13,20 +13,20 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
   console.log('Navbar - User:', user);
   console.log('Navbar - User Role:', user?.role);
 
-  // Fetch pending approvals count for superadmin
+  // Fetch pending approvals count for superadmin + approved approvers
   useEffect(() => {
-    if (user?.role === 'superadmin') {
+    if (user?.role === 'superadmin' || permissions?.can_approve) {
       fetchPendingCount();
 
       // Refresh count every 30 seconds
       const interval = setInterval(fetchPendingCount, 30000);
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, permissions]);
 
-  // Fetch unread notifications count for siswa/guru
+  // Fetch unread notifications count for siswa/guru/pegawai
   useEffect(() => {
-    if (user?.role === 'siswa' || user?.role === 'guru') {
+    if (user?.role === 'siswa' || user?.role === 'guru' || user?.role === 'pegawai') {
       fetchUnreadCount();
 
       // Refresh count every 30 seconds
@@ -37,14 +37,14 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
 
   // Refresh unread count when navigating to notifications page
   useEffect(() => {
-    if (location.pathname === '/notifications' && (user?.role === 'siswa' || user?.role === 'guru')) {
+    if (location.pathname === '/notifications' && (user?.role === 'siswa' || user?.role === 'guru' || user?.role === 'pegawai')) {
       fetchUnreadCount();
     }
   }, [location.pathname, user]);
 
   const fetchPendingCount = async () => {
     try {
-      const response = await api.get('/approvals-v2/pending-count');
+      const response = await api.get('/approvals/pending-count');
       setPendingCount(response.data.total || 0);
     } catch (error) {
       console.error('Error fetching pending count:', error);
@@ -53,7 +53,7 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await api.get('/approvals-v2/notifications/count');
+      const response = await api.get('/approvals/notifications/count');
       setUnreadCount(response.data.count || 0);
     } catch (error) {
       console.error('Error fetching unread count:', error);
@@ -104,22 +104,23 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
     { path: '/input-kepanitiaan', label: 'Kepanitiaan', show: true },
     { path: '/input-event', label: 'Event', show: true },
     // Pelanggaran and Perilaku: superadmin always has access, guru needs permission
-    { path: '/input-pelanggaran', label: 'Pelanggaran', show: user?.role === 'superadmin' || (user?.role === 'guru' && permissions?.can_input_pelanggaran) },
-    { path: '/input-perilaku', label: 'Perilaku', show: user?.role === 'superadmin' || (user?.role === 'guru' && permissions?.can_input_perilaku) },
+    { path: '/input-pelanggaran', label: 'Pelanggaran', show: user?.role === 'superadmin' || ((user?.role === 'guru' || user?.role === 'pegawai') && permissions?.can_input_pelanggaran) },
+    { path: '/input-perilaku', label: 'Perilaku', show: user?.role === 'superadmin' || ((user?.role === 'guru' || user?.role === 'pegawai') && permissions?.can_input_perilaku) },
     // Kelola Akun for superadmin
     { path: '/kelola-akun', label: 'Kelola Akun', show: user?.role === 'superadmin' },
-    { path: '/konfigurasi-ipc', label: 'Konfigurasi IPC', show: user?.role === 'superadmin' },
+    { path: '/konfigurasi-ipt', label: 'Konfigurasi IPT', show: user?.role === 'superadmin' },
     { path: '/school-config', label: 'Konfigurasi Sekolah', show: user?.role === 'superadmin' },
     { path: '/izin-akun', label: 'Izin Akun', show: user?.role === 'superadmin' },
-    // Approvals for superadmin only
-    { path: '/approvals', label: 'Approvals', show: user?.role === 'superadmin' },
+    // Approvals for superadmin + users granted approval permission
+    { path: '/approvals', label: 'Approvals', show: user?.role === 'superadmin' || permissions?.can_approve },
     { path: '/drive-viewer', label: 'File Manager', show: user?.role === 'superadmin' },
-    { path: '/notifications', label: 'Notifikasi', show: user?.role === 'siswa' || user?.role === 'guru' },
+    { path: '/notifications', label: 'Notifikasi', show: user?.role === 'siswa' || user?.role === 'guru' || user?.role === 'pegawai' },
     { path: '/logs', label: 'Logs', show: user?.role === 'superadmin' },
     { path: '/wali-kelas', label: 'Manajemen Wali Kelas', show: user?.role === 'superadmin' },
-    { path: '/wali-kelas-guru', label: 'Wali Kelas', show: user?.role === 'guru' && user?.wali_kelas },
+    { path: '/wali-kelas-guru', label: 'Wali Kelas', show: (user?.role === 'guru' || user?.role === 'pegawai') && user?.wali_kelas },
     { path: '/leaderboard', label: 'Peringkat', show: true },
-    { path: '/laporan-cetak', label: 'Laporan & Cetak', show: user?.role === 'superadmin' || (user?.role === 'guru' && user?.wali_kelas) },
+    { path: '/cari-siswa', label: 'Cari Siswa', show: user?.role === 'superadmin' || user?.role === 'guru' || user?.role === 'pegawai' },
+    { path: '/laporan-cetak', label: 'Laporan & Cetak', show: user?.role === 'superadmin' || ((user?.role === 'guru' || user?.role === 'pegawai') && user?.wali_kelas) },
     { path: '/profile', label: 'Profile', show: true }
   ];
 
@@ -134,7 +135,7 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
       <div className={`sidebar ${isMobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-header-content">
-            <h2>Website IPC</h2>
+            <h2>Mandara Talenta</h2>
             <p>Bali Mandara</p>
           </div>
         </div>
@@ -209,7 +210,7 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
         <div className="sidebar-footer">
           <div className="sidebar-footer-label">Dikembangkan oleh</div>
           <div className="sidebar-footer-names">Dean Putra & Agus Kariada</div>
-          <div className="sidebar-footer-year">© 2026 · Website IPC Bali Mandara</div>
+          <div className="sidebar-footer-year">© 2026 · Mandara Talenta</div>
         </div>
       </div>
       <div className={`sidebar-overlay ${isMobileMenuOpen ? 'active' : ''}`} onClick={toggleMobileMenu}></div>

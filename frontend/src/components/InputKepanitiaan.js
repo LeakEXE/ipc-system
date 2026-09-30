@@ -22,6 +22,7 @@ function InputKepanitiaan() {
   const [loading, setLoading] = useState(false);
   const [submissions, setSubmissions] = useState([]);
   const [userRole, setUserRole] = useState('');
+  const [canApprove, setCanApprove] = useState(false);
   const [hasAccess, setHasAccess] = useState(true);
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [accessMessage, setAccessMessage] = useState('');
@@ -29,8 +30,11 @@ function InputKepanitiaan() {
   const [showForm, setShowForm] = useState(false);
   const [allKepanitiaan, setAllKepanitiaan] = useState([]);
   const [loadingIndex, setLoadingIndex] = useState(false);
+  const [indexSearch, setIndexSearch] = useState('');
+  const [selectedIndexIds, setSelectedIndexIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const editModal = useEditModal();
-  const [ipcConfig, setIpcConfig] = useState([]);
+  const [iptConfig, setIptConfig] = useState([]);
   const [calculatedPoint, setCalculatedPoint] = useState(0);
   const [students, setStudents] = useState([]);
 
@@ -67,9 +71,11 @@ function InputKepanitiaan() {
 
     fetchUserSubmissions();
     checkAccess();
-    fetchIpcConfig();
+    fetchIptConfig();
     if (user.role === 'superadmin') {
       fetchAllKepanitiaan();
+    } else if (user.role === 'guru' || user.role === 'pegawai') {
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllKepanitiaan(); }).catch(() => setCanApprove(false));
     }
   }, []);
 
@@ -114,19 +120,19 @@ function InputKepanitiaan() {
 
   const fetchUserSubmissions = async () => {
     try {
-      const response = await api.get('/approvals-v2/user-submissions');
+      const response = await api.get('/approvals/user-submissions');
       setSubmissions(response.data.kepanitiaan || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
     }
   };
 
-  const fetchIpcConfig = async () => {
+  const fetchIptConfig = async () => {
     try {
-      const response = await api.get('/ipc-config/active');
-      setIpcConfig(response.data);
+      const response = await api.get('/ipt-config/active');
+      setIptConfig(response.data);
     } catch (error) {
-      console.error('Error fetching IPC config:', error);
+      console.error('Error fetching IPT config:', error);
     }
   };
 
@@ -141,7 +147,7 @@ function InputKepanitiaan() {
   };
 
   const calculatePoint = (jabatan) => {
-    const kepanitiaanConfigs = ipcConfig['kepanitiaan'] || [];
+    const kepanitiaanConfigs = iptConfig['kepanitiaan'] || [];
     const config = kepanitiaanConfigs.find(
       c => c.field1 === jabatan
     );
@@ -268,7 +274,7 @@ function InputKepanitiaan() {
         data.append('foto', fileToUpload);
       }
 
-      await api.post('/approvals-v2/kepanitiaan/submit', data);
+      await api.post('/approvals/kepanitiaan/submit', data);
 
       setMessage(userRole === 'superadmin' ? 'Kepanitiaan berhasil ditambahkan!' : 'Kepanitiaan berhasil diajukan untuk persetujuan!');
       if (userRole === 'superadmin') {
@@ -298,17 +304,75 @@ function InputKepanitiaan() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPC akan dikembalikan jika sudah disetujui.')) {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini? IPT akan dikembalikan jika sudah disetujui.')) {
       return;
     }
 
     try {
       await api.delete(`/kepanitiaan/${id}`);
       setMessage('Kepanitiaan berhasil dihapus!');
+      setSelectedIndexIds((prev) => prev.filter((selectedId) => selectedId !== id));
       fetchAllKepanitiaan();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menghapus kepanitiaan');
     }
+  };
+
+  const filteredKepanitiaan = allKepanitiaan.filter((item) => {
+    const query = indexSearch.trim().toLowerCase();
+    if (!query) return true;
+    const fields = [
+      item.nama,
+      item.nis,
+      item.kategori_kepanitiaan,
+      item.jabatan_kepanitiaan,
+      item.point,
+      item.status
+    ];
+    return fields.some((field) => String(field ?? '').toLowerCase().includes(query));
+  });
+
+  const toggleSelectIndex = (id) => {
+    setSelectedIndexIds((prev) =>
+      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredKepanitiaan.map((item) => item.id);
+    const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIndexIds.includes(id));
+    if (allFilteredSelected) {
+      setSelectedIndexIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+    } else {
+      setSelectedIndexIds((prev) => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIndexIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Hapus ${ids.length} data kepanitiaan? IPT akan dikembalikan untuk data yang sudah disetujui.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete('/kepanitiaan/' + id);
+        ok += 1;
+      } catch (error) {
+        failed.push(id);
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIndexIds(failed);
+    if (failed.length === 0) {
+      setMessage(`${ok} data kepanitiaan berhasil dihapus!`);
+    } else {
+      setMessage(`${ok} data kepanitiaan berhasil dihapus! ${failed.length} gagal dihapus.`);
+    }
+    fetchAllKepanitiaan();
   };
 
   const handleEditFileChange = (e) => {
@@ -382,6 +446,8 @@ function InputKepanitiaan() {
     );
   };
 
+  const showStaffIndex = userRole === 'superadmin' || canApprove;
+
   if (checkingAccess) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -401,7 +467,7 @@ function InputKepanitiaan() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Input Kepanitiaan</h2>
-        {userRole === 'superadmin' && (
+        {showStaffIndex && (
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Tutup Form' : '+ Input Kepanitiaan'}
           </button>
@@ -415,16 +481,63 @@ function InputKepanitiaan() {
       )}
       
       {/* Index Display for Superadmin */}
-      {(userRole === 'superadmin' && !showForm) && (
+      {(showStaffIndex && !showForm) && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Index Kepanitiaan</h3>
           {loadingIndex ? (
             <div className="loading"><div className="spinner"></div></div>
           ) : (
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  value={indexSearch}
+                  onChange={(e) => setIndexSearch(e.target.value)}
+                  placeholder="Cari nama, NIS, jenis, jabatan..."
+                  style={{ padding: '8px 12px', border: '1px solid #d0d0d0', borderRadius: '4px', minWidth: '240px' }}
+                />
+                {userRole === 'superadmin' && selectedIndexIds.length > 0 && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: '#555' }}>{selectedIndexIds.length} dipilih</span>
+                    <button
+                      className="btn btn-danger"
+                      onClick={handleBulkDelete}
+                      disabled={bulkDeleting}
+                      style={{ padding: '6px 12px', fontSize: '13px' }}
+                    >
+                      {bulkDeleting ? 'Menghapus...' : `Hapus terpilih (${selectedIndexIds.length})`}
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => setSelectedIndexIds([])}
+                      disabled={bulkDeleting}
+                      style={{ padding: '6px 12px', fontSize: '13px' }}
+                    >
+                      Batal
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               <table className="table">
                 <thead>
                   <tr>
+                    {userRole === 'superadmin' && (
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={filteredKepanitiaan.length > 0 && filteredKepanitiaan.every((item) => selectedIndexIds.includes(item.id))}
+                        ref={(el) => {
+                          if (el) {
+                            const filteredIds = filteredKepanitiaan.map((item) => item.id);
+                            const selectedFiltered = filteredIds.filter((id) => selectedIndexIds.includes(id));
+                            el.indeterminate = selectedFiltered.length > 0 && selectedFiltered.length < filteredIds.length;
+                          }
+                        }}
+                        onChange={toggleSelectAllFiltered}
+                      />
+                    </th>
+                    )}
                     <th>Tanggal</th>
                     <th>Nama</th>
                     <th>NIS</th>
@@ -436,8 +549,17 @@ function InputKepanitiaan() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allKepanitiaan.map(item => (
+                  {filteredKepanitiaan.map(item => (
                     <tr key={item.id}>
+                      {userRole === 'superadmin' && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIndexIds.includes(item.id)}
+                          onChange={() => toggleSelectIndex(item.id)}
+                        />
+                      </td>
+                      )}
                       <td>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                       <td>{item.nama}</td>
                       <td>{item.nis}</td>
@@ -453,6 +575,7 @@ function InputKepanitiaan() {
                         >
                           Edit
                         </button>
+                        {userRole === 'superadmin' && (
                         <button 
                           className="btn btn-danger" 
                           onClick={() => handleDelete(item.id)} 
@@ -460,21 +583,27 @@ function InputKepanitiaan() {
                         >
                           Hapus
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {allKepanitiaan.length === 0 && (
+              {allKepanitiaan.length === 0 ? (
                 <p className="text-muted">Belum ada data kepanitiaan</p>
+              ) : (
+                filteredKepanitiaan.length === 0 && (
+                  <p className="text-muted">Tidak ada data yang cocok dengan pencarian</p>
+                )
               )}
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}
       
       {/* Input Form - Show for non-superadmin or when showForm is true */}
-      {(userRole !== 'superadmin' || showForm) && (
+      {((userRole !== 'superadmin' && !canApprove) || showForm) && (
         <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
@@ -597,7 +726,7 @@ function InputKepanitiaan() {
           marginTop: '12px'
         }}>
           <label style={{ fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-            Point IPC yang akan didapatkan:
+            Point IPT yang akan didapatkan:
           </label>
           <span style={{ 
             fontSize: '18px', 
@@ -705,8 +834,8 @@ function InputKepanitiaan() {
         </div>
       </EditModal>
 
-      {/* Submission History */}
-      {submissions.length > 0 && (
+      {/* Submission History - Hidden for approvers */}
+      {!canApprove && submissions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '15px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Riwayat Pengajuan Kepanitiaan</h3>
           <div style={{ display: 'grid', gap: '10px' }}>

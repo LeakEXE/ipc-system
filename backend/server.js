@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
+const { enforceCredentialsChanged } = require('./middleware/auth');
 const { UPLOAD_DIR } = require('./utils/paths');
 const { 
   securityHeaders, 
@@ -100,6 +101,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Cookie parser middleware - required for HTTP-only cookie authentication
 app.use(cookieParser());
 
+// First-login enforcement: users flagged must_change_credentials can only
+// reach login/logout plus the credential-setup endpoints (see middleware/auth.js)
+app.use(enforceCredentialsChanged);
+
 // Static folder for uploads - with CORS headers for images
 app.use('/uploads', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -127,7 +132,6 @@ app.use('/api/event', require('./routes/event'));
 app.use('/api/pelanggaran', require('./routes/pelanggaran'));
 app.use('/api/perilaku', require('./routes/perilaku'));
 app.use('/api/approvals', require('./routes/approvals'));
-app.use('/api/approvals-v2', require('./routes/approvals-v2'));
 app.use('/api/permissions', require('./routes/permissions'));
 app.use('/api/input-access', require('./routes/input-access'));
 app.use('/api/logs', require('./routes/logs'));
@@ -139,7 +143,9 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/file-viewer', require('./routes/file-viewer'));
 app.use('/api/academic-year', require('./routes/academicYear'));
 app.use('/api/sync', require('./routes/sync'));
-app.use('/api/ipc-config', require('./routes/ipcConfig'));
+app.use('/api/ipt-config', require('./routes/iptConfig'));
+// Deprecated alias: pre-rebrand clients may still call /api/ipc-config.
+app.use('/api/ipc-config', require('./routes/iptConfig'));
 app.use('/api/school-config', require('./routes/school-config'));
 
 // Catch-all route for React SPA client-side routing (must be after API routes)

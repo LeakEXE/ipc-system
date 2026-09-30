@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const { auth, teacherOnly } = require('../middleware/auth');
-const { buildIpcCardBreakdown } = require('../utils/ipcCardBreakdown');
+const { buildIptCardBreakdown } = require('../utils/iptCardBreakdown');
 const { calculateFullClass } = require('../utils/academicYear');
-const { generateRaportIPC, generateRaportIPCBuffer, generateLegerIPCBuffer, formatDateIndo } = require('../utils/pdfGenerator');
+const { generateRaportIPT, generateRaportIPTBuffer, generateLegerIPTBuffer, formatDateIndo } = require('../utils/pdfGenerator');
 const { getSchoolSignature } = require('../utils/schoolConfig');
 const { getRequestedSemester, getRequestedTahunPelajaran, getCutoffDate } = require('../utils/reportParams');
 const path = require('path');
@@ -21,7 +21,7 @@ const getTeacherWaliKelasClass = async (guruId) => {
     return assignment.length > 0 ? assignment[0].kelas : null;
 };
 
-// Get all students for reports (grouped by class) with full IPC breakdown
+// Get all students for reports (grouped by class) with full IPT breakdown
 router.get('/students', auth, async (req, res) => {
     try {
         let query = `
@@ -30,8 +30,8 @@ router.get('/students', auth, async (req, res) => {
                 nama,
                 nis,
                 kelas,
-                ipc_total,
-                ipc_awal,
+                ipt_total,
+                ipt_awal,
                 tahun_pelajaran,
                 jurusan,
                 is_graduated
@@ -42,7 +42,7 @@ router.get('/students', auth, async (req, res) => {
         let queryParams = [];
         
         // If user is a teacher (guru), restrict to their wali kelas class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (waliKelasClass) {
                 query += ` AND kelas = ?`;
@@ -69,15 +69,15 @@ router.get('/students', auth, async (req, res) => {
             return student;
         });
         
-        // Get full IPC breakdown for each student to ensure synchronization
+        // Get full IPT breakdown for each student to ensure synchronization
         const studentsWithBreakdown = await Promise.all(
             studentsWithCalculatedClass.map(async (student) => {
-                const cardData = await buildIpcCardBreakdown(student.id);
+                const cardData = await buildIptCardBreakdown(student.id);
                 if (cardData) {
                     return {
                         ...student,
                         points: cardData.points,
-                        ipc_total: cardData.ipc_total,
+                        ipt_total: cardData.ipt_total,
                         breakdown_total: cardData.breakdown_total
                     };
                 }
@@ -92,7 +92,7 @@ router.get('/students', auth, async (req, res) => {
     }
 });
 
-// Get students filtered by class with full IPC breakdown
+// Get students filtered by class with full IPT breakdown
 router.get('/students/class/:kelas', auth, async (req, res) => {
     try {
         const { kelas } = req.params;
@@ -102,8 +102,8 @@ router.get('/students/class/:kelas', auth, async (req, res) => {
                 nama,
                 nis,
                 kelas,
-                ipc_total,
-                ipc_awal,
+                ipt_total,
+                ipt_awal,
                 tahun_pelajaran,
                 jurusan,
                 is_graduated
@@ -126,15 +126,15 @@ router.get('/students/class/:kelas', auth, async (req, res) => {
             return student;
         });
         
-        // Get full IPC breakdown for each student to ensure synchronization
+        // Get full IPT breakdown for each student to ensure synchronization
         const studentsWithBreakdown = await Promise.all(
             studentsWithCalculatedClass.map(async (student) => {
-                const cardData = await buildIpcCardBreakdown(student.id);
+                const cardData = await buildIptCardBreakdown(student.id);
                 if (cardData) {
                     return {
                         ...student,
                         points: cardData.points,
-                        ipc_total: cardData.ipc_total,
+                        ipt_total: cardData.ipt_total,
                         breakdown_total: cardData.breakdown_total
                     };
                 }
@@ -156,9 +156,9 @@ router.get('/statistics', auth, async (req, res) => {
             SELECT
                 kelas,
                 COUNT(*) as total_siswa,
-                AVG(ipc_total) as rata_rata_ipc,
-                MAX(ipc_total) as ipc_tertinggi,
-                MIN(ipc_total) as ipc_terendah
+                AVG(ipt_total) as rata_rata_ipt,
+                MAX(ipt_total) as ipt_tertinggi,
+                MIN(ipt_total) as ipt_terendah
             FROM users
             WHERE role = 'siswa' AND kelas IS NOT NULL
             GROUP BY kelas
@@ -173,13 +173,13 @@ router.get('/statistics', auth, async (req, res) => {
     }
 });
 
-// Get class IPC report (students sorted by NIS with IPC totals and full breakdown)
-router.get('/class-ipc/:kelas', auth, async (req, res) => {
+// Get class IPT report (students sorted by NIS with IPT totals and full breakdown)
+router.get('/class-ipt/:kelas', auth, async (req, res) => {
     try {
         const { kelas } = req.params;
         
         // If user is a teacher, check if they can access this class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass || waliKelasClass !== kelas) {
                 return res.status(403).json({ message: 'Anda hanya dapat mengakses kelas Anda sendiri' });
@@ -192,8 +192,8 @@ router.get('/class-ipc/:kelas', auth, async (req, res) => {
                 nama,
                 nis,
                 kelas,
-                ipc_total,
-                ipc_awal,
+                ipt_total,
+                ipt_awal,
                 tahun_pelajaran,
                 jurusan,
                 is_graduated
@@ -216,15 +216,15 @@ router.get('/class-ipc/:kelas', auth, async (req, res) => {
             return student;
         });
         
-        // Get full IPC breakdown for each student to ensure synchronization
+        // Get full IPT breakdown for each student to ensure synchronization
         const studentsWithBreakdown = await Promise.all(
             studentsWithCalculatedClass.map(async (student) => {
-                const cardData = await buildIpcCardBreakdown(student.id);
+                const cardData = await buildIptCardBreakdown(student.id);
                 if (cardData) {
                     return {
                         ...student,
                         points: cardData.points,
-                        ipc_total: cardData.ipc_total,
+                        ipt_total: cardData.ipt_total,
                         breakdown_total: cardData.breakdown_total
                     };
                 }
@@ -234,13 +234,13 @@ router.get('/class-ipc/:kelas', auth, async (req, res) => {
         
         res.json(studentsWithBreakdown);
     } catch (error) {
-        console.error('Error fetching class IPC report:', error);
+        console.error('Error fetching class IPT report:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Individual Point Card data for print (superadmin / guru)
-router.get('/ipc-card/:userId', auth, async (req, res) => {
+// Individual Point Talent data for print (superadmin / guru)
+router.get('/ipt-card/:userId', auth, async (req, res) => {
     try {
         const userId = parseInt(req.params.userId, 10);
         if (Number.isNaN(userId)) {
@@ -248,7 +248,7 @@ router.get('/ipc-card/:userId', auth, async (req, res) => {
         }
 
         // If user is a teacher, check if the student is in their wali kelas class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -269,7 +269,7 @@ router.get('/ipc-card/:userId', auth, async (req, res) => {
             }
         }
 
-        const cardData = await buildIpcCardBreakdown(userId, getCutoffDate(req));
+        const cardData = await buildIptCardBreakdown(userId, getCutoffDate(req));
         if (!cardData) {
             return res.status(404).json({ message: 'Siswa tidak ditemukan' });
         }
@@ -300,8 +300,8 @@ router.get('/ipc-card/:userId', auth, async (req, res) => {
             : null;
 
         const [history] = await db.query(
-            `SELECT id, jenis_perubahan, point_change, ipc_sebelum, ipc_sesudah, keterangan, created_at
-             FROM ipc_history
+            `SELECT id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan, created_at
+             FROM ipt_history
              WHERE user_id = ?
              ORDER BY created_at ASC, id ASC`,
             [userId]
@@ -311,18 +311,18 @@ router.get('/ipc-card/:userId', auth, async (req, res) => {
             student,
             wali,
             points: cardData.points,
-            ipc_total: cardData.ipc_total,
+            ipt_total: cardData.ipt_total,
             breakdown_total: cardData.breakdown_total,
             history
         });
     } catch (error) {
-        console.error('Error fetching IPC card data:', error);
+        console.error('Error fetching IPT card data:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Generate PDF for Individual Point Card (Download)
-router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
+// Generate PDF for Individual Point Talent (Download)
+router.get('/ipt-card-pdf/:userId', auth, async (req, res) => {
     try {
         const userId = parseInt(req.params.userId, 10);
         if (Number.isNaN(userId)) {
@@ -330,7 +330,7 @@ router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
         }
 
         // If user is a teacher, check if the student is in their wali kelas class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -351,7 +351,7 @@ router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
             }
         }
 
-        const cardData = await buildIpcCardBreakdown(userId, getCutoffDate(req));
+        const cardData = await buildIptCardBreakdown(userId, getCutoffDate(req));
         if (!cardData) {
             return res.status(404).json({ message: 'Siswa tidak ditemukan' });
         }
@@ -401,7 +401,7 @@ router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
         const pelanggaranBerat = Number(points.pelanggaran_berat) || 0;
         const jumlahPelanggaran = pelanggaranRingan + pelanggaranSedang + pelanggaranBerat + (Number(points.pelanggaran_lainnya) || 0);
         
-        const totalPointIPC = pointAwal + jumlahPrestasi + jumlahKarakter + jumlahKeaktifan + jumlahPelanggaran;
+        const totalPointIPT = pointAwal + jumlahPrestasi + jumlahKarakter + jumlahKeaktifan + jumlahPelanggaran;
 
         // Prepare data for template
         const templateData = {
@@ -431,7 +431,7 @@ router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
             pelanggaran_sedang: pelanggaranSedang,
             pelanggaran_berat: pelanggaranBerat,
             jumlah_pelanggaran: jumlahPelanggaran,
-            total_point_ipc: totalPointIPC,
+            total_point_ipt: totalPointIPT,
             ...(await getSchoolSignature()),
             tanggal_cetak: formatDateIndo(),
             nama_wali_kelas: wali?.wali_nama || 'Wali Kelas Belum Ditentukan',
@@ -439,23 +439,23 @@ router.get('/ipc-card-pdf/:userId', auth, async (req, res) => {
         };
 
         // Generate PDF buffer directly
-        const pdfBuffer = await generateRaportIPCBuffer(templateData);
+        const pdfBuffer = await generateRaportIPTBuffer(templateData);
 
         // Set proper headers for PDF (attachment for download)
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="IPC_${student.nama || 'SISWA'}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="IPT_${student.nama || 'SISWA'}.pdf"`);
         res.setHeader('Content-Length', pdfBuffer.length);
         
         // Send the PDF buffer
         res.send(pdfBuffer);
     } catch (error) {
-        console.error('Error generating IPC card PDF:', error);
+        console.error('Error generating IPT card PDF:', error);
         res.status(500).json({ message: 'Server error saat generate PDF' });
     }
 });
 
-// Generate PDF for Individual Point Card (Preview)
-router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
+// Generate PDF for Individual Point Talent (Preview)
+router.get('/ipt-card-preview/:userId', auth, async (req, res) => {
     try {
         const userId = parseInt(req.params.userId, 10);
         if (Number.isNaN(userId)) {
@@ -463,7 +463,7 @@ router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
         }
 
         // If user is a teacher, check if the student is in their wali kelas class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -484,7 +484,7 @@ router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
             }
         }
 
-        const cardData = await buildIpcCardBreakdown(userId, getCutoffDate(req));
+        const cardData = await buildIptCardBreakdown(userId, getCutoffDate(req));
         if (!cardData) {
             return res.status(404).json({ message: 'Siswa tidak ditemukan' });
         }
@@ -534,7 +534,7 @@ router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
         const pelanggaranBerat = Number(points.pelanggaran_berat) || 0;
         const jumlahPelanggaran = pelanggaranRingan + pelanggaranSedang + pelanggaranBerat + (Number(points.pelanggaran_lainnya) || 0);
         
-        const totalPointIPC = pointAwal + jumlahPrestasi + jumlahKarakter + jumlahKeaktifan + jumlahPelanggaran;
+        const totalPointIPT = pointAwal + jumlahPrestasi + jumlahKarakter + jumlahKeaktifan + jumlahPelanggaran;
 
         // Prepare data for template
         const templateData = {
@@ -564,7 +564,7 @@ router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
             pelanggaran_sedang: pelanggaranSedang,
             pelanggaran_berat: pelanggaranBerat,
             jumlah_pelanggaran: jumlahPelanggaran,
-            total_point_ipc: totalPointIPC,
+            total_point_ipt: totalPointIPT,
             ...(await getSchoolSignature()),
             tanggal_cetak: formatDateIndo(),
             nama_wali_kelas: wali?.wali_nama || 'Wali Kelas Belum Ditentukan',
@@ -572,28 +572,28 @@ router.get('/ipc-card-preview/:userId', auth, async (req, res) => {
         };
 
         // Generate PDF buffer directly
-        const pdfBuffer = await generateRaportIPCBuffer(templateData);
+        const pdfBuffer = await generateRaportIPTBuffer(templateData);
 
         // Set proper headers for PDF (inline for preview, attachment for download)
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="IPC_${student.nama || 'SISWA'}.pdf"`);
+        res.setHeader('Content-Disposition', `inline; filename="IPT_${student.nama || 'SISWA'}.pdf"`);
         res.setHeader('Content-Length', pdfBuffer.length);
         
         // Send the PDF buffer
         res.send(pdfBuffer);
     } catch (error) {
-        console.error('Error generating IPC card PDF:', error);
+        console.error('Error generating IPT card PDF:', error);
         res.status(500).json({ message: 'Server error saat generate PDF' });
     }
 });
 
-// Generate PDF for Class IPC Report (Download)
+// Generate PDF for Class IPT Report (Download)
 router.get('/leger-pdf/:kelas', auth, async (req, res) => {
     try {
         const { kelas } = req.params;
         
         // If user is a teacher, check if they can access this class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -603,9 +603,9 @@ router.get('/leger-pdf/:kelas', auth, async (req, res) => {
             }
         }
 
-        // Get all students in the class with their IPC breakdown
+        // Get all students in the class with their IPT breakdown
         const [students] = await db.query(
-            `SELECT id, nama, nis, kelas, grha, ipc_total, ipc_awal, tahun_pelajaran, jurusan
+            `SELECT id, nama, nis, kelas, grha, ipt_total, ipt_awal, tahun_pelajaran, jurusan
              FROM users 
              WHERE role = 'siswa' AND kelas = ? AND (is_graduated = 0 OR is_graduated IS NULL)
              ORDER BY nama ASC`,
@@ -616,10 +616,10 @@ router.get('/leger-pdf/:kelas', auth, async (req, res) => {
             return res.status(404).json({ message: 'Tidak ada siswa di kelas ini' });
         }
 
-        // Build IPC breakdown for each student
+        // Build IPT breakdown for each student
         const studentsData = [];
         for (const student of students) {
-            const cardData = await buildIpcCardBreakdown(student.id);
+            const cardData = await buildIptCardBreakdown(student.id);
             if (cardData && cardData.points) {
                 const points = cardData.points;
                 
@@ -646,7 +646,7 @@ router.get('/leger-pdf/:kelas', auth, async (req, res) => {
                 const pelanggaranBerat = Number(points.pelanggaran_berat) || 0;
                 const jumlahPelanggaran = pelanggaranRingan + pelanggaranSedang + pelanggaranBerat + (Number(points.pelanggaran_lainnya) || 0);
                 
-                const totalPointIPC = pointAwal + jumlahPrestasi + jumlahKarakter + jumlahKeaktifan + jumlahPelanggaran;
+                const totalPointIPT = pointAwal + jumlahPrestasi + jumlahKarakter + jumlahKeaktifan + jumlahPelanggaran;
 
                 // Calculate current class
                 let calculatedClass = student.kelas;
@@ -676,7 +676,7 @@ router.get('/leger-pdf/:kelas', auth, async (req, res) => {
                     sedang: pelanggaranSedang,
                     berat: pelanggaranBerat,
                     jumlahPelanggaran: jumlahPelanggaran,
-                    totalPoint: totalPointIPC
+                    totalPoint: totalPointIPT
                 });
             }
         }
@@ -706,28 +706,28 @@ router.get('/leger-pdf/:kelas', auth, async (req, res) => {
         };
 
         // Generate PDF buffer directly with new signature
-        const pdfBuffer = await generateLegerIPCBuffer(dataKelas, studentsData);
+        const pdfBuffer = await generateLegerIPTBuffer(dataKelas, studentsData);
 
         // Set proper headers for PDF (attachment for download)
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Leger_IPC_Kelas_${kelas}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Leger_IPT_Kelas_${kelas}.pdf"`);
         res.setHeader('Content-Length', pdfBuffer.length);
         
         // Send the PDF buffer
         res.send(pdfBuffer);
     } catch (error) {
-        console.error('Error generating Leger IPC PDF:', error);
+        console.error('Error generating Leger IPT PDF:', error);
         res.status(500).json({ message: 'Server error saat generate PDF' });
     }
 });
 
-// Generate PDF for Class IPC Report (Preview)
+// Generate PDF for Class IPT Report (Preview)
 router.get('/leger-preview/:kelas', auth, async (req, res) => {
     try {
         const { kelas } = req.params;
         
         // If user is a teacher, check if they can access this class
-        if (req.user.role === 'guru') {
+        if (req.user.role === 'guru' || req.user.role === 'pegawai') {
             const waliKelasClass = await getTeacherWaliKelasClass(req.user.id);
             if (!waliKelasClass) {
                 return res.status(403).json({ message: 'Anda bukan wali kelas' });
@@ -737,9 +737,9 @@ router.get('/leger-preview/:kelas', auth, async (req, res) => {
             }
         }
 
-        // Get all students in the class with their IPC breakdown
+        // Get all students in the class with their IPT breakdown
         const [students] = await db.query(
-            `SELECT id, nama, nis, kelas, grha, ipc_total, ipc_awal, tahun_pelajaran, jurusan
+            `SELECT id, nama, nis, kelas, grha, ipt_total, ipt_awal, tahun_pelajaran, jurusan
              FROM users 
              WHERE role = 'siswa' AND kelas = ? AND (is_graduated = 0 OR is_graduated IS NULL)
              ORDER BY nama ASC`,
@@ -750,10 +750,10 @@ router.get('/leger-preview/:kelas', auth, async (req, res) => {
             return res.status(404).json({ message: 'Tidak ada siswa di kelas ini' });
         }
 
-        // Build IPC breakdown for each student
+        // Build IPT breakdown for each student
         const studentsData = [];
         for (const student of students) {
-            const cardData = await buildIpcCardBreakdown(student.id);
+            const cardData = await buildIptCardBreakdown(student.id);
             if (cardData && cardData.points) {
                 const points = cardData.points;
                 
@@ -780,7 +780,7 @@ router.get('/leger-preview/:kelas', auth, async (req, res) => {
                 const pelanggaranBerat = Number(points.pelanggaran_berat) || 0;
                 const jumlahPelanggaran = pelanggaranRingan + pelanggaranSedang + pelanggaranBerat + (Number(points.pelanggaran_lainnya) || 0);
                 
-                const totalPointIPC = pointAwal + jumlahPrestasi + jumlahKarakter + jumlahKeaktifan + jumlahPelanggaran;
+                const totalPointIPT = pointAwal + jumlahPrestasi + jumlahKarakter + jumlahKeaktifan + jumlahPelanggaran;
 
                 // Calculate current class
                 let calculatedClass = student.kelas;
@@ -810,7 +810,7 @@ router.get('/leger-preview/:kelas', auth, async (req, res) => {
                     sedang: pelanggaranSedang,
                     berat: pelanggaranBerat,
                     jumlahPelanggaran: jumlahPelanggaran,
-                    totalPoint: totalPointIPC
+                    totalPoint: totalPointIPT
                 });
             }
         }
@@ -840,17 +840,17 @@ router.get('/leger-preview/:kelas', auth, async (req, res) => {
         };
 
         // Generate PDF buffer directly with new signature
-        const pdfBuffer = await generateLegerIPCBuffer(dataKelas, studentsData);
+        const pdfBuffer = await generateLegerIPTBuffer(dataKelas, studentsData);
 
         // Set proper headers for PDF (inline for preview)
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="Leger_IPC_Kelas_${kelas}.pdf"`);
+        res.setHeader('Content-Disposition', `inline; filename="Leger_IPT_Kelas_${kelas}.pdf"`);
         res.setHeader('Content-Length', pdfBuffer.length);
         
         // Send the PDF buffer
         res.send(pdfBuffer);
     } catch (error) {
-        console.error('Error generating Leger IPC PDF:', error);
+        console.error('Error generating Leger IPT PDF:', error);
         res.status(500).json({ message: 'Server error saat generate PDF' });
     }
 });

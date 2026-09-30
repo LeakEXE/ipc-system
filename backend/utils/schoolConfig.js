@@ -2,7 +2,7 @@ const db = require('../config/database');
 
 const DEFAULT_SCHOOL_CONFIG = {
     school_name: 'SMK Negeri Bali Mandara',
-    school_description: 'Sistem Individual Point Card (IPC) • Panel Admin',
+    school_description: 'Mandara Talenta (Manajemen dan Pengembangan Karakter Talenta) • Panel Admin',
     principal_name: 'Nama Kepala Sekolah',
     principal_nip: '',
     logo_url: null,
