@@ -15,6 +15,7 @@ router.get('/stats', auth, async (req, res) => {
             [prestasiCounts],
             [totalPelanggaran],
             [pelanggaranByGrha],
+            [pelanggaranByKelas],
             [activityCounts],
             [ipcStats],
             [topIpcStudents]
@@ -61,13 +62,27 @@ router.get('/stats', auth, async (req, res) => {
                 GROUP BY u.grha
             `),
 
+            // Total pelanggaran by kelas (mirrors the grha query)
+            db.query(`
+                SELECT u.kelas, COUNT(p.id) as count
+                FROM users u
+                LEFT JOIN pelanggaran p ON u.id = p.user_id AND p.status = 'approved'
+                WHERE u.role = 'siswa' AND u.kelas IS NOT NULL
+                GROUP BY u.kelas
+                ORDER BY u.kelas
+            `),
+
             // Activity counts (combined query for organisasi, kepanitiaan, event, perilaku)
             db.query(`
                 SELECT
                     (SELECT COUNT(*) FROM organisasi WHERE status = 'approved') as organisasi,
                     (SELECT COUNT(*) FROM kepanitiaan WHERE status = 'approved') as kepanitiaan,
                     (SELECT COUNT(*) FROM event WHERE status = 'approved') as event,
-                    (SELECT COUNT(*) FROM perilaku WHERE status = 'approved') as perilaku
+                    (SELECT COUNT(*) FROM perilaku WHERE status = 'approved') as perilaku,
+                    (SELECT COALESCE(SUM(point), 0) FROM prestasi WHERE status = 'approved') as points_prestasi,
+                    (SELECT COALESCE(SUM(point), 0) FROM organisasi WHERE status = 'approved') as points_organisasi,
+                    (SELECT COALESCE(SUM(point), 0) FROM kepanitiaan WHERE status = 'approved') as points_kepanitiaan,
+                    (SELECT COALESCE(SUM(point), 0) FROM event WHERE status = 'approved') as points_event
             `),
 
             // IPC Statistics
@@ -97,11 +112,16 @@ router.get('/stats', auth, async (req, res) => {
             by_kelas: byKelas,
             total_prestasi: prestasiCounts[0].total || 0,
             pelanggaran_by_grha: pelanggaranByGrha,
+            pelanggaran_by_kelas: pelanggaranByKelas,
             total_pelanggaran: totalPelanggaran[0].count,
             total_organisasi: activityCounts[0].organisasi || 0,
             total_kepanitiaan: activityCounts[0].kepanitiaan || 0,
             total_event: activityCounts[0].event || 0,
             total_perilaku: activityCounts[0].perilaku || 0,
+            points_prestasi: Number(activityCounts[0].points_prestasi) || 0,
+            points_organisasi: Number(activityCounts[0].points_organisasi) || 0,
+            points_kepanitiaan: Number(activityCounts[0].points_kepanitiaan) || 0,
+            points_event: Number(activityCounts[0].points_event) || 0,
             ipc_stats: {
                 rata_rata: Math.round(ipcStats[0].rata_rata || 0),
                 tertinggi: ipcStats[0].tertinggi || 0,

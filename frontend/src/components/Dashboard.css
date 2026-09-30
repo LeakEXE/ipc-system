@@ -426,8 +426,9 @@
   animation: dashRise .5s ease forwards;
 }
 .chart-box h4 { font-size: 14px; margin: 0 0 2px; font-weight: 700; }
+.chart-span { grid-column: 1 / -1; }
 .chart-sub { font-size: 12px; color: var(--slate); margin: 0 0 10px; }
-.chart-body { position: relative; height: 220px; }
+.chart-body { position: relative; height: 260px; }
 .chart-empty {
   position: absolute;
   inset: 0;
@@ -440,28 +441,6 @@
   padding: 0 20px;
   background: rgba(255,255,255,.7);
 }
-
-/* Detail grid */
-.detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 8px; }
-.detail-card {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--card-radius);
-  box-shadow: var(--shadow-card);
-  padding: 16px 18px;
-  opacity: 0;
-  transform: translateY(10px);
-  animation: dashRise .5s ease forwards;
-}
-.detail-card h4 { font-size: 13.5px; margin: 0 0 10px; font-weight: 700; }
-.detail-row { padding: 8px 0; border-top: 1px solid var(--bg-tertiary); font-size: 13px; }
-.detail-row:first-child { border-top: none; }
-.detail-row-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
-.detail-row-value { font-weight: 700; }
-.detail-bar { height: 6px; border-radius: 99px; background: var(--bg-tertiary); overflow: hidden; }
-.detail-bar > span { display: block; height: 100%; border-radius: 99px; background: var(--blue); }
-.detail-bar.is-red > span { background: var(--danger-color); }
-.detail-bar.is-teal > span { background: var(--teal); }
 
 /* Student hero */
 .student-hero {
@@ -504,7 +483,6 @@
 @media (max-width: 1024px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .kpi-strip { grid-template-columns: repeat(4, 1fr); }
-  .detail-grid { grid-template-columns: 1fr 1fr; }
   .student-details { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 768px) {
@@ -512,7 +490,6 @@
   .dash-header { padding: 16px; }
   .dash-clock { display: none; }
   .charts-grid { grid-template-columns: 1fr; }
-  .detail-grid { grid-template-columns: 1fr; }
   .kpi-strip { grid-template-columns: 1fr 1fr; }
   .student-details { grid-template-columns: 1fr 1fr; }
   .podium { padding: 16px 12px 0; }

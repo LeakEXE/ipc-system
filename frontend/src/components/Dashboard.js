@@ -140,16 +140,11 @@ function Dashboard() {
   };
 
   const activityData = useMemo(() => ([
-    { name: 'Prestasi', value: stats?.total_prestasi || 0, fill: '#2563eb' },
-    { name: 'Organisasi', value: stats?.total_organisasi || 0, fill: '#14b8a6' },
-    { name: 'Kepanitiaan', value: stats?.total_kepanitiaan || 0, fill: '#8b5cf6' },
-    { name: 'Event', value: stats?.total_event || 0, fill: '#f59e0b' },
-    { name: 'Pelanggaran', value: stats?.total_pelanggaran || 0, fill: '#ef4444' }
+    { name: 'Prestasi', value: stats?.points_prestasi || 0, fill: '#2563eb' },
+    { name: 'Organisasi', value: stats?.points_organisasi || 0, fill: '#14b8a6' },
+    { name: 'Kepanitiaan', value: stats?.points_kepanitiaan || 0, fill: '#8b5cf6' },
+    { name: 'Event', value: stats?.points_event || 0, fill: '#f59e0b' }
   ]), [stats]);
-
-  const maxKelas = useMemo(() => Math.max(1, ...(stats?.by_kelas || []).map((x) => Number(x.count) || 0)), [stats]);
-  const maxGrha = useMemo(() => Math.max(1, ...(stats?.by_grha || []).map((x) => Number(x.count) || 0)), [stats]);
-  const maxPelanggaran = useMemo(() => Math.max(1, ...(stats?.pelanggaran_by_grha || []).map((x) => Number(x.count) || 0)), [stats]);
 
   const topStudents = useMemo(() => stats?.top_ipc_students || [], [stats]);
   const top3 = useMemo(() => topStudents.slice(0, 3), [topStudents]);
@@ -405,7 +400,7 @@ function Dashboard() {
           {/* CHARTS */}
           <div className="charts-grid">
             <div className="chart-box" style={{ animationDelay: '0.10s' }}>
-              <h4>Siswa per Kelas</h4>
+              <h4>Jumlah Siswa per Kelas</h4>
               <p className="chart-sub">Jumlah siswa aktif per kelas</p>
               <div className="chart-body">
                 <ResponsiveContainer width="100%" height="100%">
@@ -421,18 +416,18 @@ function Dashboard() {
             </div>
 
             <div className="chart-box" style={{ animationDelay: '0.15s' }}>
-              <h4>Distribusi Siswa per Grha</h4>
+              <h4>Jumlah Siswa per Grha</h4>
               <p className="chart-sub">Proporsi siswa tiap grha</p>
               <div className="chart-body">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+                  <PieChart margin={{ top: 18, bottom: 18, left: 8, right: 8 }}>
                     <Pie
                       data={stats.by_grha || []}
                       cx="50%"
                       cy="50%"
                       labelLine={showLabels}
                       label={showLabels ? ({ name, percent, count }) => `${name}: ${count} (${(percent * 100).toFixed(0)}%)` : false}
-                      outerRadius={82}
+                      outerRadius={78}
                       innerRadius={44}
                       fill="#8884d8"
                       dataKey="count"
@@ -449,6 +444,25 @@ function Dashboard() {
             </div>
 
             <div className="chart-box" style={{ animationDelay: '0.20s' }}>
+              <h4>Pelanggaran per Kelas</h4>
+              <p className="chart-sub">Pelanggaran disetujui per kelas</p>
+              <div className="chart-body">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.pelanggaran_by_kelas || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#eef0f6" />
+                    <XAxis dataKey="kelas" tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis allowDecimals={false} tickFormatter={(v) => Math.round(v)} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <Tooltip formatter={(v) => [v, 'Jumlah Pelanggaran']} contentStyle={TOOLTIP_STYLE} />
+                    <Bar dataKey="count" fill="#ef4444" name="Jumlah Pelanggaran" radius={[6, 6, 0, 0]} maxBarSize={30} label={showLabels ? { position: 'top', fill: '#0f172a', fontSize: 12, fontWeight: 'bold' } : false} />
+                  </BarChart>
+                </ResponsiveContainer>
+                {(!stats.pelanggaran_by_kelas || stats.pelanggaran_by_kelas.every((x) => Number(x.count) === 0)) && (
+                  <div className="chart-empty">Belum ada pelanggaran tercatat — kabar baik!</div>
+                )}
+              </div>
+            </div>
+
+            <div className="chart-box" style={{ animationDelay: '0.22s' }}>
               <h4>Pelanggaran per Grha</h4>
               <p className="chart-sub">Pelanggaran disetujui per grha</p>
               <div className="chart-body">
@@ -467,16 +481,16 @@ function Dashboard() {
               </div>
             </div>
 
-            <div className="chart-box" style={{ animationDelay: '0.25s' }}>
+            <div className="chart-box chart-span" style={{ animationDelay: '0.25s' }}>
               <h4>Ringkasan IPC</h4>
-              <p className="chart-sub">Perbandingan prestasi, organisasi, kepanitiaan, event, dan pelanggaran</p>
+              <p className="chart-sub">Total preolehan poin seluruh siswa per kategori</p>
               <div className="chart-body">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={activityData} layout="vertical" margin={{ left: 12, right: 24 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#eef0f6" />
                     <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                     <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <Tooltip formatter={(v) => [v, 'Jumlah']} contentStyle={TOOLTIP_STYLE} />
+                    <Tooltip formatter={(v) => [v, 'Total Poin']} contentStyle={TOOLTIP_STYLE} />
                     <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={22} label={showLabels ? { position: 'right', fill: '#0f172a', fontSize: 12, fontWeight: 'bold' } : false}>
                       {activityData.map((e, i) => (
                         <Cell key={i} fill={e.fill} />
@@ -484,54 +498,6 @@ function Dashboard() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* DETAILS */}
-          <div className="detail-grid">
-            <div className="detail-card" style={{ animationDelay: '0.30s' }}>
-              <h4>Detail Siswa per Kelas</h4>
-              <div>
-                {(stats.by_kelas || []).map((item) => (
-                  <div className="detail-row" key={item.kelas}>
-                    <div className="detail-row-top">
-                      <span>{item.kelas}</span>
-                      <span className={`detail-row-value ${valueCls}`}>{item.count}</span>
-                    </div>
-                    <div className="detail-bar"><span style={{ width: `${Math.round(((Number(item.count) || 0) / maxKelas) * 100)}%` }} /></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="detail-card" style={{ animationDelay: '0.34s' }}>
-              <h4>Detail Siswa per Grha</h4>
-              <div>
-                {(stats.by_grha || []).map((item) => (
-                  <div className="detail-row" key={item.grha}>
-                    <div className="detail-row-top">
-                      <span>{item.grha}</span>
-                      <span className={`detail-row-value ${valueCls}`}>{item.count}</span>
-                    </div>
-                    <div className="detail-bar is-teal"><span style={{ width: `${Math.round(((Number(item.count) || 0) / maxGrha) * 100)}%` }} /></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="detail-card" style={{ animationDelay: '0.38s' }}>
-              <h4>Detail Pelanggaran per Grha</h4>
-              <div>
-                {(stats.pelanggaran_by_grha || []).map((item) => (
-                  <div className="detail-row" key={item.grha}>
-                    <div className="detail-row-top">
-                      <span>{item.grha}</span>
-                      <span className={`detail-row-value ${valueCls}`}>{item.count}</span>
-                    </div>
-                    <div className="detail-bar is-red"><span style={{ width: `${Math.round(((Number(item.count) || 0) / maxPelanggaran) * 100)}%` }} /></div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
