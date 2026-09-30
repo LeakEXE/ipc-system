@@ -12,11 +12,11 @@ function getCurrentAcademicYear() {
 }
 
 function getAcademicYearOptions() {
-  const currentStartYear = Number(getCurrentAcademicYear().split('-')[0]);
-  return Array.from({ length: 11 }, (_, index) => {
-    const startYear = currentStartYear - 5 + index;
-    return `${startYear}-${startYear + 1}`;
-  });
+  const options = [];
+  for (let startYear = 2024; startYear <= 2034; startYear += 1) {
+    options.push(`${startYear}-${startYear + 1}`);
+  }
+  return options;
 }
 
 function getIptDetailRows(points = {}) {

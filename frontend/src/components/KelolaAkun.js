@@ -575,8 +575,6 @@ function KelolaAkun() {
   };
 
   const downloadTemplate = async (type) => {
-    const currentYear = new Date().getFullYear();
-    
     if (type === 'siswa') {
       // Create 30 sample students with TKJ 1 and the current academic year
       const templateData = [];
@@ -603,7 +601,7 @@ function KelolaAkun() {
 
       const validJurusanOptions = ['TKJ 1', 'TKJ 2', 'DPIB 1', 'DPIB 2', 'TKR 1', 'TKR 2'];
       const academicYearOptions = [];
-      for (let year = currentYear - 3; year <= currentYear + 3; year += 1) {
+      for (let year = 2024; year <= 2034; year += 1) {
         academicYearOptions.push(`${year}-${year + 1}`);
       }
 
@@ -944,7 +942,7 @@ function KelolaAkun() {
                     <option value="">Semua Tahun</option>
                     {(() => {
                       const options = [];
-                      for (let year = 2024; year <= 2030; year++) {
+                      for (let year = 2024; year <= 2034; year++) {
                         options.push(`${year}-${year + 1}`);
                       }
                       return options.map(year => (
@@ -1296,9 +1294,9 @@ function KelolaAkun() {
                   <select value={formData.tahun_pelajaran || ''} onChange={(e) => setFormData({...formData, tahun_pelajaran: e.target.value})} required>
                     <option value="" disabled hidden>Pilih Tahun Pelajaran</option>
                     {(() => {
-                      // Opsi tahun pelajaran dari 2024-2025 sampai 2030-2031
+                      // Opsi tahun pelajaran dari 2024-2025 sampai 2034-2035
                       const options = [];
-                      for (let year = 2024; year <= 2030; year++) {
+                      for (let year = 2024; year <= 2034; year++) {
                         options.push(`${year}-${year + 1}`);
                       }
                       return options.map(year => (
@@ -1648,12 +1646,9 @@ function KelolaAkun() {
                     <select value={formData.tahun_pelajaran || ''} onChange={(e) => setFormData({...formData, tahun_pelajaran: e.target.value})} required>
                       <option value="" disabled hidden>Pilih Tahun Pelajaran</option>
                       {(() => {
-                        const currentYear = new Date().getFullYear();
                         const options = [];
-                        for (let i = -5; i <= 5; i++) {
-                          const startYear = currentYear + i;
-                          const endYear = startYear + 1;
-                          options.push(`${startYear}-${endYear}`);
+                        for (let year = 2024; year <= 2034; year++) {
+                          options.push(`${year}-${year + 1}`);
                         }
                         return options.map(year => (
                           <option key={year} value={year}>{year}</option>
