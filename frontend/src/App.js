@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Login from './components/Login';
+import FirstLoginSetup from './components/FirstLoginSetup';
 import Dashboard from './components/Dashboard';
 import Navbar from './components/Navbar';
 import InputPrestasi from './components/InputPrestasi';
@@ -30,6 +31,7 @@ function ProtectedRoute({ children, allowedRoles }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -47,6 +49,17 @@ function ProtectedRoute({ children, allowedRoles }) {
     
     if (allowedRoles && !allowedRoles.includes(parsedUser.role)) {
       console.log('Redirecting to dashboard - role not allowed');
+      navigate('/dashboard');
+      return;
+    }
+
+    // First-login enforcement: flagged users must finish account setup.
+    // The backend gates every /api call the same way.
+    if (parsedUser.must_change_credentials && location.pathname !== '/setup-akun') {
+      navigate('/setup-akun');
+      return;
+    }
+    if (!parsedUser.must_change_credentials && location.pathname === '/setup-akun') {
       navigate('/dashboard');
       return;
     }
@@ -79,7 +92,7 @@ function ProtectedRoute({ children, allowedRoles }) {
     };
 
     fetchFreshUserData();
-  }, [navigate, allowedRoles]);
+  }, [navigate, allowedRoles, location.pathname]);
 
   if (loading) {
     return <div className="loading"><div className="spinner"></div></div>;
@@ -93,6 +106,11 @@ function App() {
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/setup-akun" element={
+          <ProtectedRoute>
+            {() => <FirstLoginSetup />}
+          </ProtectedRoute>
+        } />
         <Route path="/" element={
           <ProtectedRoute>
             {(user) => <MainLayout user={user}><Dashboard /></MainLayout>}

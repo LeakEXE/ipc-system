@@ -75,7 +75,7 @@ router.get('/class-statistics', auth, superAdminOnly, async (req, res) => {
                 // Get students in this class based on academic year
                 // Calculate the expected class for each student based on their enrollment year
                 const [allStudents] = await db.query(`
-                    SELECT id, nama, nis, grha, ipc_total, foto, tahun_pelajaran, jurusan, kelas as current_kelas
+                    SELECT id, nama, nis, username, grha, ipc_total, foto, tahun_pelajaran, jurusan, kelas as current_kelas
                     FROM users 
                     WHERE role = 'siswa' AND (is_graduated = 0 OR is_graduated IS NULL)
                     ORDER BY nama ASC

@@ -117,8 +117,8 @@ function KelolaAkun() {
   const handleCreateStudent = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/users/create-student', formData);
-      setMessage('Akun siswa berhasil dibuat!');
+      const res = await api.post('/users/create-student', formData);
+      setMessage(`Akun siswa berhasil dibuat! Username: ${res.data?.username || '-'}`);
       setShowCreateModal(false);
       setFormData({});
       fetchUsers();
@@ -130,8 +130,8 @@ function KelolaAkun() {
   const handleCreateTeacher = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/users/create-teacher', formData);
-      setMessage('Akun guru berhasil dibuat!');
+      const res = await api.post('/users/create-teacher', formData);
+      setMessage(`Akun guru berhasil dibuat! Username: ${res.data?.username || '-'}`);
       setShowCreateModal(false);
       setFormData({});
       fetchUsers();
@@ -395,11 +395,12 @@ function KelolaAkun() {
               password: getRowField(row, 'password', 'Password') || '123456'
             };
 
-            await api.post('/users/create-student', studentData);
+            const res = await api.post('/users/create-student', studentData);
             results.push({ 
               status: 'success', 
               name: studentData.nama, 
               type: 'siswa',
+              username: res.data?.username || '-',
               expectedClass: expectedClass,
               statusText: statusText,
               tahunPelajaran: tahunPelajaran
@@ -423,8 +424,8 @@ function KelolaAkun() {
               continue;
             }
 
-            await api.post('/users/create-teacher', teacherData);
-            results.push({ status: 'success', name: teacherData.nama, type: 'guru' });
+            const res = await api.post('/users/create-teacher', teacherData);
+            results.push({ status: 'success', name: teacherData.nama, type: 'guru', username: res.data?.username || '-' });
           }
         } catch (error) {
           results.push({
@@ -814,6 +815,7 @@ function KelolaAkun() {
                 {userRole === 'superadmin' && <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '30px' }}></th>}
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0' }}>Nama</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '90px' }}>NIS/NIP</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '110px' }}>Username</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '80px' }}>Role</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '100px' }}>Kelas</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#333', borderRight: '1px solid #e0e0e0', width: '90px' }}>Grha</th>
@@ -853,6 +855,7 @@ function KelolaAkun() {
                   )}
                   <td style={{ padding: '10px 12px', color: '#333', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>{user.nama}</td>
                   <td style={{ padding: '10px 12px', color: '#333', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>{user.nis || user.nip || '-'}</td>
+                  <td style={{ padding: '10px 12px', color: '#333', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0', fontWeight: '600' }}>{user.username || '-'}</td>
                   <td style={{ padding: '10px 12px', borderRight: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0' }}>
                     <span style={{ 
                       display: 'inline-block', padding: '4px 8px', borderRadius: '3px', fontSize: '11px', fontWeight: '500', textAlign: 'center', minWidth: '50px',
@@ -1338,6 +1341,9 @@ function KelolaAkun() {
                       <tr key={index}>
                         <td style={{ padding: '5px' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{result.status === 'success' ? <CircleCheck size={14} /> : <CircleX size={14} />} {result.name}</span>
+                          {result.status === 'success' && result.username && (
+                            <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Username: <strong>{result.username}</strong></div>
+                          )}
                         </td>
                         <td style={{ padding: '5px' }}>
                           {result.status === 'success' && result.expectedClass ? (

@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { ensureUploadSubdir, resolveUploadPath } = require('../utils/paths');
+const { validateUsernameFormat, isUsernameAvailable } = require('../utils/username');
 
 // Configure multer for avatar uploads
 const storage = multer.diskStorage({
@@ -43,7 +44,7 @@ const upload = multer({
 router.get('/', auth, async (req, res) => {
     try {
         const [user] = await db.query(
-            'SELECT id, nama, nis, nip, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, alamat, no_hp, detail, detail AS jabatan, foto, created_at, tahun_pelajaran, is_graduated, jurusan FROM users WHERE id = ?',
+            'SELECT id, nama, nis, nip, username, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, alamat, no_hp, detail, detail AS jabatan, foto, created_at, tahun_pelajaran, is_graduated, jurusan, must_change_credentials FROM users WHERE id = ?',
             [req.user.id]
         );
 
@@ -200,6 +201,53 @@ router.get('/summary', auth, async (req, res) => {
     }
 });
 
+// Check username availability (used live by the setup screen)
+router.get('/check-username', auth, async (req, res) => {
+    try {
+        const { username } = req.query;
+        const formatError = validateUsernameFormat(username);
+        if (formatError) {
+            return res.json({ available: false, message: formatError });
+        }
+        const available = await isUsernameAvailable(username, req.user.id);
+        res.json({ available, message: available ? 'Username tersedia' : 'Username sudah dipakai' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Change own username (requires current password)
+router.put('/username', auth, async (req, res) => {
+    try {
+        const { username, currentPassword } = req.body;
+        const formatError = validateUsernameFormat(username);
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
+        }
+        if (!currentPassword) {
+            return res.status(400).json({ message: 'Password saat ini diperlukan' });
+        }
+        const [user] = await db.query('SELECT password FROM users WHERE id = ?', [req.user.id]);
+        if (user.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        const isMatch = await bcrypt.compare(currentPassword, user[0].password);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Password saat ini salah' });
+        }
+        if (!(await isUsernameAvailable(username, req.user.id))) {
+            return res.status(400).json({ message: 'Username sudah dipakai' });
+        }
+        await db.query('UPDATE users SET username = ? WHERE id = ?', [username, req.user.id]);
+        await logActivity(req.user.id, 'CHANGE_USERNAME', `User changed username to ${username}`, req.ip);
+        res.json({ message: 'Username berhasil diubah', username });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // Change password
 router.post('/change-password', auth, async (req, res) => {
     try {
@@ -230,8 +278,9 @@ router.post('/change-password', auth, async (req, res) => {
         // Hash new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        // Update password
-        await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.user.id]);
+        // Update password and clear the first-login flag (username may
+        // have been changed already on the setup screen — that is optional)
+        await db.query('UPDATE users SET password = ?, must_change_credentials = FALSE WHERE id = ?', [hashedPassword, req.user.id]);
 
         // Log activity
         await logActivity(req.user.id, 'CHANGE_PASSWORD', `User ${user[0].nama} (${user[0].role}) changed password`, req.ip);

@@ -29,6 +29,7 @@ CREATE TABLE users (
     nama VARCHAR(100) NOT NULL,
     nis VARCHAR(20) UNIQUE,
     nip VARCHAR(20) UNIQUE,
+    username VARCHAR(20) UNIQUE,
     password VARCHAR(255) NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('superadmin', 'guru', 'pegawai', 'siswa')),
     kelas VARCHAR(50),
@@ -43,11 +44,13 @@ CREATE TABLE users (
     foto VARCHAR(255),
     tahun_pelajaran VARCHAR(9) DEFAULT NULL,
     is_graduated SMALLINT DEFAULT 0,
+    must_change_credentials BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TRIGGER trg_users_updated BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower ON users (LOWER(username));
 
 -- Permissions Table
 DROP TABLE IF EXISTS permissions CASCADE;

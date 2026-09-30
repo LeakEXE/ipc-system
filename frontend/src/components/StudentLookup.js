@@ -5,11 +5,11 @@ import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import StudentDetail from './StudentDetail';
 
 const KELAS_OPTIONS = [
-  'X TKJ 1', 'X TKJ 2', 'X TO 1', 'X TO 2',
+  'X TKJ 1', 'X TKJ 2', 'X TKR 1', 'X TKR 2',
   'X DPIB 1', 'X DPIB 2',
-  'XI TKJ 1', 'XI TKJ 2', 'XI TO 1', 'XI TO 2',
+  'XI TKJ 1', 'XI TKJ 2', 'XI TKR 1', 'XI TKR 2',
   'XI DPIB 1', 'XI DPIB 2',
-  'XII TKJ 1', 'XII TKJ 2', 'XII TO 1', 'XII TO 2',
+  'XII TKJ 1', 'XII TKJ 2', 'XII TKR 1', 'XII TKR 2',
   'XII DPIB 1', 'XII DPIB 2'
 ];
 
@@ -323,9 +323,9 @@ function StudentLookup() {
                     <tr>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Nama</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>NIS</th>
+                      <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Username</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Kelas</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Grha</th>
-                      <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Wali Kelas</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>IPC</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Status</th>
                       <th style={{ textAlign: 'left', fontSize: '.7rem', fontWeight: 700, color: '#64748b', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>Aksi</th>
@@ -351,9 +351,9 @@ function StudentLookup() {
                             </div>
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>{s.nis || '-'}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155', fontWeight: 600 }}>{s.username || '-'}</td>
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>{s.kelas || '-'}</td>
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>{s.grha || '-'}</td>
-                          <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', color: '#334155' }}>{s.wali_kelas_nama || '-'}</td>
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9', fontWeight: 700, color: belowMin ? '#dc2626' : '#0f172a' }}>{s.ipc_total ?? '-'}</td>
                           <td style={{ padding: '12px 16px', fontSize: '.85rem', borderBottom: '1px solid #f1f5f9' }}>
                             <span style={{

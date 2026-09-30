@@ -44,7 +44,7 @@ function Login() {
       // Store user data in localStorage (not token - token is now in HTTP-only cookie)
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
-      navigate('/dashboard');
+      navigate(response.data.user.must_change_credentials ? '/setup-akun' : '/dashboard');
     } catch (error) {
       setError(error.response?.data?.message || 'Login failed');
     } finally {

@@ -9,6 +9,7 @@ const { validateTahunPelajaran, calculateCurrentClass, shouldGraduate, getClassI
 const { logActivity } = require('../utils/logger');
 const { gradePrefixFromKelas, getIpcAwalForGrade } = require('../utils/ipcConfig');
 const { syncBiodataChange } = require('../utils/biodataSync');
+const { generateUsername } = require('../utils/username');
 
 async function applyIpcAwalUpdate(userId, newIpcAwal, adminId) {
     const parsedAwal = parseInt(newIpcAwal, 10);
@@ -197,7 +198,7 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
         }
 
         // If superadmin, return all users (including graduated)
-        let query = 'SELECT id, nama, nis, nip, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, created_at, tahun_pelajaran, is_graduated, jurusan, detail, alamat, no_hp FROM users WHERE 1=1';
+        let query = 'SELECT id, nama, nis, nip, username, role, kelas, grha, wali_kelas, ipc_total, ipc_awal, created_at, tahun_pelajaran, is_graduated, jurusan, detail, alamat, no_hp FROM users WHERE 1=1';
         let params = [];
 
         // Get filter values from query
@@ -243,8 +244,8 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
         }
 
         if (search) {
-            query += ' AND (nama LIKE ? OR nis LIKE ? OR nip LIKE ?)';
-            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            query += ' AND (nama LIKE ? OR nis LIKE ? OR nip LIKE ? OR username LIKE ?)';
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
         }
 
         query += ' ORDER BY nama ASC LIMIT ? OFFSET ?';
@@ -491,7 +492,7 @@ router.get('/lookup', auth, teacherOrSuperAdmin, async (req, res) => {
         const currentYear = getCurrentAcademicYear();
 
         const [rows] = await db.query(
-            `SELECT u.id, u.nama, u.nis, u.kelas, u.grha, u.foto, u.ipc_total, u.ipc_awal,
+            `SELECT u.id, u.nama, u.nis, u.username, u.kelas, u.grha, u.foto, u.ipc_total, u.ipc_awal,
                     u.tahun_pelajaran, u.is_graduated, u.jurusan, g.nama AS wali_kelas_nama
              FROM users u
              LEFT JOIN wali_kelas_assignment wka ON wka.kelas = u.kelas AND wka.tahun_ajaran = ?
@@ -650,12 +651,15 @@ router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
 
         const hashedPassword = bcrypt.hashSync(password, 10);
 
+        // Auto-generate a unique username (user changes it on first login)
+        const username = await generateUsername(nama);
+
         // If SuperAdmin, create directly
         if (req.user.role === 'superadmin') {
             const ipc_awal = await getIpcAwalForGrade(gradePrefixFromKelas(calculatedClass));
             const [result] = await db.query(
-                'INSERT INTO users (nama, nis, password, role, kelas, wali_kelas, grha, jurusan, ipc_total, ipc_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [nama, nis, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipc_awal, ipc_awal, tahun_pelajaran]
+                'INSERT INTO users (nama, nis, username, password, role, kelas, wali_kelas, grha, jurusan, ipc_total, ipc_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [nama, nis, username, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipc_awal, ipc_awal, tahun_pelajaran]
             );
 
             // Create default permissions
@@ -676,7 +680,7 @@ router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
                 [req.user.id, 'CREATE_STUDENT', `Created student account for ${nama} (${nis})`]
             );
 
-            return res.status(201).json({ message: 'Akun siswa berhasil dibuat!' });
+            return res.status(201).json({ message: 'Akun siswa berhasil dibuat!', username });
         }
 
         // If Guru, create approval request
@@ -726,9 +730,12 @@ router.post('/create-teacher', auth, superAdminOnly, async (req, res) => {
         // Set role based on jabatan to ensure proper filtering
         const userRole = teacherJabatan === 'Pegawai' ? 'pegawai' : 'guru';
 
+        // Auto-generate a unique username (user changes it on first login)
+        const username = await generateUsername(nama);
+
         const [result] = await db.query(
-            'INSERT INTO users (nama, nip, password, role, detail, alamat, no_hp, wali_kelas, ipc_total, ipc_awal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [nama, nip, hashedPassword, userRole, teacherJabatan, alamat, no_hp, wali_kelas, 0, 0]
+            'INSERT INTO users (nama, nip, username, password, role, detail, alamat, no_hp, wali_kelas, ipc_total, ipc_awal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [nama, nip, username, hashedPassword, userRole, teacherJabatan, alamat, no_hp, wali_kelas, 0, 0]
         );
 
         // Create default permissions
@@ -743,7 +750,7 @@ router.post('/create-teacher', auth, superAdminOnly, async (req, res) => {
             [req.user.id, 'CREATE_TEACHER', `Created teacher account for ${nama} (${nip})`]
         );
 
-        res.status(201).json({ message: 'Teacher account created successfully' });
+        res.status(201).json({ message: 'Teacher account created successfully', username });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -1179,9 +1186,10 @@ router.put('/student-creation-approvals/:id', auth, superAdminOnly, async (req, 
         if (status === 'approved') {
             // Create student account (IPC awal follows the grade default)
             const ipc_awal = await getIpcAwalForGrade(gradePrefixFromKelas(data.kelas));
+            const username = await generateUsername(data.nama);
             const [result] = await db.query(
-                'INSERT INTO users (nama, nis, password, role, kelas, grha, jurusan, ipc_total, ipc_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [data.nama, data.nis, data.password, 'siswa', data.kelas, data.grha, data.jurusan, ipc_awal, ipc_awal, data.tahun_pelajaran]
+                'INSERT INTO users (nama, nis, username, password, role, kelas, grha, jurusan, ipc_total, ipc_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [data.nama, data.nis, username, data.password, 'siswa', data.kelas, data.grha, data.jurusan, ipc_awal, ipc_awal, data.tahun_pelajaran]
             );
             
             // Create default permissions

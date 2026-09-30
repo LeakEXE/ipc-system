@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
+const { enforceCredentialsChanged } = require('./middleware/auth');
 const { UPLOAD_DIR } = require('./utils/paths');
 const { 
   securityHeaders, 
@@ -99,6 +100,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Cookie parser middleware - required for HTTP-only cookie authentication
 app.use(cookieParser());
+
+// First-login enforcement: users flagged must_change_credentials can only
+// reach login/logout plus the credential-setup endpoints (see middleware/auth.js)
+app.use(enforceCredentialsChanged);
 
 // Static folder for uploads - with CORS headers for images
 app.use('/uploads', (req, res, next) => {

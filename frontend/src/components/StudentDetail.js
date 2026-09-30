@@ -119,6 +119,10 @@ function StudentDetail({ student, onClose }) {
                     <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{student.nis}</div>
                   </div>
                   <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Username</div>
+                    <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{student.username || '-'}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
                     <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Grha</div>
                     <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{student.grha || '-'}</div>
                   </div>
