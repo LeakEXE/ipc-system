@@ -10,6 +10,30 @@ import { Plus, Download, CircleCheck, CircleX, BookOpen, Lightbulb } from 'lucid
 
 const JABATAN_OPTIONS = ['Guru', 'Pegawai'];
 
+const EXPORT_COLUMNS = [
+  { key: 'nama', header: 'Nama', width: 25 },
+  { key: 'username', header: 'Username', width: 16 },
+  { key: 'role', header: 'Role', width: 12 },
+  { key: 'detail', header: 'Jabatan', width: 12 },
+  { key: 'nis', header: 'NIS', width: 12 },
+  { key: 'nip', header: 'NIP', width: 18 },
+  { key: 'kelas', header: 'Kelas', width: 12 },
+  { key: 'jurusan', header: 'Jurusan', width: 10 },
+  { key: 'grha', header: 'Grha', width: 12 },
+  { key: 'tahun_pelajaran', header: 'Tahun Pelajaran', width: 16 },
+  { key: 'no_hp', header: 'No HP', width: 16 },
+  { key: 'alamat', header: 'Alamat', width: 25 },
+  { key: 'wali_kelas', header: 'Wali Kelas', width: 14 },
+  { key: 'ipt_total', header: 'IPT Total', width: 10 },
+  { key: 'ipt_awal', header: 'IPT Awal', width: 10 },
+  { key: 'is_graduated', header: 'Status', width: 10 },
+  { key: 'created_at', header: 'Tanggal Dibuat', width: 18 },
+  { key: 'id', header: 'ID', width: 8 }
+];
+
+// Columns that must stay Text format so Excel keeps leading zeros (e.g. 08123).
+const EXPORT_TEXT_FORMAT_KEYS = new Set(['nis', 'nip', 'no_hp']);
+
 const KELAS_OPTIONS = [
   'X TKJ 1', 'X TKJ 2', 'X TKR 1', 'X TKR 2',
   'X DPIB 1', 'X DPIB 2',
@@ -45,6 +69,9 @@ function KelolaAkun() {
   const [createModalType, setCreateModalType] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importModalType, setImportModalType] = useState('');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [excludedCols, setExcludedCols] = useState(new Set(['id']));
+  const [exporting, setExporting] = useState(false);
   const [showEditBiodataModal, setShowEditBiodataModal] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -447,6 +474,106 @@ function KelolaAkun() {
     }
   };
 
+  const toggleExportCol = (key) => {
+    setExcludedCols((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleExportExcel = async () => {
+    const activeCols = EXPORT_COLUMNS.filter((c) => !excludedCols.has(c.key));
+    if (activeCols.length === 0) {
+      setMessage('Pilih minimal satu kolom untuk diekspor');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({
+        page: 1,
+        limit: 100000,
+        search: searchQuery
+      });
+
+      if (filters.role) params.append('role', filters.role);
+      if (filters.jabatan) params.append('jabatan', filters.jabatan);
+      if (filters.kelas) params.append('kelas', filters.kelas);
+      if (filters.grha) params.append('grha', filters.grha);
+      if (filters.jurusan) params.append('jurusan', filters.jurusan);
+      if (filters.tahun_pelajaran) params.append('tahun_pelajaran', filters.tahun_pelajaran);
+
+      const response = await api.get(`/users?${params.toString()}`);
+      const rows = response.data.users || [];
+
+      const formatCellValue = (user, key) => {
+        if (key === 'is_graduated') {
+          return user.is_graduated ? 'Lulus' : 'Aktif';
+        }
+        if (key === 'created_at') {
+          if (!user.created_at) return '';
+          const d = new Date(user.created_at);
+          return Number.isNaN(d.getTime()) ? user.created_at : d.toLocaleString('id-ID');
+        }
+        const value = user[key];
+        return value === null || value === undefined ? '' : value;
+      };
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Users');
+
+      worksheet.columns = activeCols.map((c) => ({
+        header: c.header,
+        key: c.key,
+        width: c.width,
+        ...(EXPORT_TEXT_FORMAT_KEYS.has(c.key) ? { style: { numFmt: '@' } } : {})
+      }));
+
+      rows.forEach((user) => {
+        const rowData = {};
+        activeCols.forEach((c) => {
+          rowData[c.key] = formatCellValue(user, c.key);
+        });
+        worksheet.addRow(rowData);
+      });
+
+      // Force Text format on NIS/NIP/No HP data cells so leading zeros survive.
+      activeCols.forEach((c, colIndex) => {
+        if (!EXPORT_TEXT_FORMAT_KEYS.has(c.key)) return;
+        const colNumber = colIndex + 1;
+        worksheet.getColumn(colNumber).numFmt = '@';
+        for (let rowNumber = 2; rowNumber <= rows.length + 1; rowNumber += 1) {
+          worksheet.getCell(rowNumber, colNumber).numFmt = '@';
+        }
+      });
+
+      await styleImportTemplateSheet(worksheet, { dataRowCount: rows.length + 1, protect: false });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blobUrl = URL.createObjectURL(new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      const today = new Date().toISOString().slice(0, 10);
+      link.download = `export_users_${today}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(blobUrl);
+
+      setMessage(`Berhasil mengekspor ${rows.length} pengguna`);
+      setShowExportModal(false);
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Gagal mengekspor data');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const downloadTemplate = async (type) => {
     const currentYear = new Date().getFullYear();
     
@@ -507,7 +634,16 @@ function KelolaAkun() {
         );
       }
 
-      await styleImportTemplateSheet(worksheet);
+      await styleImportTemplateSheet(worksheet, {
+        headerNotes: {
+          Nama: 'Nama lengkap siswa sesuai data sekolah.',
+          NIS: 'Nomor Induk Siswa — unik, tidak boleh sama dengan siswa lain.',
+          Jurusan: 'Pilih dari daftar: TKJ 1, TKJ 2, DPIB 1, DPIB 2, TKR 1, TKR 2.',
+          Grha: 'Pilih grha siswa dari daftar yang tersedia.',
+          TahunPelajaran: 'Tahun pelajaran siswa tersebut masuk sekolah. Format YYYY-YYYY, contoh: 2026-2027.',
+          Password: 'Password awal akun (min. 6 karakter). User wajib menggantinya saat login pertama.'
+        }
+      });
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blobUrl = URL.createObjectURL(new Blob([buffer], {
@@ -554,7 +690,15 @@ function KelolaAkun() {
         error: `Pilih salah satu: ${JABATAN_OPTIONS.join(', ')}`
       });
 
-      await styleImportTemplateSheet(worksheet);
+      await styleImportTemplateSheet(worksheet, {
+        headerNotes: {
+          Nama: 'Nama lengkap guru/pegawai sesuai data sekolah.',
+          NIP: 'Nomor Induk Pegawai — unik, tidak boleh sama dengan yang lain.',
+          Jabatan: 'Pilih dari daftar: Guru, Pegawai.',
+          NoHP: 'Nomor HP aktif, diawali 08 (contoh: 081234567890).',
+          Password: 'Password awal akun (min. 6 karakter). User wajib menggantinya saat login pertama.'
+        }
+      });
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blobUrl = URL.createObjectURL(new Blob([buffer], {
@@ -648,6 +792,18 @@ function KelolaAkun() {
                 onMouseOut={(e) => { e.target.style.background = 'var(--blue)'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
               >
                 <Download size={15} /> Import Guru
+              </button>
+              <button 
+                onClick={() => { setShowExportModal(true); setExcludedCols(new Set(['id'])); }}
+                style={{ 
+                  padding: '10px 16px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
+                  background: 'var(--success-color)', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseOver={(e) => { e.target.style.background = '#059669'; e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 4px 8px rgba(67, 160, 71, 0.3)'; }}
+                onMouseOut={(e) => { e.target.style.background = 'var(--success-color)'; e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+              >
+                <Download size={15} /> Export Excel
               </button>
             </>
           )}
@@ -1380,6 +1536,56 @@ function KelolaAkun() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="app-modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1500
+        }}>
+          <div className="card" style={{ width: 500, maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h4>Export Data Pengguna ke Excel</h4>
+            <button className="btn btn-danger" onClick={() => setShowExportModal(false)} style={{ marginBottom: '10px' }}>Tutup</button>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
+              Data mengikuti pencarian &amp; filter yang sedang aktif. Hilangkan centang pada kolom yang tidak ingin diekspor.
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+              <button className="btn btn-secondary" onClick={() => setExcludedCols(new Set())} style={{ fontSize: '12px' }}>
+                Pilih Semua
+              </button>
+              <button className="btn btn-secondary" onClick={() => setExcludedCols(new Set(EXPORT_COLUMNS.map((c) => c.key)))} style={{ fontSize: '12px' }}>
+                Kosongkan
+              </button>
+            </div>
+            <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '10px', marginBottom: '12px', maxHeight: '300px', overflowY: 'auto' }}>
+              {EXPORT_COLUMNS.map((col) => (
+                <label key={col.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '4px 0', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!excludedCols.has(col.key)}
+                    onChange={() => toggleExportCol(col.key)}
+                  />
+                  {col.header}
+                </label>
+              ))}
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={handleExportExcel}
+              disabled={exporting || excludedCols.size >= EXPORT_COLUMNS.length}
+            >
+              {exporting ? 'Mengekspor...' : `Export (${EXPORT_COLUMNS.length - excludedCols.size} kolom)`}
+            </button>
           </div>
         </div>
       )}
