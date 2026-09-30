@@ -534,10 +534,16 @@ function KelolaAkun() {
         { header: 'Nama', key: 'Nama', width: 25 },
         { header: 'NIP', key: 'NIP', width: 18 },
         { header: 'Jabatan', key: 'Jabatan', width: 14 },
-        { header: 'NoHP', key: 'NoHP', width: 15 },
+        { header: 'NoHP', key: 'NoHP', width: 15, style: { numFmt: '@' } },
         { header: 'Password', key: 'Password', width: 12 }
       ];
       templateData.forEach(row => worksheet.addRow(row));
+
+      // Keep leading zero (e.g. 08123): force NoHP column (E) to Text format.
+      worksheet.getColumn('E').numFmt = '@';
+      for (let rowNumber = 2; rowNumber <= 1000; rowNumber += 1) {
+        worksheet.getCell(`E${rowNumber}`).numFmt = '@';
+      }
 
       worksheet.dataValidations.add('D2:D1000', {
         type: 'list',
