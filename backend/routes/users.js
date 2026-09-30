@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const { auth, superAdminOnly, teacherOrSuperAdmin } = require('../middleware/auth');
 const db = require('../config/database');
 const { getStudentRecords } = require('../utils/studentRecords');
-const { validateTahunPelajaran, calculateCurrentClass, shouldGraduate, getClassInfo, calculateFullClass } = require('../utils/academicYear');
+const { validateTahunPelajaran, calculateCurrentClass, shouldGraduate, getClassInfo, calculateFullClass, getCurrentAcademicYear } = require('../utils/academicYear');
 const { logActivity } = require('../utils/logger');
 const { gradePrefixFromKelas, getIpcAwalForGrade } = require('../utils/ipcConfig');
 const { syncBiodataChange } = require('../utils/biodataSync');
@@ -388,6 +388,141 @@ router.put('/bulk/ipc-awal', auth, superAdminOnly, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Student lookup for staff (guru/pegawai/superadmin) - MUST BE BEFORE /:id
+const LOOKUP_KELAS_OPTIONS = [
+    'X TKJ 1', 'X TKJ 2', 'X TO 1', 'X TO 2',
+    'X DPIB 1', 'X DPIB 2',
+    'XI TKJ 1', 'XI TKJ 2', 'XI TO 1', 'XI TO 2',
+    'XI DPIB 1', 'XI DPIB 2',
+    'XII TKJ 1', 'XII TKJ 2', 'XII TO 1', 'XII TO 2',
+    'XII DPIB 1', 'XII DPIB 2'
+];
+const LOOKUP_GRHA_OPTIONS = [
+    'Airsanya', 'Daksina', 'Genya', 'Madhya', 'Nairiti', 'Pascima', 'Purwa', 'Uttara', 'Wayabhya'
+];
+
+router.get('/lookup', auth, teacherOrSuperAdmin, async (req, res) => {
+    try {
+        const {
+            search = '',
+            kelas_include = '',
+            kelas_exclude = '',
+            grha_include = '',
+            grha_exclude = '',
+            tahun_pelajaran = '',
+            status = '',
+            ipc_status = '',
+            page = 1,
+            limit = 20
+        } = req.query;
+
+        const splitList = (value, whitelist) => String(value || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s && whitelist.includes(s));
+        const kelasInc = splitList(kelas_include, LOOKUP_KELAS_OPTIONS);
+        const kelasExc = splitList(kelas_exclude, LOOKUP_KELAS_OPTIONS);
+        const grhaInc = splitList(grha_include, LOOKUP_GRHA_OPTIONS);
+        const grhaExc = splitList(grha_exclude, LOOKUP_GRHA_OPTIONS);
+        const tahunFilter = validateTahunPelajaran(tahun_pelajaran) ? tahun_pelajaran : '';
+
+        // Min IPC thresholds per grade (same source as /ipc-config/min-ipc-per-grade).
+        // Inlined as validated integers (never raw user input).
+        const [minRows] = await db.query(
+            `SELECT field1, point_value FROM ipc_config
+             WHERE category = 'pengaturan' AND field1 IN ('min_ipc', 'min_ipc_X', 'min_ipc_XI', 'min_ipc_XII')`
+        );
+        const byField = {};
+        for (const row of minRows || []) byField[row.field1] = parseInt(row.point_value, 10);
+        const legacy = Number.isFinite(byField.min_ipc) && byField.min_ipc > 0 ? byField.min_ipc : 0;
+        const pickThr = (grade) => {
+            const value = byField[`min_ipc_${grade}`];
+            return Number.isInteger(value) && value >= 0 ? value : legacy;
+        };
+        const thrCase = `(CASE WHEN (u.kelas LIKE 'XII %' OR u.kelas = 'XII') THEN ${pickThr('XII')} WHEN (u.kelas LIKE 'XI %' OR u.kelas = 'XI') THEN ${pickThr('XI')} WHEN (u.kelas LIKE 'X %' OR u.kelas = 'X') THEN ${pickThr('X')} ELSE 0 END)`;
+
+        const where = [`u.role = 'siswa'`];
+        const params = [];
+        const placeholders = (values) => values.map(() => '?').join(', ');
+
+        const searchText = String(search).trim();
+        if (searchText) {
+            where.push('(u.nama LIKE ? OR u.nis LIKE ?)');
+            params.push(`%${searchText}%`, `%${searchText}%`);
+        }
+        if (kelasInc.length) {
+            where.push(`u.kelas IN (${placeholders(kelasInc)})`);
+            params.push(...kelasInc);
+        }
+        if (kelasExc.length) {
+            where.push(`(u.kelas NOT IN (${placeholders(kelasExc)}) OR u.kelas IS NULL)`);
+            params.push(...kelasExc);
+        }
+        if (grhaInc.length) {
+            where.push(`u.grha IN (${placeholders(grhaInc)})`);
+            params.push(...grhaInc);
+        }
+        if (grhaExc.length) {
+            where.push(`(u.grha NOT IN (${placeholders(grhaExc)}) OR u.grha IS NULL)`);
+            params.push(...grhaExc);
+        }
+        if (tahunFilter) {
+            where.push('u.tahun_pelajaran = ?');
+            params.push(tahunFilter);
+        }
+        if (status === 'aktif') {
+            where.push('(u.is_graduated = 0 OR u.is_graduated IS NULL)');
+        } else if (status === 'lulus') {
+            where.push('u.is_graduated = 1');
+        }
+        if (ipc_status === 'below') {
+            where.push(`(${thrCase} > 0 AND u.ipc_total IS NOT NULL AND u.ipc_total < ${thrCase})`);
+        } else if (ipc_status === 'normal') {
+            where.push(`NOT (${thrCase} > 0 AND u.ipc_total IS NOT NULL AND u.ipc_total < ${thrCase})`);
+        }
+
+        const whereSql = `WHERE ${where.join(' AND ')}`;
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.min(80, Math.max(1, parseInt(limit, 10) || 20));
+        const offsetNum = (pageNum - 1) * limitNum;
+        const currentYear = getCurrentAcademicYear();
+
+        const [rows] = await db.query(
+            `SELECT u.id, u.nama, u.nis, u.kelas, u.grha, u.foto, u.ipc_total, u.ipc_awal,
+                    u.tahun_pelajaran, u.is_graduated, u.jurusan, g.nama AS wali_kelas_nama
+             FROM users u
+             LEFT JOIN wali_kelas_assignment wka ON wka.kelas = u.kelas AND wka.tahun_ajaran = ?
+             LEFT JOIN users g ON g.id = wka.guru_id
+             ${whereSql}
+             ORDER BY u.nama ASC LIMIT ? OFFSET ?`,
+            [currentYear, ...params, limitNum, offsetNum]
+        );
+        const [countRows] = await db.query(
+            `SELECT COUNT(DISTINCT u.id) AS total FROM users u ${whereSql}`,
+            params
+        );
+        const total = Number(countRows[0]?.total) || 0;
+
+        const users = rows.map((user) => {
+            const calculatedClass = calculateFullClass(user.tahun_pelajaran, user.jurusan);
+            return { ...user, kelas: calculatedClass || user.kelas };
+        });
+
+        res.json({
+            users,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages: Math.max(1, Math.ceil(total / limitNum))
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

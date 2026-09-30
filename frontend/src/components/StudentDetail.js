@@ -1,10 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
 import { useMinIpcPerGrade, minIpcFor, isBelowMinIpc } from '../utils/minIpc';
 import { formatDisplayText } from '../utils/formatDisplayText';
-import StudentRecordsHistory from './StudentRecordsHistory';
-import { User } from 'lucide-react';
+import { buildEvidenceMap } from '../utils/historyEvidence';
+import { EvidenceViewer } from './EvidenceViewer';
+import { CATEGORY_ICONS } from './icons';
+import { User, Pencil, FileText, History, Paperclip } from 'lucide-react';
+
+function getIpcDetailRows(points = {}) {
+  return [
+    ['Prestasi', Number(points.prestasi) || 0],
+    ['Perilaku', ['tanggung_jawab', 'disiplin', 'kepedulian', 'kemandirian', 'spiritual', 'kejujuran', 'kepercayaan_diri']
+      .reduce((sum, key) => sum + (Number(points[key]) || 0), 0)],
+    ['Organisasi', Number(points.organisasi) || 0],
+    ['Kepanitiaan', Number(points.kepanitiaan) || 0],
+    ['Event', Number(points.event) || 0],
+    ['Pelanggaran', -(['pelanggaran_ringan', 'pelanggaran_sedang', 'pelanggaran_berat']
+      .reduce((sum, key) => sum + (Number(points[key]) || 0), 0))]
+  ];
+}
 
 function StudentDetail({ student, onClose }) {
     const minIpc = useMinIpcPerGrade();
@@ -13,15 +28,7 @@ function StudentDetail({ student, onClose }) {
     const [ipcCard, setIpcCard] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-
-    useEffect(() => {
-        const handleResize = () => {
-            setIsMobile(window.innerWidth <= 768);
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    const [evidenceImage, setEvidenceImage] = useState(null);
 
     useEffect(() => {
         if (!student?.id) return;
@@ -46,165 +53,173 @@ function StudentDetail({ student, onClose }) {
         fetchData();
     }, [student?.id]);
 
-    const avatarUrl = student?.foto
-        ? `${API_BASE_URL.replace('/api', '')}${student.foto}`
-        : null;
-    const ipcGroups = [
-        { title: 'Dasar', rows: [['Point Awal', 'point_awal']] },
-        { title: 'Prestasi', rows: [['Prestasi', 'prestasi']] },
-        {
-            title: 'Perkembangan Karakter',
-            rows: [
-                ['Tanggung Jawab', 'tanggung_jawab'], ['Disiplin', 'disiplin'],
-                ['Kepedulian', 'kepedulian'], ['Kemandirian', 'kemandirian'],
-                ['Spiritual', 'spiritual'], ['Kejujuran', 'kejujuran'],
-                ['Kepercayaan Diri', 'kepercayaan_diri']
-            ]
-        },
-        { title: 'Keaktifan', rows: [['Organisasi', 'organisasi'], ['Kepanitiaan', 'kepanitiaan'], ['Event', 'event']] },
-        { title: 'Pelanggaran', rows: [['Ringan', 'pelanggaran_ringan'], ['Sedang', 'pelanggaran_sedang'], ['Berat', 'pelanggaran_berat']] }
-    ];
+    // Evidence photo per history row, matched by exact keterangan text.
+    const evidenceMap = useMemo(() => buildEvidenceMap(records), [records]);
+
+    const groupHistoryByCategory = (history = []) => {
+        const grouped = {};
+        const categoryOrder = ['prestasi', 'perilaku', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran', 'initial', 'manual'];
+
+        categoryOrder.forEach(cat => {
+            grouped[cat] = [];
+        });
+
+        history.forEach(record => {
+            const jenis = record.jenis_perubahan || 'initial';
+            if (!grouped[jenis]) {
+                grouped[jenis] = [];
+            }
+            grouped[jenis].push(record);
+        });
+
+        return categoryOrder
+            .filter(cat => grouped[cat] && grouped[cat].length > 0)
+            .map(cat => ({ category: cat, records: grouped[cat] }));
+    };
+
+    const getImageUrl = (imagePath) => {
+        if (!imagePath) return null;
+        const baseUrl = API_BASE_URL.replace('/api', '');
+        return `${baseUrl}${imagePath}`;
+    };
+
+    const avatarUrl = getImageUrl(student?.foto);
+    const detailRows = getIpcDetailRows(student?.ipc_points || ipcCard?.points || {});
 
     return (
-        <div className="app-modal-overlay" style={{
-            position: 'fixed',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 1500,
-            overflow: 'auto',
-            padding: 20
-        }}>
-            <div style={{
-                maxWidth: 900,
-                margin: isMobile ? '20px auto' : '80px auto 0 auto',
-                background: 'var(--bg-primary, #fff)',
-                borderRadius: 12,
-                padding: 24,
-                minHeight: 200
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                    <h2 style={{ margin: 0 }}>Detail Siswa</h2>
-                    <button type="button" className="btn btn-secondary" onClick={onClose}>Tutup</button>
+        <div className="modal-overlay app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1500 }} onClick={(e) => { if (e.target === e.currentTarget) { onClose(); setEvidenceImage(null); } }}>
+          <div className="modal-content" style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(15,23,42,.25)' }}>
+            <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#fff', border: '2px solid #2563eb', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', overflow: 'hidden' }}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={student.nama} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <User size={16} />
+                  )}
                 </div>
-
-                {loading ? (
-                    <div className="loading"><div className="spinner"></div></div>
-                ) : error ? (
-                    <div className="alert alert-danger">{error}</div>
-                ) : (
-                    <>
-                        <div className="card" style={{ marginBottom: 20 }}>
-                            <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-                                <div style={{
-                                    width: 80,
-                                    height: 80,
-                                    borderRadius: '50%',
-                                    overflow: 'hidden',
-                                    background: '#f0f0f0',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0
-                                }}>
-                                    {avatarUrl ? (
-                                        <img src={avatarUrl} alt={student.nama} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <span style={{ display: 'inline-flex', color: '#94a3b8' }}><User size={36} /></span>
-                                    )}
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: '0 0 8px 0' }}>{student.nama}</h3>
-                                    <p style={{ margin: '4px 0', color: '#666' }}>NIS: {student.nis || '-'}</p>
-                                    <p style={{ margin: '4px 0', color: '#666' }}>
-                                        {student.kelas || '-'} · {student.grha || '-'}
-                                    </p>
-                                    <p style={{ margin: '8px 0 0 0' }}>
-                                        <strong>IPC:</strong>{' '}
-                                        <span style={{ 
-                                            fontSize: 20, 
-                                            color: (student.ipc_total ?? 0) < 0 || isBelowMinIpc(student.ipc_total ?? 0, minIpcFor(minIpc, student?.kelas)) ? '#dc2626' : 'var(--blue)', 
-                                            fontWeight: 'bold' 
-                                        }}>
-                                            {(student.ipc_total ?? 0) < 0 ? `${student.ipc_total ?? 0} (MINUS)` : (student.ipc_total ?? 0)}
-                                        </span>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {records && (
-                            <StudentRecordsHistory
-                                records={records}
-                                title="Riwayat Prestasi & Kegiatan"
-                                showAllTabs
-                            />
-                        )}
-
-                        <div className="card">
-                            <h3>Detail IPC</h3>
-                            {ipcCard?.points ? (
-                                <div style={{ display: 'grid', gap: 16 }}>
-                                    {ipcGroups.map((group) => (
-                                        <div key={group.title}>
-                                            <strong style={{ display: 'block', marginBottom: 8 }}>{group.title}</strong>
-                                            <div style={{ display: 'grid', gap: 6 }}>
-                                                {group.rows.map(([label, key]) => {
-                                                    const value = Number(ipcCard.points[key]) || 0;
-                                                    const displayValue = group.title === 'Pelanggaran' ? -value : value;
-                                                    return (
-                                                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 4 }}>
-                                                            <span>{label}</span>
-                                                            <strong style={{ color: displayValue < 0 ? '#dc2626' : 'inherit' }}>
-                                                                {displayValue > 0 ? '+' : ''}{displayValue}
-                                                            </strong>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-muted">Detail IPC belum tersedia</p>
-                            )}
-                        </div>
-
-                        <div className="card">
-                            <h3>Riwayat IPC</h3>
-                            {ipcHistory.length > 0 ? (
-                                <table className="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Jenis</th>
-                                            <th>Perubahan</th>
-                                            <th>IPC</th>
-                                            {!isMobile && <th>Keterangan</th>}
-                                            {!isMobile && <th>Tanggal</th>}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {ipcHistory.map((row) => (
-                                            <tr key={row.id}>
-                                                <td>{formatDisplayText(row.jenis_perubahan)}</td>
-                                                <td style={{ color: row.point_change >= 0 ? 'green' : 'red' }}>
-                                                    {row.point_change >= 0 ? '+' : ''}{row.point_change}
-                                                </td>
-                                                <td>{row.ipc_sebelum} → {row.ipc_sesudah}</td>
-                                                {!isMobile && <td>{formatDisplayText(row.keterangan)}</td>}
-                                                {!isMobile && <td>{new Date(row.created_at).toLocaleDateString('id-ID')}</td>}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            ) : (
-                                <p className="text-muted">Belum ada riwayat IPC</p>
-                            )}
-                        </div>
-                    </>
-                )}
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><User size={18} /> Detail Siswa</h3>
+              </div>
+              <button onClick={() => { onClose(); setEvidenceImage(null); }} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#ef4444', color: '#fff', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>Tutup</button>
             </div>
+
+            <div style={{ padding: '16px 20px 22px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {loading ? (
+                <div className="loading"><div className="spinner"></div></div>
+              ) : error ? (
+                <div className="alert alert-danger">{error}</div>
+              ) : (
+                <>
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Nama</div>
+                    <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{student.nama}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>NIS</div>
+                    <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{student.nis}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Grha</div>
+                    <div style={{ fontSize: '.95rem', fontWeight: 600, color: '#0f172a' }}>{student.grha || '-'}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Detail IPC</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {detailRows.map(([label, value]) => (
+                        <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.88rem', fontWeight: 400, color: '#334155' }}>
+                          <span>{label}</span>
+                          <span style={{ fontWeight: 700, color: '#0f172a' }}>{value > 0 ? '+' : ''}{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Riwayat IPC</div>
+                    {ipcHistory.length === 0 ? (
+                      <div style={{ fontSize: '.85rem', color: '#94a3b8', textAlign: 'center', padding: '6px' }}>Belum ada riwayat</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '320px', overflowY: 'auto' }}>
+                        {groupHistoryByCategory(ipcHistory).map(group => {
+                          const categoryIcons = {
+                            prestasi: CATEGORY_ICONS.prestasi,
+                            perilaku: CATEGORY_ICONS.perilaku,
+                            organisasi: CATEGORY_ICONS.organisasi,
+                            kepanitiaan: CATEGORY_ICONS.kepanitiaan,
+                            event: CATEGORY_ICONS.event,
+                            pelanggaran: CATEGORY_ICONS.pelanggaran,
+                            initial: History,
+                            manual: Pencil
+                          };
+                          const categoryLabels = {
+                            prestasi: 'Prestasi',
+                            perilaku: 'Perilaku',
+                            organisasi: 'Organisasi',
+                            kepanitiaan: 'Kepanitiaan',
+                            event: 'Event',
+                            pelanggaran: 'Pelanggaran',
+                            initial: 'Initial',
+                            manual: 'Manual'
+                          };
+                          return (
+                            <div key={group.category} style={{ border: '1px solid #e2e8f0', borderRadius: '8px'}}>
+                              <div style={{ background: '#f1f5f9', padding: '8px 12px', fontSize: '.75rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {(() => { const CatIcon = categoryIcons[group.category] || FileText; return <CatIcon size={14} />; })()}
+                                <span>{categoryLabels[group.category] || group.category}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: '.68rem', color: '#64748b' }}>{group.records.length} record</span>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                {group.records.map(record => {
+                                  const evidenceFoto = evidenceMap[record.keterangan];
+                                  return (
+                                  <div key={record.id} style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                      <span style={{ color: '#334155', fontSize: '.78rem', wordBreak: 'break-word', flex: 1 }}>
+                                        {formatDisplayText(record.keterangan || '-')}
+                                      </span>
+                                      <span style={{ fontWeight: 700, color: record.point_change > 0 ? '#16a34a' : record.point_change < 0 ? '#ef4444' : '#64748b', fontSize: '.78rem', whiteSpace: 'nowrap' }}>
+                                        {record.point_change > 0 ? '+' : ''}{record.point_change}
+                                      </span>
+                                    </div>
+                                    {evidenceFoto && (
+                                      <span onClick={() => setEvidenceImage(evidenceFoto)} style={{ color: '#2563eb', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Paperclip size={12} /> Lihat Bukti</span>
+                                    )}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.68rem', color: '#94a3b8' }}>
+                                      <span>{new Date(record.created_at).toLocaleString('id-ID')}</span>
+                                      <span>{record.ipc_sebelum} → {record.ipc_sesudah}</span>
+                                    </div>
+                                  </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Total IPC</div>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: isBelowMinIpc(student.ipc_total || 80, minIpcFor(minIpc, student?.kelas)) ? '#dc2626' : '#0891b2', color: '#fff', fontWeight: 700, fontSize: '1rem' }}>{student.ipc_total || 80}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          {evidenceImage && (
+            <div className="app-modal-overlay" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 1600 }} onClick={() => setEvidenceImage(null)}>
+              <div style={{ position: 'relative', width: 'min(880px, 90vw)', maxHeight: '85vh', background: '#fff', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 50px rgba(0,0,0,.4)' }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 12px', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
+                  <div style={{ fontSize: '.85rem', fontWeight: 700, color: '#0f172a' }}>Bukti Foto</div>
+                  <button onClick={() => setEvidenceImage(null)} className="btn" style={{ border: 'none', borderRadius: '10px', padding: '6px 12px', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', background: '#ef4444', color: '#fff', whiteSpace: 'nowrap' }}>Tutup</button>
+                </div>
+                <div style={{ overflowY: 'auto', padding: '12px' }}>
+                  <EvidenceViewer src={getImageUrl(evidenceImage)} alt="Bukti" pdfHeight="70vh" imgStyle={{ maxWidth: '100%', borderRadius: '8px', display: 'block' }} />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
     );
 }

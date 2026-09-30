@@ -23,6 +23,7 @@ import Notifications from './components/Notifications';
 import LaporanCetak from './components/LaporanCetak';
 import KonfigurasiIPC from './components/KonfigurasiIPC';
 import SchoolConfig from './components/SchoolConfig';
+import StudentLookup from './components/StudentLookup';
 import api from './utils/api';
 import { Menu, X } from 'lucide-react';
 
@@ -197,6 +198,11 @@ function App() {
         <Route path="/konfigurasi-ipc" element={
           <ProtectedRoute allowedRoles={['superadmin']}>
             {(user) => <MainLayout user={user}><KonfigurasiIPC /></MainLayout>}
+          </ProtectedRoute>
+        } />
+        <Route path="/cari-siswa" element={
+          <ProtectedRoute allowedRoles={['superadmin', 'guru', 'pegawai']}>
+            {(user) => <MainLayout user={user}><StudentLookup /></MainLayout>}
           </ProtectedRoute>
         } />
         <Route path="/school-config" element={
