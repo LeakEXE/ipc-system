@@ -80,6 +80,16 @@ function ProtectedRoute({ children, allowedRoles }) {
         // Update localStorage with fresh data
         localStorage.setItem('user', JSON.stringify(freshUser));
         setUser(freshUser);
+
+        // Fresh flag wins over stale storage (e.g. sessions from before the rollout)
+        if (freshUser.must_change_credentials && location.pathname !== '/setup-akun') {
+          navigate('/setup-akun');
+          return;
+        }
+        if (!freshUser.must_change_credentials && location.pathname === '/setup-akun') {
+          navigate('/dashboard');
+          return;
+        }
       } catch (error) {
         console.error('Error fetching fresh user data:', error);
         // If auth fails, redirect to login

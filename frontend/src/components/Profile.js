@@ -482,6 +482,10 @@ function Profile() {
   const [cropOpen, setCropOpen] = useState(false);
   const fileInputRef = useRef(null);
   const [passwordMode, setPasswordMode] = useState(false);
+  const [usernameMode, setUsernameMode] = useState(false);
+  const [usernameData, setUsernameData] = useState({ username: '', currentPassword: '' });
+  const [usernameCheck, setUsernameCheck] = useState(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -533,7 +537,15 @@ function Profile() {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/users/${profile.id}`, editData);
+      // Send only the fields this role may change (server enforces the same list)
+      const payload = { no_hp: editData.no_hp, alamat: editData.alamat };
+      if (user.role === 'guru' || user.role === 'pegawai') {
+        payload.jabatan = editData.jabatan || editData.detail;
+      }
+      if (user.role === 'superadmin') {
+        payload.nama = editData.nama;
+      }
+      await api.put(`/users/${profile.id}`, payload);
       setEditMode(false);
       fetchProfile();
     } catch (error) {
@@ -620,6 +632,60 @@ function Profile() {
     }
   };
 
+  const openUsernameMode = () => {
+    setUsernameData({ username: profile?.username || '', currentPassword: '' });
+    setUsernameCheck(null);
+    setUsernameMode(true);
+  };
+
+  const usernameCheckTimer = useRef(null);
+
+  const checkUsernameLive = (value) => {
+    const v = (value || '').trim();
+    if (usernameCheckTimer.current) {
+      clearTimeout(usernameCheckTimer.current);
+    }
+    if (!v || v === profile?.username) {
+      setUsernameCheck(null);
+      return;
+    }
+    usernameCheckTimer.current = setTimeout(async () => {
+      setCheckingUsername(true);
+      try {
+        const res = await api.get('/profile/check-username', { params: { username: v } });
+        setUsernameCheck({ available: res.data.available, message: res.data.message });
+      } catch {
+        setUsernameCheck(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 400);
+  };
+
+  const handleUsernameChange = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.put('/profile/username', {
+        username: usernameData.username.trim(),
+        currentPassword: usernameData.currentPassword
+      });
+      alert('Username berhasil diubah');
+      setUsernameMode(false);
+      setUsernameData({ username: '', currentPassword: '' });
+      setUsernameCheck(null);
+      fetchProfile();
+      // Keep the stored session in sync (UI reads username from localStorage)
+      try {
+        const stored = JSON.parse(localStorage.getItem('user') || '{}');
+        localStorage.setItem('user', JSON.stringify({ ...stored, username: res.data.username }));
+      } catch {
+        // ignore storage errors
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Gagal mengubah username');
+    }
+  };
+
   if (loading) {
     return <div className="loading"><div className="spinner"></div></div>;
   }
@@ -643,6 +709,10 @@ function Profile() {
                 <label>No HP</label>
                 <input type="text" value={editData.no_hp || ''} onChange={(e) => setEditData({...editData, no_hp: e.target.value})} />
               </div>
+              <div className="form-group">
+                <label>Alamat</label>
+                <input type="text" value={editData.alamat || ''} onChange={(e) => setEditData({...editData, alamat: e.target.value})} placeholder="Alamat tempat tinggal" />
+              </div>
             </>
           )}
           {(user.role === 'guru' || user.role === 'pegawai') && (
@@ -650,6 +720,10 @@ function Profile() {
               <div className="form-group">
                 <label>No HP</label>
                 <input type="text" value={editData.no_hp || ''} onChange={(e) => setEditData({...editData, no_hp: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Alamat</label>
+                <input type="text" value={editData.alamat || ''} onChange={(e) => setEditData({...editData, alamat: e.target.value})} placeholder="Alamat tempat tinggal" />
               </div>
               <div className="form-group">
                 <label>Jabatan</label>
@@ -674,6 +748,10 @@ function Profile() {
               <div className="form-group">
                 <label>No HP</label>
                 <input type="text" value={editData.no_hp || ''} onChange={(e) => setEditData({...editData, no_hp: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Alamat</label>
+                <input type="text" value={editData.alamat || ''} onChange={(e) => setEditData({...editData, alamat: e.target.value})} placeholder="Alamat tempat tinggal" />
               </div>
             </>
           )}
@@ -705,6 +783,7 @@ function Profile() {
         )}
         <p><strong>Role:</strong> {profile?.role}</p>
         <p><strong>No HP:</strong> {profile?.no_hp || '-'}</p>
+        <p><strong>Alamat:</strong> {profile?.alamat || '-'}</p>
         <button className="btn btn-primary" onClick={() => setEditMode(true)} style={{ marginTop: '10px' }}>Edit Biodata</button>
       </>
     );
@@ -767,6 +846,53 @@ function Profile() {
       <div className="card" style={{ marginBottom: '24px' }}>
         <h3>Biodata</h3>
         {renderBiodata()}
+      </div>
+
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <h3>Ubah Username</h3>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem', margin: '0 0 12px 0' }}>
+          Username saat ini: <strong style={{ color: 'var(--text-primary)' }}>{profile?.username || '-'}</strong>
+        </p>
+        {usernameMode ? (
+          <form onSubmit={handleUsernameChange}>
+            <div className="form-group">
+              <label>Username Baru</label>
+              <input
+                type="text"
+                value={usernameData.username}
+                onChange={(e) => { setUsernameData({ ...usernameData, username: e.target.value }); checkUsernameLive(e.target.value); }}
+                placeholder="5-20 karakter: huruf, angka, !@#_"
+                autoComplete="username"
+                required
+              />
+              <div className="form-helper-text">
+                {checkingUsername ? (
+                  'Memeriksa ketersediaan...'
+                ) : usernameCheck ? (
+                  <span style={{ color: usernameCheck.available ? 'var(--success-color)' : 'var(--danger-color)' }}>
+                    {usernameCheck.message}
+                  </span>
+                ) : (
+                  '5-20 karakter: huruf, angka, dan !@#_ (tanpa spasi).'
+                )}
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Password Saat Ini</label>
+              <input
+                type="password"
+                value={usernameData.currentPassword}
+                onChange={(e) => setUsernameData({ ...usernameData, currentPassword: e.target.value })}
+                autoComplete="current-password"
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary">Ubah Username</button>
+            <button type="button" className="btn btn-danger" onClick={() => setUsernameMode(false)}>Batal</button>
+          </form>
+        ) : (
+          <button className="btn btn-primary" onClick={openUsernameMode}>Ubah Username</button>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: '24px' }}>

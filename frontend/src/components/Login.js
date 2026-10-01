@@ -11,6 +11,7 @@ function Login() {
     password: ''
   });
   const [error, setError] = useState('');
+  const [attemptsLeft, setAttemptsLeft] = useState(null);
   const [loading, setLoading] = useState(false);
   const [schoolConfig, setSchoolConfig] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -46,7 +47,22 @@ function Login() {
       
       navigate(response.data.user.must_change_credentials ? '/setup-akun' : '/dashboard');
     } catch (error) {
-      setError(error.response?.data?.message || 'Login failed');
+      const status = error.response?.status;
+      const headers = error.response?.headers || {};
+      // express-rate-limit sends RateLimit-Remaining (max 5 / 15 menit, sukses tidak dihitung)
+      if (headers['ratelimit-remaining'] !== undefined) {
+        const remaining = parseInt(headers['ratelimit-remaining'], 10);
+        if (!Number.isNaN(remaining)) {
+          setAttemptsLeft(Math.max(0, remaining));
+        }
+      }
+      if (status === 429) {
+        const resetSec = parseInt(headers['ratelimit-reset'] || '900', 10);
+        const mins = Number.isNaN(resetSec) ? 15 : Math.max(1, Math.ceil(resetSec / 60));
+        setError(`Terlalu banyak percobaan login. Coba lagi dalam ±${mins} menit.`);
+      } else {
+        setError(error.response?.data?.message || 'Login failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -180,6 +196,24 @@ function Login() {
           }}>
             Individual Point Talent
           </p>
+        </div>
+
+        <div style={{
+          marginBottom: '1rem',
+          padding: '0.65rem 0.75rem',
+          background: attemptsLeft !== null && attemptsLeft <= 1 ? '#fef2f2' : '#fffbeb',
+          border: attemptsLeft !== null && attemptsLeft <= 1 ? '1px solid #fecaca' : '1px solid #fde68a',
+          borderRadius: '8px',
+          color: attemptsLeft !== null && attemptsLeft <= 1 ? '#b91c1c' : '#92400e',
+          fontSize: '0.82rem',
+          fontWeight: '600',
+          textAlign: 'center'
+        }}>
+          {attemptsLeft !== null
+            ? (attemptsLeft <= 0
+              ? 'Kesempatan login habis. Tunggu sebelum mencoba lagi.'
+              : `Tersisa ${attemptsLeft} percobaan login`)
+            : 'Demi keamanan, login dibatasi 5x percobaan per 15 menit.'}
         </div>
 
         {error && (
