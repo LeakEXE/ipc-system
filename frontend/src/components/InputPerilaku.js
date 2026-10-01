@@ -86,7 +86,7 @@ function InputPerilaku() {
     if (user.role === 'superadmin') {
       fetchAllPerilaku();
     } else if (user.role === 'guru' || user.role === 'pegawai') {
-      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPerilaku(); }).catch(() => setCanApprove(false));
+      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_input_perilaku; setCanApprove(allowed); if (allowed) fetchAllPerilaku(); }).catch(() => setCanApprove(false));
     }
   }, []);
 

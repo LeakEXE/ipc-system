@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const { evidenceFileFilter, EVIDENCE_LIMITS } = require('../utils/evidenceUpload');
 const path = require('path');
-const { auth, approverOnly, checkInputAccess } = require('../middleware/auth');
+const { auth, approverOnly, approverFor, checkInputAccess } = require('../middleware/auth');
 const db = require('../config/database');
 const { logActivity } = require('../utils/logger');
 const {
@@ -25,6 +25,17 @@ const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
 const { ensureUploadSubdir, UPLOAD_DIR, resolveUploadPath } = require('../utils/paths');
 const fs = require('fs');
 // Local file storage only - Google Drive removed
+
+// Notify superadmins AND staff holding the approval scope for this type.
+async function getApprovalRecipients(jenis) {
+    const [recipients] = await db.query(
+        `SELECT DISTINCT u.id FROM users u
+         WHERE u.role = 'superadmin'
+            OR EXISTS (SELECT 1 FROM approval_scopes s WHERE s.user_id = u.id AND s.jenis = ?)`,
+        [jenis]
+    );
+    return recipients;
+}
 
 // Configure multer for file uploads - use type-specific folders
 const storage = multer.diskStorage({
@@ -169,11 +180,8 @@ router.post('/prestasi/submit', auth, checkInputAccess('prestasi'), upload.singl
         const memberSummary = members.map(m => `${m.nama} (${m.nis})`).join(', ');
         await logActivity(req.user.id, 'SUBMIT_PRESTASI', `User ${req.user.nama} (${req.user.role}) submitted prestasi for ${memberSummary}: ${nama_lomba}`, req.ip);
 
-        // Create notification for superadmin only
-        // Notify superadmins AND users granted approval permission
-        const [recipients] = await db.query(
-            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
-        );
+        // Notify superadmins AND staff holding the 'prestasi' approval scope
+        const recipients = await getApprovalRecipients('prestasi');
         console.log('Prestasi - Recipients found:', recipients.length);
         for (const recipient of recipients) {
             await db.query(
@@ -322,11 +330,8 @@ router.post('/event/submit', auth, checkInputAccess('event'), upload.single('fot
         // Log activity
         await logActivity(req.user.id, 'SUBMIT_EVENT', `User ${req.user.nama} (${req.user.role}) submitted event for ${nama} (${nis}): ${nama_event}`, req.ip);
 
-        // Create notification for superadmin only
-        // Notify superadmins AND users granted approval permission
-        const [recipients] = await db.query(
-            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
-        );
+        // Notify superadmins AND staff holding the 'event' approval scope
+        const recipients = await getApprovalRecipients('event');
         console.log('Event - Recipients found:', recipients.length);
         for (const recipient of recipients) {
             await db.query(
@@ -407,11 +412,8 @@ router.post('/organisasi/submit', auth, checkInputAccess('organisasi'), upload.s
         // Log activity
         await logActivity(req.user.id, 'SUBMIT_ORGANISASI', `User ${req.user.nama} (${req.user.role}) submitted organisasi for ${nama} (${nis}): ${kategori_organisasi}`, req.ip);
 
-        // Create notification for superadmin only
-        // Notify superadmins AND users granted approval permission
-        const [recipients] = await db.query(
-            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
-        );
+        // Notify superadmins AND staff holding the 'organisasi' approval scope
+        const recipients = await getApprovalRecipients('organisasi');
         console.log('Organisasi - Recipients found:', recipients.length);
         for (const recipient of recipients) {
             await db.query(
@@ -492,11 +494,8 @@ router.post('/kepanitiaan/submit', auth, checkInputAccess('kepanitiaan'), upload
         // Log activity
         await logActivity(req.user.id, 'SUBMIT_KEPANITIAAN', `User ${req.user.nama} (${req.user.role}) submitted kepanitiaan for ${nama} (${nis}): ${kategori_kepanitiaan}`, req.ip);
 
-        // Create notification for superadmin only
-        // Notify superadmins AND users granted approval permission
-        const [recipients] = await db.query(
-            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
-        );
+        // Notify superadmins AND staff holding the 'kepanitiaan' approval scope
+        const recipients = await getApprovalRecipients('kepanitiaan');
         console.log('Kepanitiaan - Recipients found:', recipients.length);
         for (const recipient of recipients) {
             await db.query(
@@ -522,14 +521,20 @@ router.post('/kepanitiaan/submit', auth, checkInputAccess('kepanitiaan'), upload
 // REMOVED: Pembina approval route - now only superadmin approval
 
 // SuperAdmin Approve/Reject (single-step approval)
-router.put('/superadmin/:type/:id', auth, approverOnly, async (req, res) => {
+// Non-superadmin callers must hold the approval scope for that exact type.
+router.put('/superadmin/:type/:id', auth, approverFor('type'), async (req, res) => {
     try {
         const { type, id } = req.params;
         const { status, notes } = req.body;
 
         console.log(`SuperAdmin ${status} request: type=${type}, id=${id}`);
 
-        if (type === 'pelanggaran' || type === 'perilaku') {
+        // Perilaku no longer goes through approval — submissions apply directly.
+        if (type === 'perilaku') {
+            return res.status(400).json({ message: 'Perilaku tidak lagi memerlukan persetujuan — langsung tersimpan saat diinput' });
+        }
+
+        if (type === 'pelanggaran') {
             return handleLegacyApproval(type, id, status, notes, req.user.id, req.user.role, req.ip, res);
         }
 
@@ -794,93 +799,91 @@ async function handleLegacyApproval(type, id, status, notes, approverId, approve
 
 // ==================== GET APPROVALS ====================
 
-// Get pending approvals count for SuperAdmin
+// Get pending approvals count (scoped to the caller's approval scopes unless superadmin)
 router.get('/pending-count', auth, approverOnly, async (req, res) => {
     try {
         const col = await getApprovalStatusColumn();
+        const scopes = req.user.role === 'superadmin' ? null : (req.approvalScopes || []);
 
-        const [prestasiCount] = await db.query(
-            `SELECT COUNT(*) as count FROM prestasi_approvals WHERE ${col} = 'pending'`
-        );
-        const [eventCount] = await db.query(
-            `SELECT COUNT(*) as count FROM event_approvals WHERE ${col} = 'pending'`
-        );
-        const [organisasiCount] = await db.query(
-            `SELECT COUNT(*) as count FROM organisasi_approvals WHERE ${col} = 'pending'`
-        );
-        const [kepanitiaanCount] = await db.query(
-            `SELECT COUNT(*) as count FROM kepanitiaan_approvals WHERE ${col} = 'pending'`
-        );
-        const [pelanggaranCount] = await db.query(
-            "SELECT COUNT(*) as count FROM pelanggaran WHERE status = 'pending'"
-        );
-        const [perilakuCount] = await db.query(
-            "SELECT COUNT(*) as count FROM perilaku WHERE status = 'pending'"
-        );
+        const counts = { prestasi: 0, event: 0, organisasi: 0, kepanitiaan: 0, pelanggaran: 0 };
+        const canSee = (jenis) => scopes === null || scopes.includes(jenis);
 
-        const total = (prestasiCount[0].count || 0) +
-                     (eventCount[0].count || 0) +
-                     (organisasiCount[0].count || 0) +
-                     (kepanitiaanCount[0].count || 0) +
-                     (pelanggaranCount[0].count || 0) +
-                     (perilakuCount[0].count || 0);
+        if (canSee('prestasi')) {
+            const [prestasiCount] = await db.query(
+                `SELECT COUNT(*) as count FROM prestasi_approvals WHERE ${col} = 'pending'`
+            );
+            counts.prestasi = prestasiCount[0].count || 0;
+        }
+        if (canSee('event')) {
+            const [eventCount] = await db.query(
+                `SELECT COUNT(*) as count FROM event_approvals WHERE ${col} = 'pending'`
+            );
+            counts.event = eventCount[0].count || 0;
+        }
+        if (canSee('organisasi')) {
+            const [organisasiCount] = await db.query(
+                `SELECT COUNT(*) as count FROM organisasi_approvals WHERE ${col} = 'pending'`
+            );
+            counts.organisasi = organisasiCount[0].count || 0;
+        }
+        if (canSee('kepanitiaan')) {
+            const [kepanitiaanCount] = await db.query(
+                `SELECT COUNT(*) as count FROM kepanitiaan_approvals WHERE ${col} = 'pending'`
+            );
+            counts.kepanitiaan = kepanitiaanCount[0].count || 0;
+        }
+        if (canSee('pelanggaran')) {
+            const [pelanggaranCount] = await db.query(
+                "SELECT COUNT(*) as count FROM pelanggaran WHERE status = 'pending'"
+            );
+            counts.pelanggaran = pelanggaranCount[0].count || 0;
+        }
 
-        res.json({
-            total,
-            prestasi: prestasiCount[0].count || 0,
-            event: eventCount[0].count || 0,
-            organisasi: organisasiCount[0].count || 0,
-            kepanitiaan: kepanitiaanCount[0].count || 0,
-            pelanggaran: pelanggaranCount[0].count || 0,
-            perilaku: perilakuCount[0].count || 0
-        });
+        const total = counts.prestasi + counts.event + counts.organisasi + counts.kepanitiaan + counts.pelanggaran;
+
+        res.json({ total, ...counts });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Get all approvals for SuperAdmin
+// Get all approvals (scoped to the caller's approval scopes unless superadmin)
 router.get('/all', auth, approverOnly, async (req, res) => {
     try {
+        const scopes = req.user.role === 'superadmin' ? null : (req.approvalScopes || []);
+        const canSee = (jenis) => scopes === null || scopes.includes(jenis);
+
         const [prestasi, event, organisasi, kepanitiaan] = await Promise.all([
-            fetchPendingApprovals('prestasi_approvals', 'p'),
-            fetchPendingApprovals('event_approvals', 'e'),
-            fetchPendingApprovals('organisasi_approvals', 'o'),
-            fetchPendingApprovals('kepanitiaan_approvals', 'k')
+            canSee('prestasi') ? fetchPendingApprovals('prestasi_approvals', 'p') : [],
+            canSee('event') ? fetchPendingApprovals('event_approvals', 'e') : [],
+            canSee('organisasi') ? fetchPendingApprovals('organisasi_approvals', 'o') : [],
+            canSee('kepanitiaan') ? fetchPendingApprovals('kepanitiaan_approvals', 'k') : []
         ]);
 
         // "Diajukan Oleh" = actual submitter (submitted_by), not the target
         // student (user_id). COALESCE covers legacy rows with submitted_by NULL.
-        const [pelanggaran] = await db.query(`
-            SELECT p.*,
-                   COALESCE(s.nama, u.nama) as user_name,
-                   s.nama as submitted_by_name,
-                   s.role as submitted_by_role
-            FROM pelanggaran p
-            JOIN users u ON p.user_id = u.id
-            LEFT JOIN users s ON p.submitted_by = s.id
-            WHERE p.status = 'pending'
-        `);
-
-        const [perilaku] = await db.query(`
-            SELECT p.*,
-                   COALESCE(s.nama, u.nama) as user_name,
-                   s.nama as submitted_by_name,
-                   s.role as submitted_by_role
-            FROM perilaku p
-            JOIN users u ON p.user_id = u.id
-            LEFT JOIN users s ON p.submitted_by = s.id
-            WHERE p.status = 'pending'
-        `);
+        let pelanggaran = [];
+        if (canSee('pelanggaran')) {
+            const [rows] = await db.query(`
+                SELECT p.*,
+                       COALESCE(s.nama, u.nama) as user_name,
+                       s.nama as submitted_by_name,
+                       s.role as submitted_by_role
+                FROM pelanggaran p
+                JOIN users u ON p.user_id = u.id
+                LEFT JOIN users s ON p.submitted_by = s.id
+                WHERE p.status = 'pending'
+            `);
+            pelanggaran = rows;
+        }
 
         res.json({
             prestasi: prestasi.map(p => ({ ...p, type: 'prestasi', status: getRowApprovalStatus(p) })),
             event: event.map(e => ({ ...e, type: 'event', status: getRowApprovalStatus(e) })),
             organisasi: organisasi.map(o => ({ ...o, type: 'organisasi', status: getRowApprovalStatus(o) })),
             kepanitiaan: kepanitiaan.map(k => ({ ...k, type: 'kepanitiaan', status: getRowApprovalStatus(k) })),
-            pelanggaran: pelanggaran.map(p => ({ ...p, type: 'pelanggaran' })),
-            perilaku: perilaku.map(p => ({ ...p, type: 'perilaku' }))
+            pelanggaran: pelanggaran.map(p => ({ ...p, type: 'pelanggaran' }))
         });
     } catch (error) {
         console.error(error);

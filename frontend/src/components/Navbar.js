@@ -13,9 +13,9 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
   console.log('Navbar - User:', user);
   console.log('Navbar - User Role:', user?.role);
 
-  // Fetch pending approvals count for superadmin + approved approvers
+  // Fetch pending approvals count for superadmin + scoped approvers
   useEffect(() => {
-    if (user?.role === 'superadmin' || permissions?.can_approve) {
+    if (user?.role === 'superadmin' || (permissions?.approval_scopes || []).length > 0) {
       fetchPendingCount();
 
       // Refresh count every 30 seconds
@@ -111,8 +111,8 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
     { path: '/konfigurasi-ipt', label: 'Konfigurasi IPT', show: user?.role === 'superadmin' },
     { path: '/school-config', label: 'Konfigurasi Sekolah', show: user?.role === 'superadmin' },
     { path: '/izin-akun', label: 'Izin Akun', show: user?.role === 'superadmin' },
-    // Approvals for superadmin + users granted approval permission
-    { path: '/approvals', label: 'Approvals', show: user?.role === 'superadmin' || permissions?.can_approve },
+    // Approvals for superadmin + users holding at least one approval scope
+    { path: '/approvals', label: 'Approvals', show: user?.role === 'superadmin' || (permissions?.approval_scopes || []).length > 0 },
     { path: '/drive-viewer', label: 'File Manager', show: user?.role === 'superadmin' },
     { path: '/notifications', label: 'Notifikasi', show: user?.role === 'siswa' || user?.role === 'guru' || user?.role === 'pegawai' },
     { path: '/logs', label: 'Logs', show: user?.role === 'superadmin' },

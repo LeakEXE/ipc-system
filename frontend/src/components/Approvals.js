@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import API_BASE_URL from '../config';
-import { toTitleCase } from '../utils/perilaku';
 import { formatDisplayText } from '../utils/formatDisplayText';
 import { StatusIcon } from './icons';
 import { Camera, Inbox } from 'lucide-react';
@@ -29,7 +28,6 @@ function Approvals() {
     organisasi: [],
     kepanitiaan: [],
     pelanggaran: [],
-    perilaku: [],
     biodata: [],
     student_creation: []
   });
@@ -37,7 +35,7 @@ function Approvals() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState('');
-  // Access gating: superadmin always; others need can_approve permission.
+  // Access gating: superadmin always; others need at least one approval scope.
   // Non-superadmin approvers only see IPT tabs (biodata/student-creation stay superadmin-only).
   const [hasAccess, setHasAccess] = useState(false);
   // Enlarged photo popup (same pattern as DriveViewer: URL string or null)
@@ -62,7 +60,8 @@ function Approvals() {
       if (!superadmin) {
         try {
           const permRes = await api.get('/permissions/my-permissions');
-          canApprove = !!(permRes.data && (permRes.data.can_approve === true || permRes.data.can_approve === 1));
+          const scopes = permRes.data?.approval_scopes;
+          canApprove = Array.isArray(scopes) && scopes.length > 0;
         } catch {
           canApprove = false;
         }
@@ -79,7 +78,12 @@ function Approvals() {
         superadmin ? api.get('/users/student-creation-approvals') : Promise.resolve({ data: [] })
       ]);
       setApprovals({
-        ...approvalsRes.data,
+        prestasi: [],
+        event: [],
+        organisasi: [],
+        kepanitiaan: [],
+        pelanggaran: [],
+        ...(approvalsRes.data || {}),
         biodata: biodataRes.data || [],
         student_creation: studentCreationRes.data || []
       });
@@ -121,8 +125,7 @@ function Approvals() {
         event: 'Event',
         organisasi: 'Organisasi',
         kepanitiaan: 'Kepanitiaan',
-        pelanggaran: 'Pelanggaran',
-        perilaku: 'Perilaku'
+        pelanggaran: 'Pelanggaran'
       };
       setMessage(`${typeLabels[type] || type} berhasil disetujui!`);
       setSelectedItem(null);
@@ -159,8 +162,7 @@ function Approvals() {
         event: 'Event',
         organisasi: 'Organisasi',
         kepanitiaan: 'Kepanitiaan',
-        pelanggaran: 'Pelanggaran',
-        perilaku: 'Perilaku'
+        pelanggaran: 'Pelanggaran'
       };
       setMessage(`${typeLabels[type] || type} ditolak`);
       setSelectedItem(null);
@@ -221,7 +223,6 @@ function Approvals() {
       organisasi: ['Diajukan Oleh', 'Nama', 'NIS', 'Organisasi', 'Jabatan', 'Foto', 'Status', 'Aksi'],
       kepanitiaan: ['Diajukan Oleh', 'Nama', 'NIS', 'Kepanitiaan', 'Jabatan', 'Foto', 'Status', 'Aksi'],
       pelanggaran: ['Diajukan Oleh', 'Nama', 'NIS', 'Keterangan', 'Jenis', 'Foto', 'Status', 'Aksi'],
-      perilaku: ['Diajukan Oleh', 'Nama', 'NIS', 'Karakter', 'Status', 'Aksi'],
     };
 
     const getPhotoUrl = (path, uploadFolder = 'approvals') => {
@@ -310,9 +311,6 @@ function Approvals() {
       if (type === 'pelanggaran') {
         if (col === 'Keterangan') return item.keterangan;
         if (col === 'Jenis') return item.jenis_pelanggaran;
-      }
-      if (type === 'perilaku') {
-        if (col === 'Karakter') return toTitleCase(item.karakter_siswa);
       }
       return '';
     };
@@ -415,7 +413,7 @@ function Approvals() {
                 <div style={{ fontSize: '13.5px', color: TEXT }}>{getFieldValue(item, col, type)}</div>
               </div>
             ))}
-            {usesApprovalStatus && type !== 'perilaku' && (
+            {usesApprovalStatus && (
               <div style={{ gridColumn: '1 / -1' }}>
                 <div style={{
                   fontSize: '10.5px',
@@ -705,14 +703,6 @@ function Approvals() {
                     }}>{item.jenis_pelanggaran}</td>
                   </>
                 )}
-                {type === 'perilaku' && (
-                  <td style={{
-                    padding: "16px 18px",
-                    borderBottom: `1px solid ${BORDER}`,
-                    verticalAlign: "middle",
-                    color: TEXT
-                  }}>{toTitleCase(item.karakter_siswa)}</td>
-                )}
                 {type === 'biodata' && (
                   <>
                     <td>{item.student_name}</td>
@@ -840,7 +830,7 @@ function Approvals() {
                     </td>
                   </>
                 )}
-                {usesApprovalStatus && type !== 'perilaku' && (
+                {usesApprovalStatus && (
                   <td style={{
                     padding: "16px 18px",
                     borderBottom: `1px solid ${BORDER}`,
@@ -1087,14 +1077,19 @@ function Approvals() {
     );
   }
 
-  const tabs = [
-    { key: 'prestasi', label: 'Prestasi', count: approvals.prestasi.length },
-    { key: 'event', label: 'Event', count: approvals.event.length },
-    { key: 'organisasi', label: 'Organisasi', count: approvals.organisasi.length },
-    { key: 'kepanitiaan', label: 'Kepanitiaan', count: approvals.kepanitiaan.length },
-    { key: 'pelanggaran', label: 'Pelanggaran', count: approvals.pelanggaran?.length || 0 },
-    { key: 'perilaku', label: 'Perilaku', count: approvals.perilaku?.length || 0 },
+  // Backend omits types outside the caller's approval scopes, so tabs
+  // automatically match what this user may approve. Superadmin sees all.
+  const ALL_TABS = [
+    { key: 'prestasi', label: 'Prestasi' },
+    { key: 'event', label: 'Event' },
+    { key: 'organisasi', label: 'Organisasi' },
+    { key: 'kepanitiaan', label: 'Kepanitiaan' },
+    { key: 'pelanggaran', label: 'Pelanggaran' },
   ];
+  const tabs = ALL_TABS
+    .filter((t) => approvals[t.key] !== undefined)
+    .map((t) => ({ ...t, count: approvals[t.key]?.length || 0 }));
+  const effectiveTab = tabs.some((t) => t.key === activeTab) ? activeTab : (tabs[0]?.key || 'prestasi');
 
   return (
     <div style={{
@@ -1133,24 +1128,24 @@ function Approvals() {
               gap: '8px',
               padding: '11px 18px',
               borderRadius: '10px',
-              border: `1px solid ${activeTab === tab.key ? BLUE : BORDER}`,
-              background: activeTab === tab.key ? BLUE : '#eceff3',
-              color: activeTab === tab.key ? '#fff' : TEXT,
+              border: `1px solid ${effectiveTab === tab.key ? BLUE : BORDER}`,
+              background: effectiveTab === tab.key ? BLUE : '#eceff3',
+              color: effectiveTab === tab.key ? '#fff' : TEXT,
               fontSize: '14.5px',
               fontWeight: '600',
               cursor: 'pointer',
               transition: 'background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease',
               userSelect: 'none',
-              boxShadow: activeTab === tab.key ? '0 6px 16px -6px rgba(47,95,232,.55)' : 'none'
+              boxShadow: effectiveTab === tab.key ? '0 6px 16px -6px rgba(47,95,232,.55)' : 'none'
             }}
             onMouseEnter={(e) => {
-              if (activeTab !== tab.key) {
+              if (effectiveTab !== tab.key) {
                 e.currentTarget.style.transform = 'translateY(-1px)';
                 e.currentTarget.style.boxShadow = '0 4px 10px -4px rgba(20,25,40,.18)';
               }
             }}
             onMouseLeave={(e) => {
-              if (activeTab !== tab.key) {
+              if (effectiveTab !== tab.key) {
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = 'none';
               }
@@ -1184,7 +1179,7 @@ function Approvals() {
         boxShadow: '0 1px 2px rgba(20,25,40,.04), 0 8px 24px -12px rgba(20,25,40,.10)',
         overflow: 'hidden'
       }}>
-        {renderTable(approvals[activeTab], activeTab)}
+        {renderTable(approvals[effectiveTab] || [], effectiveTab)}
       </div>
 
       {selectedItem && (

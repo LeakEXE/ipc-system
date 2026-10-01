@@ -41,10 +41,11 @@ router.get('/user/:userId', auth, async (req, res) => {
     }
 });
 
-// Create perilaku
+// Create perilaku — always applies directly, no approval queue.
+// Whoever holds input access submits an approved row and the student's
+// IPT is updated immediately via the standard supersede semantics.
 router.post('/', auth, checkPermission('perilaku'), async (req, res) => {
     try {
-        const userRole = req.user.role;
         const {
             nama,
             nis,
@@ -82,115 +83,29 @@ router.post('/', auth, checkPermission('perilaku'), async (req, res) => {
                 kepercayaan_diri
             });
 
-        if (userRole === 'superadmin' || userRole === 'guru' || userRole === 'pegawai') {
-            const [result] = await db.query(
-                `INSERT INTO perilaku (user_id, submitted_by, nama, nis, kelas, grha, karakter_siswa, point, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
-                [userId, req.user.id, nama, nis, kelas, grha, karakter, point]
-            );
-
-            await applyPerilakuIptChange(
-                userId,
-                point,
-                buildKeterangan('perilaku', { karakter_siswa: karakter }),
-                result.insertId
-            );
-
-            // Log activity
-            await logActivity(req.user.id, 'SUBMIT_PERILAKU', `${req.user.nama} (${req.user.role}) directly submitted perilaku for ${nama} (${nis}): ${karakter}`, req.ip);
-
-            return res.status(201).json({
-                message: 'Perilaku berhasil ditambahkan',
-                id: result.insertId
-            });
-        }
-
         const [result] = await db.query(
-            'INSERT INTO perilaku (user_id, submitted_by, nama, nis, kelas, grha, karakter_siswa, point, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [userId, req.user.id, nama, nis, kelas, grha, karakter, point, 'pending']
+            `INSERT INTO perilaku (user_id, submitted_by, nama, nis, kelas, grha, karakter_siswa, point, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
+            [userId, req.user.id, nama, nis, kelas, grha, karakter, point]
+        );
+
+        await applyPerilakuIptChange(
+            userId,
+            point,
+            buildKeterangan('perilaku', { karakter_siswa: karakter }),
+            result.insertId
         );
 
         // Log activity
-        await logActivity(req.user.id, 'SUBMIT_PERILAKU', `User ${req.user.nama} (${req.user.role}) submitted perilaku for ${nama} (${nis}): ${karakter}`, req.ip);
+        await logActivity(req.user.id, 'SUBMIT_PERILAKU', `${req.user.nama} (${req.user.role}) directly submitted perilaku for ${nama} (${nis}): ${karakter}`, req.ip);
 
-        const [recipients] = await db.query(
-            `SELECT DISTINCT u.id FROM users u LEFT JOIN permissions p ON p.user_id = u.id WHERE u.role = 'superadmin' OR p.can_approve IS TRUE`
-        );
-        for (const recipient of recipients) {
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
-                 VALUES (?, 'approval_needed', 'Persetujuan Perilaku', ?, ?, 'perilaku')`,
-                [recipient.id, `${nama} (${nis}) mengajukan perilaku`, result.insertId]
-            );
-        }
-
-        res.status(201).json({ message: 'Perilaku berhasil diajukan untuk persetujuan', id: result.insertId });
+        res.status(201).json({
+            message: 'Perilaku berhasil ditambahkan',
+            id: result.insertId
+        });
     } catch (error) {
         console.error(error);
         res.status(error.statusCode || 500).json({ message: error.message || 'Server error' });
-    }
-});
-
-// Approve perilaku
-router.put('/:id/approve', auth, superAdminOnly, async (req, res) => {
-    try {
-        const perilakuId = req.params.id;
-        
-        const [perilaku] = await db.query(
-            'SELECT id, user_id, nama, nis, kelas, grha, karakter_siswa, point, status, rejection_reason, created_at FROM perilaku WHERE id = ? AND status = ?',
-            [perilakuId, 'pending']
-        );
-        if (perilaku.length === 0) {
-            return res.status(404).json({ message: 'Perilaku not found or already processed' });
-        }
-
-        const perilakuData = perilaku[0];
-        
-        await db.query(
-            'UPDATE perilaku SET status = ? WHERE id = ? AND status = ?',
-            ['approved', perilakuId, 'pending']
-        );
-        
-        await applyPerilakuIptChange(
-            perilakuData.user_id,
-            perilakuData.point,
-            `Perilaku: ${perilakuData.karakter_siswa}`,
-            perilakuId
-        );
-
-        // Log activity
-        await logActivity(req.user.id, 'APPROVE_PERILAKU', `SuperAdmin ${req.user.nama} approved perilaku for ${perilakuData.nama} (${perilakuData.nis}): ${perilakuData.karakter_siswa}`, req.ip);
-
-        await db.query(
-            `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
-             VALUES (?, 'approved', 'Pengajuan Disetujui', ?, ?, 'perilaku')`,
-            [perilakuData.user_id, 'Pengajuan perilaku Anda telah disetujui', perilakuId]
-        );
-
-        res.json({ message: 'Perilaku approved successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Reject perilaku
-router.put('/:id/reject', auth, superAdminOnly, async (req, res) => {
-    try {
-        const { rejection_reason } = req.body;
-        const perilakuId = req.params.id;
-
-        const [perilaku] = await db.query('SELECT * FROM perilaku WHERE id = ?', [perilakuId]);
-
-        await db.query('UPDATE perilaku SET status = ?, rejection_reason = ? WHERE id = ?', ['rejected', rejection_reason, perilakuId]);
-
-        // Log activity
-        await logActivity(req.user.id, 'REJECT_PERILAKU', `SuperAdmin ${req.user.nama} rejected perilaku for ${perilaku[0]?.nama || 'unknown'} (${perilaku[0]?.nis || 'unknown'}): ${rejection_reason || 'No reason'}`, req.ip);
-
-        res.json({ message: 'Perilaku rejected' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
     }
 });
 

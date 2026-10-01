@@ -64,8 +64,19 @@ CREATE TABLE permissions (
     can_input_pelanggaran BOOLEAN DEFAULT FALSE,
     can_input_perilaku BOOLEAN DEFAULT FALSE,
     can_view_all_data BOOLEAN DEFAULT FALSE,
-    can_approve BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Per-type approval scopes: which submission types a staff member may approve.
+-- Managed by superadmin in Izin Akun. Superadmins bypass scopes entirely.
+DROP TABLE IF EXISTS approval_scopes CASCADE;
+CREATE TABLE approval_scopes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    jenis TEXT NOT NULL CHECK (jenis IN ('prestasi', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT unique_approval_scope UNIQUE (user_id, jenis)
 );
 
 -- ==================== IPT CONFIGURATION TABLES ====================
