@@ -7,6 +7,7 @@ import StudentRecordsHistory from './StudentRecordsHistory';
 import { UserRound, Camera, Trash2 } from 'lucide-react';
 
 const JABATAN_OPTIONS = ['Guru', 'Pegawai'];
+const JURUSAN_OPTIONS = ['TKJ 1', 'TKJ 2', 'DPIB 1', 'DPIB 2', 'TKR 1', 'TKR 2'];
 
 const CROP_MIN_ZOOM = 1;
 const CROP_MAX_ZOOM = 3;
@@ -539,7 +540,15 @@ function Profile() {
     try {
       // Send only the fields this role may change (server enforces the same list)
       const payload = { no_hp: editData.no_hp, alamat: editData.alamat };
+      if (user.role === 'siswa') {
+        payload.nama = editData.nama;
+        payload.nis = editData.nis;
+        payload.jurusan = editData.jurusan;
+        payload.tahun_pelajaran = editData.tahun_pelajaran;
+      }
       if (user.role === 'guru' || user.role === 'pegawai') {
+        payload.nip = editData.nip;
+        payload.nama = editData.nama;
         payload.jabatan = editData.jabatan || editData.detail;
       }
       if (user.role === 'superadmin') {
@@ -706,6 +715,35 @@ function Profile() {
           {user.role === 'siswa' && (
             <>
               <div className="form-group">
+                <label>Nama</label>
+                <input type="text" value={editData.nama || ''} onChange={(e) => setEditData({...editData, nama: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label>NIS</label>
+                <input type="text" value={editData.nis || ''} onChange={(e) => setEditData({...editData, nis: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label>Jurusan</label>
+                <select value={editData.jurusan || ''} onChange={(e) => setEditData({...editData, jurusan: e.target.value})} required>
+                  <option value="" disabled hidden>Pilih Jurusan</option>
+                  {JURUSAN_OPTIONS.map((j) => (
+                    <option key={j} value={j}>{j}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Tahun Pelajaran Masuk</label>
+                <select value={editData.tahun_pelajaran || ''} onChange={(e) => setEditData({...editData, tahun_pelajaran: e.target.value})} required>
+                  <option value="" disabled hidden>Pilih Tahun Pelajaran</option>
+                  {Array.from({ length: 11 }, (_, i) => {
+                    const start = 2024 + i;
+                    return `${start}-${start + 1}`;
+                  }).map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
                 <label>No HP</label>
                 <input type="text" value={editData.no_hp || ''} onChange={(e) => setEditData({...editData, no_hp: e.target.value})} />
               </div>
@@ -717,6 +755,14 @@ function Profile() {
           )}
           {(user.role === 'guru' || user.role === 'pegawai') && (
             <>
+              <div className="form-group">
+                <label>NIP</label>
+                <input type="text" value={editData.nip || ''} onChange={(e) => setEditData({...editData, nip: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label>Nama</label>
+                <input type="text" value={editData.nama || ''} onChange={(e) => setEditData({...editData, nama: e.target.value})} required />
+              </div>
               <div className="form-group">
                 <label>No HP</label>
                 <input type="text" value={editData.no_hp || ''} onChange={(e) => setEditData({...editData, no_hp: e.target.value})} />
@@ -768,6 +814,8 @@ function Profile() {
           <>
             <p><strong>NIS:</strong> {profile?.nis || '-'}</p>
             <p><strong>Kelas:</strong> {profile?.kelas || '-'}</p>
+            <p><strong>Jurusan:</strong> {profile?.jurusan || '-'}</p>
+            <p><strong>Tahun Pelajaran Masuk:</strong> {profile?.tahun_pelajaran || '-'}</p>
             <p><strong>Grha:</strong> {profile?.grha || '-'}</p>
             <p><strong>Wali Kelas:</strong> {profile?.wali_kelas_nama || profile?.wali_kelas || '-'}</p>
           </>

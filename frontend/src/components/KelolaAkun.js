@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../utils/api';
 import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import * as XLSX from 'xlsx';
@@ -80,6 +80,17 @@ function KelolaAkun() {
     totalPages: 0
   });
   const [searchQuery, setSearchQuery] = useState('');
+  // Background refresh indicator (table only). The full-page spinner (loading)
+  // is reserved for the first mount so typing never unmounts the search box.
+  const [refreshing, setRefreshing] = useState(false);
+  // Latest filter values for the stable fetch callback below.
+  const searchRef = useRef(searchQuery);
+  searchRef.current = searchQuery;
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const limitRef = useRef(pagination.limit);
+  limitRef.current = pagination.limit;
+  const fetchStartedRef = useRef(false);
 
   const grhaOptions = GRHA_OPTIONS;
 
@@ -94,21 +105,32 @@ function KelolaAkun() {
     setFilters({ role: '', jabatan: '', kelas: '', grha: '', jurusan: '', tahun_pelajaran: '' });
   };
 
+  // Stable identity (empty deps): reads latest search/filters via refs so
+  // typing doesn't recreate it and retrigger the mount effect below.
+  // First call drives the full-page spinner; later calls only set `refreshing`
+  // so the search input is never unmounted mid-keystroke.
   const fetchUsers = useCallback(async (page = 1) => {
+    const isFirstLoad = !fetchStartedRef.current;
+    fetchStartedRef.current = true;
     try {
-      setLoading(true);
+      if (isFirstLoad) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       const params = new URLSearchParams({
         page: page,
-        limit: pagination.limit,
-        search: searchQuery
+        limit: limitRef.current,
+        search: searchRef.current
       });
 
-      if (filters.role) params.append('role', filters.role);
-      if (filters.jabatan) params.append('jabatan', filters.jabatan);
-      if (filters.kelas) params.append('kelas', filters.kelas);
-      if (filters.grha) params.append('grha', filters.grha);
-      if (filters.jurusan) params.append('jurusan', filters.jurusan);
-      if (filters.tahun_pelajaran) params.append('tahun_pelajaran', filters.tahun_pelajaran);
+      const f = filtersRef.current;
+      if (f.role) params.append('role', f.role);
+      if (f.jabatan) params.append('jabatan', f.jabatan);
+      if (f.kelas) params.append('kelas', f.kelas);
+      if (f.grha) params.append('grha', f.grha);
+      if (f.jurusan) params.append('jurusan', f.jurusan);
+      if (f.tahun_pelajaran) params.append('tahun_pelajaran', f.tahun_pelajaran);
 
       const response = await api.get(`/users?${params.toString()}`);
 
@@ -123,8 +145,9 @@ function KelolaAkun() {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [pagination.limit, searchQuery, filters.role, filters.jabatan, filters.kelas, filters.grha, filters.jurusan, filters.tahun_pelajaran]);
+  }, []);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
@@ -275,6 +298,28 @@ function KelolaAkun() {
     }
     
     return user.role !== selectionRole;
+  };
+
+  const handleLimitChange = (newLimit) => {
+    limitRef.current = newLimit;
+    setPagination((prev) => ({ ...prev, limit: newLimit }));
+    fetchUsers(1);
+  };
+
+  const getPageNumbers = () => {
+    const total = pagination.totalPages || 0;
+    const current = pagination.page || 1;
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const candidates = new Set([1, 2, current - 1, current, current + 1, total - 1, total]);
+    const nums = [...candidates].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+    const out = [];
+    nums.forEach((n, i) => {
+      if (i > 0 && n - nums[i - 1] > 1) out.push('...');
+      out.push(n);
+    });
+    return out;
   };
 
   const handleEditUser = (user) => {
@@ -1155,79 +1200,117 @@ function KelolaAkun() {
 
         {/* Bulk Actions */}
         {userRole === 'superadmin' && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid #e0e0e0' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={selectAllFiltered}
-                style={{
-                  padding: '6px 12px', border: '1px solid #d0d0d0', background: 'white', borderRadius: '3px',
-                  fontSize: '12px', cursor: 'pointer', color: '#333'
-                }}
-                onMouseOver={(e) => { e.target.style.background = '#f5f5f5'; e.target.style.borderColor = '#bbb'; }}
-                onMouseOut={(e) => { e.target.style.background = 'white'; e.target.style.borderColor = '#d0d0d0'; }}
-              >
-                Pilih Semua
-              </button>
-              {selectedIds.length > 0 && (
-                <>
-                  <button
-                    onClick={handleBulkDelete}
-                    style={{
-                      padding: '6px 12px', border: '1px solid var(--border-color)', background: 'var(--danger-color)', borderRadius: '3px',
-                      fontSize: '12px', cursor: 'pointer', color: 'white'
-                    }}
-                    onMouseOver={(e) => { e.target.style.background = 'var(--danger-dark)'; }}
-                    onMouseOut={(e) => { e.target.style.background = 'var(--danger-color)'; }}
-                  >
-                    Hapus ({selectedIds.length})
-                  </button>
-                  <button
-                    onClick={clearSelection}
-                    style={{
-                      padding: '6px 12px', border: '1px solid #d0d0d0', background: 'white', borderRadius: '3px',
-                      fontSize: '12px', cursor: 'pointer', color: '#333'
-                    }}
-                    onMouseOver={(e) => { e.target.style.background = '#f5f5f5'; e.target.style.borderColor = '#bbb'; }}
-                    onMouseOut={(e) => { e.target.style.background = 'white'; e.target.style.borderColor = '#d0d0d0'; }}
-                  >
-                    Batal
-                  </button>
-                </>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                onClick={() => fetchUsers(pagination.page - 1)}
-                disabled={pagination.page === 1 || loading}
-                style={{
-                  padding: '6px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
-                  fontSize: '12px', cursor: pagination.page === 1 || loading ? 'not-allowed' : 'pointer',
-                  background: pagination.page === 1 || loading ? '#f5f5f5' : 'white',
-                  color: pagination.page === 1 || loading ? '#999' : '#333'
-                }}
-              >
-                ← Sebelumnya
-              </button>
-              <span style={{ fontSize: '12px', color: '#666' }}>
-                {pagination.page} / {pagination.totalPages}
-              </span>
-              <button
-                onClick={() => fetchUsers(pagination.page + 1)}
-                disabled={pagination.page === pagination.totalPages || loading}
-                style={{
-                  padding: '6px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
-                  fontSize: '12px', cursor: pagination.page === pagination.totalPages || loading ? 'not-allowed' : 'pointer',
-                  background: pagination.page === pagination.totalPages || loading ? '#f5f5f5' : 'white',
-                  color: pagination.page === pagination.totalPages || loading ? '#999' : '#333'
-                }}
-              >
-                Selanjutnya →
-              </button>
-            </div>
+          <div style={{ display: 'flex', gap: '8px', paddingTop: '16px', borderTop: '1px solid #e0e0e0', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <button
+              onClick={selectAllFiltered}
+              style={{
+                padding: '6px 12px', border: '1px solid #d0d0d0', background: 'white', borderRadius: '3px',
+                fontSize: '12px', cursor: 'pointer', color: '#333'
+              }}
+              onMouseOver={(e) => { e.target.style.background = '#f5f5f5'; e.target.style.borderColor = '#bbb'; }}
+              onMouseOut={(e) => { e.target.style.background = 'white'; e.target.style.borderColor = '#d0d0d0'; }}
+            >
+              Pilih Semua
+            </button>
+            {selectedIds.length > 0 && (
+              <>
+                <button
+                  onClick={handleBulkDelete}
+                  style={{
+                    padding: '6px 12px', border: '1px solid var(--border-color)', background: 'var(--danger-color)', borderRadius: '3px',
+                    fontSize: '12px', cursor: 'pointer', color: 'white'
+                  }}
+                  onMouseOver={(e) => { e.target.style.background = 'var(--danger-dark)'; }}
+                  onMouseOut={(e) => { e.target.style.background = 'var(--danger-color)'; }}
+                >
+                  Hapus ({selectedIds.length})
+                </button>
+                <button
+                  onClick={clearSelection}
+                  style={{
+                    padding: '6px 12px', border: '1px solid #d0d0d0', background: 'white', borderRadius: '3px',
+                    fontSize: '12px', cursor: 'pointer', color: '#333'
+                  }}
+                  onMouseOver={(e) => { e.target.style.background = '#f5f5f5'; e.target.style.borderColor = '#bbb'; }}
+                  onMouseOut={(e) => { e.target.style.background = 'white'; e.target.style.borderColor = '#d0d0d0'; }}
+                >
+                  Batal
+                </button>
+              </>
+            )}
           </div>
         )}
+        {/* Pagination — visible to superadmin and guru */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px',
+          ...(userRole !== 'superadmin' ? { borderTop: '1px solid #e0e0e0', paddingTop: '16px' } : {})
+        }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '12px', color: '#666' }}>
+            <label htmlFor="kelola-akun-limit">Baris per halaman:</label>
+            <select
+              id="kelola-akun-limit"
+              value={pagination.limit}
+              onChange={(e) => handleLimitChange(parseInt(e.target.value, 10))}
+              style={{
+                padding: '6px 10px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                fontSize: '12px', background: 'white', color: '#333', cursor: 'pointer'
+              }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => fetchUsers(pagination.page - 1)}
+              disabled={pagination.page <= 1 || loading || refreshing}
+              style={{
+                padding: '6px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                fontSize: '12px', cursor: pagination.page <= 1 || loading || refreshing ? 'not-allowed' : 'pointer',
+                background: pagination.page <= 1 || loading || refreshing ? '#f5f5f5' : 'white',
+                color: pagination.page <= 1 || loading || refreshing ? '#999' : '#333'
+              }}
+            >
+              ← Sebelumnya
+            </button>
+            {getPageNumbers().map((p, idx) => (
+              p === '...' ? (
+                <span key={`ellipsis-${idx}`} style={{ fontSize: '12px', color: '#999', padding: '0 2px' }}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => fetchUsers(p)}
+                  disabled={loading || refreshing || p === pagination.page}
+                  style={{
+                    minWidth: '30px', padding: '6px 8px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                    fontSize: '12px', cursor: loading || refreshing || p === pagination.page ? 'default' : 'pointer',
+                    background: p === pagination.page ? 'var(--blue)' : 'white',
+                    color: p === pagination.page ? 'white' : '#333',
+                    fontWeight: p === pagination.page ? '700' : '400'
+                  }}
+                >
+                  {p}
+                </button>
+              )
+            ))}
+            <button
+              onClick={() => fetchUsers(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages || loading || refreshing}
+              style={{
+                padding: '6px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                fontSize: '12px', cursor: pagination.page >= pagination.totalPages || loading || refreshing ? 'not-allowed' : 'pointer',
+                background: pagination.page >= pagination.totalPages || loading || refreshing ? '#f5f5f5' : 'white',
+                color: pagination.page >= pagination.totalPages || loading || refreshing ? '#999' : '#333'
+              }}
+            >
+              Selanjutnya →
+            </button>
+          </div>
+        </div>
         <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
           Menampilkan {users.length} dari {pagination.total} pengguna (Halaman {pagination.page} dari {pagination.totalPages})
+          {refreshing && <span style={{ marginLeft: '8px', color: 'var(--blue)' }}>Memuat…</span>}
         </div>
         {userRole === 'superadmin' && selectionRole && (
           <p style={{ fontSize: '13px', color: '#666', marginTop: '12px' }}>
