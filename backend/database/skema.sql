@@ -28,7 +28,7 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     nama VARCHAR(100) NOT NULL,
     nis VARCHAR(20) UNIQUE,
-    nip VARCHAR(20) UNIQUE,
+    nip VARCHAR(30) UNIQUE,
     username VARCHAR(20) UNIQUE,
     password VARCHAR(255) NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('superadmin', 'guru', 'pegawai', 'siswa')),

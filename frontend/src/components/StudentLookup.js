@@ -20,12 +20,11 @@ const GRHA_OPTIONS = [
 const PAGE_SIZES = [20, 50, 80];
 
 function academicYearOptions() {
-  const now = new Date();
-  const currentStart = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-  return Array.from({ length: 11 }, (_, i) => {
-    const start = currentStart - 5 + i;
-    return `${start}-${start + 1}`;
-  });
+  const options = [];
+  for (let start = 2024; start <= 2034; start += 1) {
+    options.push(`${start}-${start + 1}`);
+  }
+  return options;
 }
 const TAHUN_OPTIONS = academicYearOptions();
 

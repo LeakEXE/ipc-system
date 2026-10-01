@@ -344,7 +344,12 @@ function KonfigurasiIPT() {
       });
     }
 
-    await styleImportTemplateSheet(worksheet);
+    await styleImportTemplateSheet(worksheet, {
+      headerNotes: {
+        Detail: 'Nama detail/jenis pelanggaran, contoh: Terlambat masuk sekolah.',
+        TingkatPelanggaran: 'Pilih tingkat yang sudah terdaftar (Ringan/Sedang/Berat atau sesuai konfigurasi).'
+      }
+    });
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blobUrl = URL.createObjectURL(new Blob([buffer], {

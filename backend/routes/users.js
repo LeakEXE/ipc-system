@@ -783,6 +783,22 @@ router.put('/:id', auth, async (req, res) => {
         const storedJabatan = targetUserData[0]?.detail || null;
         const oldUserName = targetUserData[0]?.nama || null;
 
+        // Server-side field guard: non-superadmin may only change the fields
+        // their role is allowed (UI hiding alone is not enforcement).
+        if (currentUser.role !== 'superadmin') {
+            const EDITABLE_FIELDS = {
+                siswa: new Set(['no_hp', 'alamat']),
+                guru: new Set(['nama', 'no_hp', 'alamat', 'jabatan', 'detail']),
+                pegawai: new Set(['nama', 'no_hp', 'alamat', 'jabatan', 'detail']),
+                superadmin: new Set(['nama', 'no_hp', 'alamat', 'jabatan', 'detail'])
+            };
+            const allowed = EDITABLE_FIELDS[targetUserData[0]?.role] || new Set();
+            const forbidden = Object.keys(req.body || {}).filter((k) => !allowed.has(k));
+            if (forbidden.length > 0) {
+                return res.status(403).json({ message: `Field tidak diizinkan untuk role ini: ${forbidden.join(', ')}` });
+            }
+        }
+
         let teacherJabatan = jabatan || detail;
         if (!teacherJabatan) {
             // Tidak dikirim / kosong -> pertahankan nilai yang sudah ada
@@ -802,9 +818,36 @@ router.put('/:id', auth, async (req, res) => {
             newRole = 'guru';
         }
 
+        // Only touch columns actually sent (absent keys must not NULL existing data)
+        const setClauses = [];
+        const setParams = [];
+        if (nama !== undefined) {
+            setClauses.push('nama = ?');
+            setParams.push(nama);
+        }
+        if (alamat !== undefined) {
+            setClauses.push('alamat = ?');
+            setParams.push(alamat);
+        }
+        if (no_hp !== undefined) {
+            setClauses.push('no_hp = ?');
+            setParams.push(no_hp);
+        }
+        if (jabatan !== undefined || detail !== undefined) {
+            setClauses.push('detail = ?');
+            setParams.push(teacherJabatan);
+            if (newRole !== targetUserRole) {
+                setClauses.push('role = ?');
+                setParams.push(newRole);
+            }
+        }
+        if (setClauses.length === 0) {
+            return res.status(400).json({ message: 'Tidak ada field yang diubah' });
+        }
+
         await db.query(
-            'UPDATE users SET nama = ?, alamat = ?, no_hp = ?, detail = ?, role = ? WHERE id = ?',
-            [nama, alamat, no_hp, teacherJabatan, newRole, userId]
+            `UPDATE users SET ${setClauses.join(', ')} WHERE id = ?`,
+            [...setParams, userId]
         );
 
         // Propagate renamed biodata into record snapshots, pembina names, logs.
