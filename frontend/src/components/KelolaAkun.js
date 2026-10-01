@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../utils/api';
 import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import * as XLSX from 'xlsx';
@@ -80,6 +80,17 @@ function KelolaAkun() {
     totalPages: 0
   });
   const [searchQuery, setSearchQuery] = useState('');
+  // Background refresh indicator (table only). The full-page spinner (loading)
+  // is reserved for the first mount so typing never unmounts the search box.
+  const [refreshing, setRefreshing] = useState(false);
+  // Latest filter values for the stable fetch callback below.
+  const searchRef = useRef(searchQuery);
+  searchRef.current = searchQuery;
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const limitRef = useRef(pagination.limit);
+  limitRef.current = pagination.limit;
+  const fetchStartedRef = useRef(false);
 
   const grhaOptions = GRHA_OPTIONS;
 
@@ -94,21 +105,32 @@ function KelolaAkun() {
     setFilters({ role: '', jabatan: '', kelas: '', grha: '', jurusan: '', tahun_pelajaran: '' });
   };
 
+  // Stable identity (empty deps): reads latest search/filters via refs so
+  // typing doesn't recreate it and retrigger the mount effect below.
+  // First call drives the full-page spinner; later calls only set `refreshing`
+  // so the search input is never unmounted mid-keystroke.
   const fetchUsers = useCallback(async (page = 1) => {
+    const isFirstLoad = !fetchStartedRef.current;
+    fetchStartedRef.current = true;
     try {
-      setLoading(true);
+      if (isFirstLoad) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       const params = new URLSearchParams({
         page: page,
-        limit: pagination.limit,
-        search: searchQuery
+        limit: limitRef.current,
+        search: searchRef.current
       });
 
-      if (filters.role) params.append('role', filters.role);
-      if (filters.jabatan) params.append('jabatan', filters.jabatan);
-      if (filters.kelas) params.append('kelas', filters.kelas);
-      if (filters.grha) params.append('grha', filters.grha);
-      if (filters.jurusan) params.append('jurusan', filters.jurusan);
-      if (filters.tahun_pelajaran) params.append('tahun_pelajaran', filters.tahun_pelajaran);
+      const f = filtersRef.current;
+      if (f.role) params.append('role', f.role);
+      if (f.jabatan) params.append('jabatan', f.jabatan);
+      if (f.kelas) params.append('kelas', f.kelas);
+      if (f.grha) params.append('grha', f.grha);
+      if (f.jurusan) params.append('jurusan', f.jurusan);
+      if (f.tahun_pelajaran) params.append('tahun_pelajaran', f.tahun_pelajaran);
 
       const response = await api.get(`/users?${params.toString()}`);
 
@@ -123,8 +145,9 @@ function KelolaAkun() {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [pagination.limit, searchQuery, filters.role, filters.jabatan, filters.kelas, filters.grha, filters.jurusan, filters.tahun_pelajaran]);
+  }, []);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
@@ -1228,6 +1251,7 @@ function KelolaAkun() {
         )}
         <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
           Menampilkan {users.length} dari {pagination.total} pengguna (Halaman {pagination.page} dari {pagination.totalPages})
+          {refreshing && <span style={{ marginLeft: '8px', color: 'var(--blue)' }}>Memuat…</span>}
         </div>
         {userRole === 'superadmin' && selectionRole && (
           <p style={{ fontSize: '13px', color: '#666', marginTop: '12px' }}>
