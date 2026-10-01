@@ -136,9 +136,21 @@ const superAdminOnly = (req, res, next) => {
     next();
 };
 
-// Superadmin OR guru explicitly granted approval permission
-// (permissions.can_approve, managed by superadmin in Izin Akun).
-// Siswa can never approve, even if a flag were ever set.
+// Superadmin OR staff explicitly granted approval scope(s).
+// (approval_scopes.jenis, managed by superadmin in Izin Akun).
+// Siswa can never approve, even if a scope row were ever set.
+const APPROVAL_TYPES = ['prestasi', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran'];
+
+async function getApprovalScopes(userId) {
+    const [rows] = await db.query(
+        'SELECT jenis FROM approval_scopes WHERE user_id = ?',
+        [userId]
+    );
+    return rows.map((r) => r.jenis);
+}
+
+// General gate: caller must hold at least one approval scope.
+// (Used by /pending-count and /all, which span multiple types.)
 const approverOnly = async (req, res, next) => {
     try {
         if (req.user.role === 'superadmin') {
@@ -147,19 +159,41 @@ const approverOnly = async (req, res, next) => {
         if (req.user.role === 'siswa') {
             return res.status(403).json({ message: 'Access denied. Approval permission required.' });
         }
-        const [rows] = await db.query(
-            'SELECT can_approve FROM permissions WHERE user_id = ?',
-            [req.user.id]
-        );
-        const allowed = rows.length > 0 && (rows[0].can_approve === true || rows[0].can_approve === 1);
-        if (!allowed) {
+        const scopes = await getApprovalScopes(req.user.id);
+        if (scopes.length === 0) {
             return res.status(403).json({ message: 'Access denied. Approval permission required.' });
         }
+        req.approvalScopes = scopes;
         next();
     } catch (error) {
         console.error('Error checking approval permission:', error);
         res.status(500).json({ message: 'Server error' });
     }
+};
+
+// Type-specific gate for routes like PUT /approvals/superadmin/:type/:id.
+// Non-superadmin callers must hold the scope for that exact type.
+const approverFor = (paramName = 'type') => {
+    return async (req, res, next) => {
+        try {
+            if (req.user.role === 'superadmin') {
+                return next();
+            }
+            const type = req.params[paramName];
+            if (!APPROVAL_TYPES.includes(type)) {
+                return res.status(400).json({ message: 'Invalid approval type' });
+            }
+            const scopes = await getApprovalScopes(req.user.id);
+            if (!scopes.includes(type)) {
+                return res.status(403).json({ message: `Anda tidak memiliki izin menyetujui pengajuan ${type}.` });
+            }
+            req.approvalScopes = scopes;
+            next();
+        } catch (error) {
+            console.error('Error checking approval permission:', error);
+            res.status(500).json({ message: 'Server error' });
+        }
+    };
 };
 
 const teacherOrSuperAdmin = (req, res, next) => {
@@ -255,4 +289,4 @@ const checkInputAccess = (jenisInput) => {
   };
 };
 
-module.exports = { auth, superAdminOnly, approverOnly, enforceCredentialsChanged, teacherOrSuperAdmin, teacherOnly, checkInputAccess, checkPermission };
+module.exports = { auth, superAdminOnly, approverOnly, approverFor, getApprovalScopes, APPROVAL_TYPES, enforceCredentialsChanged, teacherOrSuperAdmin, teacherOnly, checkInputAccess, checkPermission };

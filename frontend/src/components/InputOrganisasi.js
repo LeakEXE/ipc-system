@@ -82,7 +82,7 @@ function InputOrganisasi() {
     if (user.role === 'superadmin') {
       fetchAllOrganisasi();
     } else if (user.role === 'guru' || user.role === 'pegawai') {
-      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllOrganisasi(); }).catch(() => setCanApprove(false));
+      api.get('/permissions/my-permissions').then(r => { const scopes = r.data?.approval_scopes || []; const allowed = scopes.includes('organisasi'); setCanApprove(allowed); if (allowed) fetchAllOrganisasi(); }).catch(() => setCanApprove(false));
     }
   }, []);
 

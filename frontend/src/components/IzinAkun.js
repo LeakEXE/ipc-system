@@ -3,6 +3,8 @@ import api from '../utils/api';
 import { RefreshCw, ListChecks, User, Search, BadgeCheck } from 'lucide-react';
 import { CATEGORY_ICONS, CategoryIcon } from './icons';
 
+const PAGE_SIZES = [25, 50, 100];
+
 function IzinAkun() {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -45,13 +47,18 @@ function IzinAkun() {
     'Airsanya', 'Daksina', 'Genya', 'Madhya', 'Nairiti', 'Pascima', 'Purwa', 'Uttara', 'Wayabhya'
   ];
 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    setPage(1);
   };
 
   const resetFilters = () => {
     setFilters({ role: '', kelas: '', grha: '' });
     setSearchQuery('');
+    setPage(1);
   };
 
   useEffect(() => {
@@ -83,6 +90,39 @@ function IzinAkun() {
 
     setFilteredUsers(filtered);
   }, [searchQuery, filters, users]);
+
+  // Keep page in range when search/filter shrinks the result set
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / limit));
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const pagedUsers = filteredUsers.slice((page - 1) * limit, page * limit);
+  const from = filteredUsers.length === 0 ? 0 : (page - 1) * limit + 1;
+  const to = Math.min(page * limit, filteredUsers.length);
+
+  const getPageNumbers = () => {
+    const total = totalPages || 0;
+    const current = page || 1;
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const candidates = new Set([1, 2, current - 1, current, current + 1, total - 1, total]);
+    const nums = [...candidates].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+    const out = [];
+    nums.forEach((n, i) => {
+      if (i > 0 && n - nums[i - 1] > 1) out.push('...');
+      out.push(n);
+    });
+    return out;
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setLimit(newLimit);
+    setPage(1);
+  };
 
   const fetchUsers = async () => {
     try {
@@ -120,7 +160,7 @@ function IzinAkun() {
   const handleIndividualToggle = (user, jenis) => {
     const permKey = `can_input_${jenis}`;
     const newValue = !user[permKey];
-    
+
     const newPermissions = {
       can_input_prestasi: user.can_input_prestasi,
       can_input_organisasi: user.can_input_organisasi,
@@ -128,28 +168,59 @@ function IzinAkun() {
       can_input_event: user.can_input_event,
       can_input_pelanggaran: user.can_input_pelanggaran,
       can_input_perilaku: user.can_input_perilaku,
-      can_approve: user.can_approve,
       [permKey]: newValue
     };
-    
+
     handleIndividualUpdate(user.id, newPermissions);
   };
 
-  const handleApprovalToggle = (user) => {
-    handleIndividualUpdate(user.id, {
-      can_input_prestasi: user.can_input_prestasi,
-      can_input_organisasi: user.can_input_organisasi,
-      can_input_kepanitiaan: user.can_input_kepanitiaan,
-      can_input_event: user.can_input_event,
-      can_input_pelanggaran: user.can_input_pelanggaran,
-      can_input_perilaku: user.can_input_perilaku,
-      can_approve: !user.can_approve
-    });
+  const APPROVAL_JENIS = [
+    { key: 'prestasi', label: 'Prestasi' },
+    { key: 'organisasi', label: 'Organisasi' },
+    { key: 'kepanitiaan', label: 'Kepanitiaan' },
+    { key: 'event', label: 'Event' },
+    { key: 'pelanggaran', label: 'Pelanggaran' }
+  ];
+
+  // Multiselect modal state: which user is being edited + draft scopes
+  const [scopeModalUser, setScopeModalUser] = useState(null);
+  const [scopeDraft, setScopeDraft] = useState([]);
+  const [savingScopes, setSavingScopes] = useState(false);
+
+  const openScopeModal = (user) => {
+    setScopeModalUser(user);
+    setScopeDraft(user.approval_scopes || []);
+  };
+
+  const toggleScopeDraft = (jenis) => {
+    setScopeDraft((prev) =>
+      prev.includes(jenis) ? prev.filter((j) => j !== jenis) : [...prev, jenis]
+    );
+  };
+
+  const handleScopeSave = async () => {
+    if (!scopeModalUser) return;
+    try {
+      setSavingScopes(true);
+      const res = await api.put(`/input-access/admin/approval-scopes/${scopeModalUser.id}`, {
+        jenis: scopeDraft
+      });
+      setUsers((prev) => prev.map((u) =>
+        u.id === scopeModalUser.id ? { ...u, approval_scopes: res.data.scopes } : u
+      ));
+      setMessage('✅ Izin approval berhasil diupdate!');
+      setTimeout(() => setMessage(''), 3000);
+      setScopeModalUser(null);
+    } catch (error) {
+      setMessage('❌ ' + (error.response?.data?.message || 'Gagal update izin approval'));
+    } finally {
+      setSavingScopes(false);
+    }
   };
 
   // Reset all permissions
   const handleResetAll = async () => {
-    if (!window.confirm('PERINGATAN!\n\nIni akan menghapus SEMUA individual permissions dan mereset izin ke default (semua input aktif untuk semua user).\n\nYakin ingin melanjutkan?')) {
+    if (!window.confirm('PERINGATAN!\n\nIni akan menghapus SEMUA individual permissions DAN semua izin approval, serta mereset izin ke default (semua input aktif untuk semua user).\n\nYakin ingin melanjutkan?')) {
       return;
     }
     
@@ -201,11 +272,16 @@ function IzinAkun() {
     return user.role !== selectionRole;
   };
 
-  // Select all selectable users currently visible (after search/filter).
-  // Like /kelola-akun, this allows a mixed-role selection (role lock reset).
+  // Select all selectable users on the current page (mirrors /kelola-akun,
+  // where "Pilih Semua" selects the current backend page).
+  // Selection is ID-based so it persists across pages.
   const handleSelectAllVisible = () => {
-    const selectable = filteredUsers.filter(isUserSelectable);
-    setSelectedUserIds(new Set(selectable.map(u => u.id)));
+    const selectable = pagedUsers.filter(isUserSelectable);
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      selectable.forEach((u) => next.add(u.id));
+      return next;
+    });
     setSelectionRole(null);
   };
 
@@ -632,7 +708,7 @@ function IzinAkun() {
                 type="text"
                 placeholder="Cari nama, NIS, atau NIP..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               />
             </div>
           </div>
@@ -644,7 +720,7 @@ function IzinAkun() {
               <span>Mode pilihan: <strong>{selectionRole === 'siswa' ? 'Siswa' : 'Guru'}</strong> — hanya role yang sama yang bisa dipilih.</span>
             )}
             <button className="btn btn-outline btn-sm" onClick={handleSelectAllVisible}>
-              Pilih semua yang tampil ({filteredUsers.length})
+              Pilih semua di halaman ini ({pagedUsers.filter(isUserSelectable).length})
             </button>
             {selectedUserIds.size > 0 && (
               <button className="btn btn-outline btn-sm" onClick={handleClearSelection}>
@@ -663,25 +739,30 @@ function IzinAkun() {
                       <input
                         type="checkbox"
                         className="select-checkbox"
-                        checked={filteredUsers.filter(isUserSelectable).length > 0 && filteredUsers.filter(isUserSelectable).every(u => selectedUserIds.has(u.id))}
+                        checked={pagedUsers.filter(isUserSelectable).length > 0 && pagedUsers.filter(isUserSelectable).every(u => selectedUserIds.has(u.id))}
                         ref={(el) => {
                           if (el) {
-                            const selectable = filteredUsers.filter(isUserSelectable);
+                            const selectable = pagedUsers.filter(isUserSelectable);
                             const someSelected = selectable.some(u => selectedUserIds.has(u.id));
                             const allSelected = selectable.length > 0 && selectable.every(u => selectedUserIds.has(u.id));
                             el.indeterminate = someSelected && !allSelected;
                           }
                         }}
                         onChange={() => {
-                          const selectable = filteredUsers.filter(isUserSelectable);
+                          const selectable = pagedUsers.filter(isUserSelectable);
                           const allSelected = selectable.length > 0 && selectable.every(u => selectedUserIds.has(u.id));
                           if (allSelected) {
-                            handleClearSelection();
+                            const pageIds = new Set(selectable.map((u) => u.id));
+                            const next = new Set([...selectedUserIds].filter((id) => !pageIds.has(id)));
+                            setSelectedUserIds(next);
+                            if (next.size === 0) {
+                              setSelectionRole(null);
+                            }
                           } else {
                             handleSelectAllVisible();
                           }
                         }}
-                        title="Pilih semua yang tampil"
+                        title="Pilih semua di halaman ini"
                       />
                     </th>
                     <th>User</th>
@@ -696,7 +777,7 @@ function IzinAkun() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map(user => (
+                  {pagedUsers.map(user => (
                     <tr key={user.id} className={selectedUserIds.has(user.id) ? 'row-selected' : ''} style={isUserDisabled(user) && selectionRole ? { opacity: 0.45 } : undefined}>
                       <td>
                         {isUserSelectable(user) ? (
@@ -784,11 +865,11 @@ function IzinAkun() {
                         }),
                         <td key="approval">
                           <button
-                            onClick={() => handleApprovalToggle(user)}
-                            className={`toggle-cell ${user.can_approve ? 'on' : 'off'}`}
-                            title="Izin menyetujui pengajuan (Approval)"
+                            onClick={() => openScopeModal(user)}
+                            className={`toggle-cell ${(user.approval_scopes?.length || 0) > 0 ? 'on' : 'off'}`}
+                            title={`Izin menyetujui: ${(user.approval_scopes || []).join(', ') || 'tidak ada'} — klik untuk atur`}
                           >
-                            {user.can_approve ? '✓' : '✕'}
+                            {(user.approval_scopes?.length || 0) > 0 ? `${user.approval_scopes.length}/5` : '✕'}
                           </button>
                         </td>
                         ]
@@ -805,6 +886,127 @@ function IzinAkun() {
               </div>
             )}
           </div>
+
+          {/* Pagination — same pattern as /kelola-akun (client-side slice) */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px',
+            borderTop: '1px solid #e0e0e0', paddingTop: '16px', marginTop: '16px'
+          }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '12px', color: '#666' }}>
+              <label htmlFor="izin-akun-limit">Baris per halaman:</label>
+              <select
+                id="izin-akun-limit"
+                value={limit}
+                onChange={(e) => handleLimitChange(parseInt(e.target.value, 10))}
+                style={{
+                  padding: '6px 10px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                  fontSize: '12px', background: 'white', color: '#333', cursor: 'pointer', width: 'auto'
+                }}
+              >
+                {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setPage(page - 1)}
+                disabled={page <= 1}
+                style={{
+                  padding: '6px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                  fontSize: '12px', cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                  background: page <= 1 ? '#f5f5f5' : 'white',
+                  color: page <= 1 ? '#999' : '#333'
+                }}
+              >
+                ← Sebelumnya
+              </button>
+              {getPageNumbers().map((p, idx) => (
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} style={{ fontSize: '12px', color: '#999', padding: '0 2px' }}>…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    disabled={p === page}
+                    style={{
+                      minWidth: '30px', padding: '6px 8px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                      fontSize: '12px', cursor: p === page ? 'default' : 'pointer',
+                      background: p === page ? 'var(--blue)' : 'white',
+                      color: p === page ? 'white' : '#333',
+                      fontWeight: p === page ? '700' : '400'
+                    }}
+                  >
+                    {p}
+                  </button>
+                )
+              ))}
+              <button
+                onClick={() => setPage(page + 1)}
+                disabled={page >= totalPages}
+                style={{
+                  padding: '6px 12px', border: '1px solid #d0d0d0', borderRadius: '4px',
+                  fontSize: '12px', cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                  background: page >= totalPages ? '#f5f5f5' : 'white',
+                  color: page >= totalPages ? '#999' : '#333'
+                }}
+              >
+                Selanjutnya →
+              </button>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
+            Menampilkan {from}&ndash;{to} dari {filteredUsers.length} pengguna (Halaman {page} dari {totalPages})
+          </div>
+
+          {/* Approval scope multiselect modal */}
+          {scopeModalUser && (
+            <div className="app-modal-overlay" style={{
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1500
+            }}>
+              <div className="card" style={{ width: 420, maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+                <h4 style={{ marginTop: 0 }}>Izin Approval — {scopeModalUser.nama}</h4>
+                <button className="btn btn-danger" onClick={() => setScopeModalUser(null)} style={{ marginBottom: '10px' }}>Tutup</button>
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
+                  Pilih jenis pengajuan yang boleh disetujui. Kosongkan semua untuk mencabut izin approval.
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  <button className="btn btn-secondary" onClick={() => setScopeDraft(APPROVAL_JENIS.map((j) => j.key))} style={{ fontSize: '12px' }}>
+                    Pilih Semua
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => setScopeDraft([])} style={{ fontSize: '12px' }}>
+                    Kosongkan
+                  </button>
+                </div>
+                <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '10px', marginBottom: '12px' }}>
+                  {APPROVAL_JENIS.map((j) => (
+                    <label key={j.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '4px 0', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={scopeDraft.includes(j.key)}
+                        onChange={() => toggleScopeDraft(j.key)}
+                      />
+                      {j.label}
+                    </label>
+                  ))}
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleScopeSave}
+                  disabled={savingScopes}
+                >
+                  {savingScopes ? 'Menyimpan...' : `Simpan (${scopeDraft.length} dipilih)`}
+                </button>
+              </div>
+            </div>
+          )}
       </>
       </div>
     </div>

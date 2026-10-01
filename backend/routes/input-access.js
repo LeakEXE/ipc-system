@@ -273,15 +273,13 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
 
         // Pelanggaran & Perilaku are guru-only: force them off for non-guru users
         // so students can never hold these flags (also heals previously mis-granted rows).
-        // Approval permission is guru-only too: students can never approve.
+        // (Approval scopes live in approval_scopes now, not in permissions.)
         const sanitizedPermissions = { ...permissions };
+        delete sanitizedPermissions.can_approve;
         if (userInfo[0].role !== 'guru' && userInfo[0].role !== 'pegawai') {
             sanitizedPermissions.can_input_pelanggaran = false;
             sanitizedPermissions.can_input_perilaku = false;
-            sanitizedPermissions.can_approve = false;
         }
-        // Approval permission is a plain boolean flag (any non-superadmin role may hold it).
-        sanitizedPermissions.can_approve = sanitizedPermissions.can_approve === true || sanitizedPermissions.can_approve === 1;
         
         // Check if permission record exists
         const [existingPerm] = await db.query('SELECT id FROM permissions WHERE user_id = ?', [user_id]);
@@ -295,8 +293,7 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
                     can_input_kepanitiaan = ?,
                     can_input_event = ?,
                     can_input_pelanggaran = ?,
-                    can_input_perilaku = ?,
-                    can_approve = ?
+                    can_input_perilaku = ?
                  WHERE user_id = ?`,
                 [
                     sanitizedPermissions.can_input_prestasi,
@@ -305,15 +302,14 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
                     sanitizedPermissions.can_input_event,
                     sanitizedPermissions.can_input_pelanggaran,
                     sanitizedPermissions.can_input_perilaku,
-                    sanitizedPermissions.can_approve,
                     user_id
                 ]
             );
         } else {
             // Insert new
             await db.query(
-                `INSERT INTO permissions (user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku, can_approve)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO permissions (user_id, can_input_prestasi, can_input_organisasi, can_input_kepanitiaan, can_input_event, can_input_pelanggaran, can_input_perilaku)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                     user_id,
                     sanitizedPermissions.can_input_prestasi,
@@ -321,8 +317,7 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
                     sanitizedPermissions.can_input_kepanitiaan,
                     sanitizedPermissions.can_input_event,
                     sanitizedPermissions.can_input_pelanggaran,
-                    sanitizedPermissions.can_input_perilaku,
-                    sanitizedPermissions.can_approve
+                    sanitizedPermissions.can_input_perilaku
                 ]
             );
         }
@@ -336,8 +331,7 @@ router.post('/admin/individual', auth, superAdminOnly, async (req, res) => {
             'can_input_kepanitiaan': 'kepanitiaan',
             'can_input_event': 'event',
             'can_input_pelanggaran': 'pelanggaran',
-            'can_input_perilaku': 'perilaku',
-            'can_approve': 'approval'
+            'can_input_perilaku': 'perilaku'
         };
         
         for (const [key, value] of Object.entries(sanitizedPermissions)) {
@@ -499,16 +493,92 @@ router.get('/admin/users', auth, superAdminOnly, async (req, res) => {
         const [users] = await db.query(
             `SELECT u.id, u.nama, u.nis, u.nip, u.role, u.kelas,
                     p.can_input_prestasi, p.can_input_organisasi, p.can_input_kepanitiaan, p.can_input_event, 
-                    p.can_input_pelanggaran, p.can_input_perilaku, p.can_approve
+                    p.can_input_pelanggaran, p.can_input_perilaku
              FROM users u
              LEFT JOIN permissions p ON u.id = p.user_id
              WHERE u.role IN ('siswa', 'guru', 'pegawai')
              ORDER BY u.role, u.nama`
         );
-        
-        res.json(users);
+
+        const [scopeRows] = await db.query('SELECT user_id, jenis FROM approval_scopes');
+        const scopesByUser = {};
+        for (const row of scopeRows) {
+            (scopesByUser[row.user_id] = scopesByUser[row.user_id] || []).push(row.jenis);
+        }
+
+        res.json(users.map((u) => ({ ...u, approval_scopes: scopesByUser[u.id] || [] })));
     } catch (error) {
         console.error('Error fetching users with access:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Get a user's approval scopes
+router.get('/admin/approval-scopes/:userId', auth, superAdminOnly, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            'SELECT jenis FROM approval_scopes WHERE user_id = ? ORDER BY jenis',
+            [req.params.userId]
+        );
+        res.json({ scopes: rows.map((r) => r.jenis) });
+    } catch (error) {
+        console.error('Error fetching approval scopes:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Replace a user's approval scopes (multiselect from Izin Akun)
+router.put('/admin/approval-scopes/:userId', auth, superAdminOnly, async (req, res) => {
+    const VALID_JENIS = ['prestasi', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran'];
+    try {
+        const userId = parseInt(req.params.userId, 10);
+        const jenis = Array.isArray(req.body?.jenis) ? [...new Set(req.body.jenis)] : null;
+        if (!Number.isInteger(userId) || !jenis) {
+            return res.status(400).json({ message: 'jenis harus berupa array' });
+        }
+        for (const j of jenis) {
+            if (!VALID_JENIS.includes(j)) {
+                return res.status(400).json({ message: `Jenis tidak valid: ${j}` });
+            }
+        }
+
+        const [target] = await db.query('SELECT id, nama, role FROM users WHERE id = ?', [userId]);
+        if (target.length === 0) {
+            return res.status(404).json({ message: 'User tidak ditemukan' });
+        }
+        // Siswa and superadmin never hold scopes (superadmin bypasses by role)
+        if (target[0].role === 'siswa' || target[0].role === 'superadmin') {
+            return res.status(400).json({ message: 'Role tersebut tidak dapat memiliki izin approval' });
+        }
+
+        const conn = await db.getConnection();
+        try {
+            await conn.beginTransaction();
+            await conn.query('DELETE FROM approval_scopes WHERE user_id = ?', [userId]);
+            for (const j of jenis) {
+                await conn.query(
+                    'INSERT INTO approval_scopes (user_id, jenis) VALUES (?, ?)',
+                    [userId, j]
+                );
+            }
+            for (const j of jenis) {
+                await conn.query(
+                    `INSERT INTO input_access_logs (control_type, target_user_id, jenis_input, action, performed_by)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    ['individual', userId, j, 'enabled', req.user.id]
+                );
+            }
+            await conn.commit();
+        } catch (e) {
+            try { await conn.rollback(); } catch (_) {}
+            throw e;
+        } finally {
+            conn.release();
+        }
+
+        res.json({ message: `Izin approval untuk ${target[0].nama} berhasil diupdate`, scopes: jenis });
+    } catch (error) {
+        console.error('Error updating approval scopes:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -621,11 +691,15 @@ router.post('/admin/reset-all', auth, superAdminOnly, async (req, res) => {
     try {
         const adminId = req.user.id;
         
-        // Get count before deletion
+        // Get counts before deletion
         const [countBefore] = await db.query('SELECT COUNT(*) as count FROM permissions');
+        const [scopeCountBefore] = await db.query('SELECT COUNT(*) as count FROM approval_scopes');
         
         // Delete all records from permissions table
         await db.query('DELETE FROM permissions');
+
+        // Delete all approval scopes (per-type approval permissions)
+        await db.query('DELETE FROM approval_scopes');
         
         // Reset input_access_control to only have global settings (remove all role-based)
         await db.query("DELETE FROM input_access_control WHERE control_type = 'role'");
@@ -655,13 +729,14 @@ router.post('/admin/reset-all', auth, superAdminOnly, async (req, res) => {
             await db.query(
                 `INSERT INTO notifications (user_id, type, title, message, related_type) 
                  VALUES (?, 'system', ?, ?, 'input_access')`,
-                [user.id, '✅ Izin Di-Reset', 'SuperAdmin telah mereset izin input data. Semua user sekarang dapat menginput data sesuai pengaturan global.']
+                [user.id, '✅ Izin Di-Reset', 'SuperAdmin telah mereset izin input data dan izin approval. Semua user sekarang dapat menginput data sesuai pengaturan global.']
             );
         }
         
         res.json({ 
-            message: `Reset izin berhasil! ${countBefore[0].count} individual permissions dihapus. Semua input data sekarang aktif untuk semua user.`,
+            message: `Reset izin berhasil! ${countBefore[0].count} individual permissions dan ${scopeCountBefore[0].count} izin approval dihapus. Semua input data sekarang aktif untuk semua user.`,
             deleted_permissions: countBefore[0].count,
+            deleted_approval_scopes: scopeCountBefore[0].count,
             affected_users: users.length
         });
     } catch (error) {

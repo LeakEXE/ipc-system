@@ -6,6 +6,7 @@ import useEditModal from '../hooks/useEditModal';
 import { validateEvidenceFile } from '../utils/evidence';
 import API_BASE_URL from '../config';
 import Select from 'react-select';
+import SearchableTeacherSelect from './SearchableTeacherSelect';
 import { ClipboardList, ShieldAlert } from 'lucide-react';
 
 function InputPrestasi() {
@@ -92,7 +93,7 @@ function InputPrestasi() {
     if (user.role === 'superadmin') {
       fetchAllPrestasi();
     } else if (user.role === 'guru' || user.role === 'pegawai') {
-      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPrestasi(); }).catch(() => setCanApprove(false));
+      api.get('/permissions/my-permissions').then(r => { const scopes = r.data?.approval_scopes || []; const allowed = scopes.includes('prestasi'); setCanApprove(allowed); if (allowed) fetchAllPrestasi(); }).catch(() => setCanApprove(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -792,12 +793,12 @@ function InputPrestasi() {
 
         <div className="form-group">
           <label>Pembina</label>
-          <select name="pembina_id" value={formData.pembina_id || ''} onChange={handleChange}>
-            <option value="" disabled hidden>Pilih Pembina</option>
-            {teachers.map(teacher => (
-              <option key={teacher.id} value={teacher.id}>{teacher.nama} ({teacher.nip})</option>
-            ))}
-          </select>
+          <SearchableTeacherSelect
+            value={formData.pembina_id || ''}
+            teachers={teachers}
+            onChange={(id) => handleChange({ target: { name: 'pembina_id', value: id } })}
+            placeholder="Cari nama pembina..."
+          />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -943,12 +944,12 @@ function InputPrestasi() {
 
         <div className="form-group">
           <label>Pembina</label>
-          <select name="pembina_id" value={editModal.editFormData.pembina_id || ''} onChange={(e) => editModal.setEditFormData({ ...editModal.editFormData, pembina_id: e.target.value })}>
-            <option value="" disabled hidden>Pilih Pembina</option>
-            {teachers.map(teacher => (
-              <option key={teacher.id} value={teacher.id}>{teacher.nama} ({teacher.nip})</option>
-            ))}
-          </select>
+          <SearchableTeacherSelect
+            value={editModal.editFormData.pembina_id || ''}
+            teachers={teachers}
+            onChange={(id) => editModal.setEditFormData({ ...editModal.editFormData, pembina_id: id })}
+            placeholder="Cari nama pembina..."
+          />
         </div>
 
         <div className="form-group">

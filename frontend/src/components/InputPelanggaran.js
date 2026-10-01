@@ -94,7 +94,7 @@ function InputPelanggaran() {
     if (user.role === 'superadmin') {
       fetchAllPelanggaran();
     } else if (user.role === 'guru' || user.role === 'pegawai') {
-      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllPelanggaran(); }).catch(() => setCanApprove(false));
+      api.get('/permissions/my-permissions').then(r => { const scopes = r.data?.approval_scopes || []; const allowed = scopes.includes('pelanggaran'); setCanApprove(allowed); if (allowed) fetchAllPelanggaran(); }).catch(() => setCanApprove(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

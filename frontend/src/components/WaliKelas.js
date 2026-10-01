@@ -3,6 +3,7 @@ import api from '../utils/api';
 import API_BASE_URL from '../config';
 import { useMinIptPerGrade, minIptFor, isBelowMinIpt } from '../utils/minIpt';
 import StudentDetail from './StudentDetail';
+import SearchableTeacherSelect from './SearchableTeacherSelect';
 import { GraduationCap, BarChart3, Users, User, Settings, Search, Pencil, Lightbulb, CircleCheck, TriangleAlert } from 'lucide-react';
 
 function getCurrentAcademicYear() {
@@ -442,12 +443,13 @@ function WaliKelas() {
             <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '.72rem', fontWeight: 600, color: '#64748b', marginBottom: '5px' }}>Guru</label>
-                <select value={formData.guru_id} onChange={(e) => setFormData({...formData, guru_id: e.target.value})} required style={{ fontFamily: 'inherit', fontSize: '.85rem', padding: '9px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a', outline: 'none', width: '100%' }}>
-                  <option value="" disabled hidden>Pilih Guru</option>
-                  {teachers.map(teacher => (
-                    <option key={teacher.id} value={teacher.id}>{teacher.nama} ({teacher.nip})</option>
-                  ))}
-                </select>
+                <SearchableTeacherSelect
+                  value={formData.guru_id}
+                  teachers={teachers}
+                  onChange={(id) => setFormData({ ...formData, guru_id: id })}
+                  placeholder="Cari nama guru..."
+                  required
+                />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '.72rem', fontWeight: 600, color: '#64748b', marginBottom: '5px' }}>Kelas</label>

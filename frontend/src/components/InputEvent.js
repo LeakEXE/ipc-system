@@ -76,7 +76,7 @@ function InputEvent() {
     if (user.role === 'superadmin') {
       fetchAllEvent();
     } else if (user.role === 'guru' || user.role === 'pegawai') {
-      api.get('/permissions/my-permissions').then(r => { const allowed = !!r.data?.can_approve; setCanApprove(allowed); if (allowed) fetchAllEvent(); }).catch(() => setCanApprove(false));
+      api.get('/permissions/my-permissions').then(r => { const scopes = r.data?.approval_scopes || []; const allowed = scopes.includes('event'); setCanApprove(allowed); if (allowed) fetchAllEvent(); }).catch(() => setCanApprove(false));
     }
   }, []);
 
