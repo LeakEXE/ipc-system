@@ -1242,9 +1242,17 @@ router.put('/:id/biodata', auth, superAdminOnly, async (req, res) => {
             // Update guru biodata (preserve alamat/no_hp when the form does not send them)
             const newAlamat = alamat !== undefined ? alamat : user[0].alamat;
             const newNoHp = no_hp !== undefined ? no_hp : user[0].no_hp;
+            // Keep role in sync with jabatan so role-based pages (e.g. /izin-akun)
+            // don't show a stale role after a Guru <-> Pegawai change.
+            let newRole = role;
+            if (newJabatan === 'Pegawai') {
+                newRole = 'pegawai';
+            } else if (newJabatan === 'Guru') {
+                newRole = 'guru';
+            }
             await db.query(
-                'UPDATE users SET nama = ?, nip = ?, detail = ?, alamat = ?, no_hp = ? WHERE id = ?',
-                [nama, nip, newJabatan, newAlamat, newNoHp, userId]
+                'UPDATE users SET nama = ?, nip = ?, detail = ?, alamat = ?, no_hp = ?, role = ? WHERE id = ?',
+                [nama, nip, newJabatan, newAlamat, newNoHp, newRole, userId]
             );
 
             // Propagate the renamed teacher into pembina names, logs, notifications.
