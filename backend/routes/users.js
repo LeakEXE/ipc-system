@@ -12,6 +12,35 @@ const { gradePrefixFromKelas, getIptAwalForGrade } = require('../utils/iptConfig
 const { syncBiodataChange } = require('../utils/biodataSync');
 const { generateUsername } = require('../utils/username');
 
+// Postgres LIKE is case-sensitive, so all user-facing name/NIS searches must
+// use ILIKE. Multi-word queries are tokenized: every token must appear in the
+// name (any order), OR the full phrase matches NIS/NIP/username.
+// '!' is used as ESCAPE char (instead of backslash) to avoid clashing with
+// Postgres standard_conforming_strings and the ? -> $n converter.
+function escapeLikePattern(s) {
+    return String(s).replace(/!/g, '!!').replace(/%/g, '!%').replace(/_/g, '!_');
+}
+
+function buildTokenSearchClause(nameField, extraFields, search) {
+    const tokens = String(search || '').trim().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return null;
+    const full = `%${escapeLikePattern(String(search).trim())}%`;
+    const clauses = [];
+    const params = [];
+    if (tokens.length === 1) {
+        clauses.push(`${nameField} ILIKE ? ESCAPE '!'`);
+        params.push(full);
+    } else {
+        clauses.push(`(${tokens.map(() => `${nameField} ILIKE ? ESCAPE '!'`).join(' AND ')})`);
+        tokens.forEach((t) => params.push(`%${escapeLikePattern(t)}%`));
+    }
+    extraFields.forEach((f) => {
+        clauses.push(`${f} ILIKE ? ESCAPE '!'`);
+        params.push(full);
+    });
+    return { clause: `(${clauses.join(' OR ')})`, params };
+}
+
 async function applyIptAwalUpdate(userId, newIptAwal, adminId) {
     const parsedAwal = parseInt(newIptAwal, 10);
     if (Number.isNaN(parsedAwal) || parsedAwal < 0) {
@@ -160,8 +189,9 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
             let params = ['siswa'];
 
             if (search) {
-                query += ' AND (nama LIKE ? OR nis LIKE ?)';
-                params.push(`%${search}%`, `%${search}%`);
+                const tokenSearch = buildTokenSearchClause('nama', ['nis'], search);
+                query += ` AND ${tokenSearch.clause}`;
+                params.push(...tokenSearch.params);
             }
 
             query += ' ORDER BY nama ASC LIMIT ? OFFSET ?';
@@ -173,8 +203,9 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
             let countQuery = 'SELECT COUNT(*) as total FROM users WHERE role = ? AND (is_graduated = 0 OR is_graduated IS NULL)';
             let countParams = ['siswa'];
             if (search) {
-                countQuery += ' AND (nama LIKE ? OR nis LIKE ?)';
-                countParams.push(`%${search}%`, `%${search}%`);
+                const tokenSearch = buildTokenSearchClause('nama', ['nis'], search);
+                countQuery += ` AND ${tokenSearch.clause}`;
+                countParams.push(...tokenSearch.params);
             }
             const [countResult] = await db.query(countQuery, countParams);
 
@@ -245,8 +276,9 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
         }
 
         if (search) {
-            query += ' AND (nama LIKE ? OR nis LIKE ? OR nip LIKE ? OR username LIKE ?)';
-            params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+            const tokenSearch = buildTokenSearchClause('nama', ['nis', 'nip', 'username'], search);
+            query += ` AND ${tokenSearch.clause}`;
+            params.push(...tokenSearch.params);
         }
 
         query += ' ORDER BY nama ASC LIMIT ? OFFSET ?';
@@ -294,8 +326,9 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
         }
 
         if (search) {
-            countQuery += ' AND (nama LIKE ? OR nis LIKE ? OR nip LIKE ?)';
-            countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            const tokenSearch = buildTokenSearchClause('nama', ['nis', 'nip', 'username'], search);
+            countQuery += ` AND ${tokenSearch.clause}`;
+            countParams.push(...tokenSearch.params);
         }
 
         const [countResult] = await db.query(countQuery, countParams);
@@ -452,8 +485,9 @@ router.get('/lookup', auth, teacherOrSuperAdmin, async (req, res) => {
 
         const searchText = String(search).trim();
         if (searchText) {
-            where.push('(u.nama LIKE ? OR u.nis LIKE ?)');
-            params.push(`%${searchText}%`, `%${searchText}%`);
+            const tokenSearch = buildTokenSearchClause('u.nama', ['u.nis'], searchText);
+            where.push(tokenSearch.clause);
+            params.push(...tokenSearch.params);
         }
         if (kelasInc.length) {
             where.push(`u.kelas IN (${placeholders(kelasInc)})`);

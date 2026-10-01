@@ -27,8 +27,10 @@ pool.on('error', (err) => {
 // Convert MySQL-style `?` placeholders to Postgres `$1, $2, ...`.
 // - Array params expand inline WITHOUT adding parens, so callers keep
 //   writing `IN (?)` which becomes `IN ($1, $2)`.
-// - String literals ('...', "...") are left untouched so `?` inside them
+// - String literals ('...', "...", E'...') are left untouched so `?` inside them
 //   is not treated as a placeholder.
+// - Postgres standard strings: only '' escapes a quote (backslash is literal).
+//   Only E'...' strings treat backslash escapes (\', \\) specially.
 const toPostgresParams = (sql, params) => {
     if (!params || params.length === 0) {
         return { text: sql, values: [] };
@@ -40,29 +42,51 @@ const toPostgresParams = (sql, params) => {
     let placeholderNum = 1;
     let inString = false;
     let stringChar = null;
+    let isEscapeString = false;
     let i = 0;
 
     while (i < sql.length) {
         const ch = sql[i];
 
         if (inString) {
-            pgSql += ch;
-            if (ch === '\\' && i + 1 < sql.length) {
+            // Doubled quote ('', "") is an escaped quote in any string.
+            if (ch === stringChar && sql[i + 1] === stringChar) {
+                pgSql += ch + sql[i + 1];
+                i += 2;
+                continue;
+            }
+            // Backslash escapes only apply in E'...' strings.
+            if (isEscapeString && ch === '\\' && i + 1 < sql.length) {
+                pgSql += ch;
                 pgSql += sql[i + 1];
                 i += 2;
                 continue;
             }
+            pgSql += ch;
             if (ch === stringChar) {
                 inString = false;
                 stringChar = null;
+                isEscapeString = false;
             }
             i++;
+            continue;
+        }
+
+        // Detect E'...' escape-string prefix (case-insensitive E directly before quote).
+        if ((ch === 'E' || ch === 'e') && (sql[i + 1] === "'" || sql[i + 1] === '"')) {
+            inString = true;
+            stringChar = sql[i + 1];
+            isEscapeString = stringChar === "'";
+            pgSql += ch;
+            pgSql += sql[i + 1];
+            i += 2;
             continue;
         }
 
         if (ch === "'" || ch === '"') {
             inString = true;
             stringChar = ch;
+            isEscapeString = false;
             pgSql += ch;
             i++;
             continue;

@@ -12,6 +12,22 @@ router.get('/students', auth, async (req, res) => {
             return res.status(400).json({ message: 'Query parameter is required' });
         }
 
+        // Postgres LIKE is case-sensitive, so use ILIKE. Tokenize multi-word
+        // queries: every token must appear in the name (any order), OR the
+        // full phrase matches NIS. '!' is ESCAPE to avoid backslash issues.
+        const escapeLikePattern = (s) => String(s).replace(/!/g, '!!').replace(/%/g, '!%').replace(/_/g, '!_');
+        const tokens = String(query).trim().split(/\s+/).filter(Boolean);
+        const fullPattern = `%${escapeLikePattern(String(query).trim())}%`;
+        let searchClause;
+        let searchParams;
+        if (tokens.length <= 1) {
+            searchClause = `(u.nama ILIKE ? ESCAPE '!' OR u.nis ILIKE ? ESCAPE '!')`;
+            searchParams = [fullPattern, fullPattern];
+        } else {
+            searchClause = `((${tokens.map(() => `u.nama ILIKE ? ESCAPE '!'`).join(' AND ')}) OR u.nis ILIKE ? ESCAPE '!')`;
+            searchParams = [...tokens.map((t) => `%${escapeLikePattern(t)}%`), fullPattern];
+        }
+
         // Optimized single query with subqueries instead of N+1
         const [students] = await db.query(`
             SELECT
@@ -30,9 +46,9 @@ router.get('/students', auth, async (req, res) => {
                 GROUP BY user_id
             ) prestasi ON u.id = prestasi.user_id
             WHERE u.role = 'siswa'
-            AND (u.nama LIKE ? OR u.nis LIKE ?)
+            AND ${searchClause}
             LIMIT 20
-        `, [`%${query}%`, `%${query}%`]);
+        `, searchParams);
 
         res.json(students);
     } catch (error) {
