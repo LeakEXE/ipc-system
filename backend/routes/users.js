@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const VALID_TEACHER_JABATAN = ['Guru', 'Pegawai'];
+const VALID_JURUSAN = ['TKJ 1', 'TKJ 2', 'DPIB 1', 'DPIB 2', 'TKR 1', 'TKR 2'];
 const bcrypt = require('bcryptjs');
 const { auth, superAdminOnly, teacherOrSuperAdmin } = require('../middleware/auth');
 const db = require('../config/database');
@@ -776,27 +777,52 @@ router.put('/:id', auth, async (req, res) => {
             }
         }
 
-        const { nama, alamat, no_hp, jabatan, detail } = req.body;
+        const { nama, nis, nip, jurusan, tahun_pelajaran, alamat, no_hp, jabatan, detail } = req.body;
 
         // Get current user data for logging (dan untuk validasi jabatan)
-        const [targetUserData] = await db.query('SELECT nama, role, detail FROM users WHERE id = ?', [userId]);
+        const [targetUserData] = await db.query('SELECT nama, nis, role, detail, jurusan, tahun_pelajaran FROM users WHERE id = ?', [userId]);
         const storedJabatan = targetUserData[0]?.detail || null;
         const oldUserName = targetUserData[0]?.nama || null;
+        const oldNis = targetUserData[0]?.nis || null;
 
         // Server-side field guard: non-superadmin may only change the fields
         // their role is allowed (UI hiding alone is not enforcement).
+        // Wali Kelas is intentionally never editable here (derived data).
         if (currentUser.role !== 'superadmin') {
             const EDITABLE_FIELDS = {
-                siswa: new Set(['no_hp', 'alamat']),
-                guru: new Set(['nama', 'no_hp', 'alamat', 'jabatan', 'detail']),
-                pegawai: new Set(['nama', 'no_hp', 'alamat', 'jabatan', 'detail']),
-                superadmin: new Set(['nama', 'no_hp', 'alamat', 'jabatan', 'detail'])
+                siswa: new Set(['nama', 'nis', 'jurusan', 'tahun_pelajaran', 'no_hp', 'alamat']),
+                guru: new Set(['nip', 'nama', 'jabatan', 'detail', 'no_hp', 'alamat']),
+                pegawai: new Set(['nip', 'nama', 'jabatan', 'detail', 'no_hp', 'alamat']),
+                superadmin: new Set(['nama', 'nip', 'nis', 'jurusan', 'tahun_pelajaran', 'no_hp', 'alamat', 'jabatan', 'detail'])
             };
             const allowed = EDITABLE_FIELDS[targetUserData[0]?.role] || new Set();
             const forbidden = Object.keys(req.body || {}).filter((k) => !allowed.has(k));
             if (forbidden.length > 0) {
                 return res.status(403).json({ message: `Field tidak diizinkan untuk role ini: ${forbidden.join(', ')}` });
             }
+        }
+
+        // Uniqueness checks (exclude self)
+        if (nis !== undefined && nis !== oldNis) {
+            const [dup] = await db.query('SELECT id FROM users WHERE nis = ? AND id <> ?', [nis, userId]);
+            if (dup.length > 0) {
+                return res.status(400).json({ message: 'NIS sudah dipakai akun lain' });
+            }
+        }
+        if (nip !== undefined) {
+            const [targetNip] = await db.query('SELECT nip FROM users WHERE id = ?', [userId]);
+            if (nip !== targetNip[0]?.nip) {
+                const [dup] = await db.query('SELECT id FROM users WHERE nip = ? AND id <> ?', [nip, userId]);
+                if (dup.length > 0) {
+                    return res.status(400).json({ message: 'NIP sudah dipakai akun lain' });
+                }
+            }
+        }
+        if (jurusan !== undefined && !VALID_JURUSAN.includes(jurusan)) {
+            return res.status(400).json({ message: `Jurusan tidak valid. Gunakan: ${VALID_JURUSAN.join(', ')}` });
+        }
+        if (tahun_pelajaran !== undefined && !validateTahunPelajaran(tahun_pelajaran)) {
+            return res.status(400).json({ message: 'Tahun pelajaran tidak valid. Format harus YYYY-YYYY (contoh: 2024-2025)' });
         }
 
         let teacherJabatan = jabatan || detail;
@@ -825,6 +851,33 @@ router.put('/:id', auth, async (req, res) => {
             setClauses.push('nama = ?');
             setParams.push(nama);
         }
+        if (nis !== undefined) {
+            setClauses.push('nis = ?');
+            setParams.push(nis);
+        }
+        if (nip !== undefined) {
+            setClauses.push('nip = ?');
+            setParams.push(nip);
+        }
+        if (jurusan !== undefined) {
+            setClauses.push('jurusan = ?');
+            setParams.push(jurusan);
+        }
+        if (tahun_pelajaran !== undefined) {
+            setClauses.push('tahun_pelajaran = ?');
+            setParams.push(tahun_pelajaran);
+        }
+        // Siswa class derives from jurusan + tahun pelajaran: recalculate
+        // whenever either changes so kelas never goes stale.
+        if ((jurusan !== undefined || tahun_pelajaran !== undefined) && targetUserData[0]?.role === 'siswa') {
+            const effectiveJurusan = jurusan !== undefined ? jurusan : targetUserData[0]?.jurusan;
+            const effectiveTahun = tahun_pelajaran !== undefined ? tahun_pelajaran : targetUserData[0]?.tahun_pelajaran;
+            const recalculated = calculateFullClass(effectiveTahun, effectiveJurusan);
+            if (recalculated) {
+                setClauses.push('kelas = ?');
+                setParams.push(recalculated);
+            }
+        }
         if (alamat !== undefined) {
             setClauses.push('alamat = ?');
             setParams.push(alamat);
@@ -851,7 +904,7 @@ router.put('/:id', auth, async (req, res) => {
         );
 
         // Propagate renamed biodata into record snapshots, pembina names, logs.
-        await syncBiodataChange(userId, { nama: oldUserName });
+        await syncBiodataChange(userId, { nama: oldUserName, nis: oldNis });
 
         // Log activity
         await logActivity(currentUser.id, 'UPDATE_BIODATA', `User ${currentUser.nama} (${currentUser.role}) updated biodata for ${targetUserData[0]?.nama || userId} (${targetUserData[0]?.role})`, req.ip);
