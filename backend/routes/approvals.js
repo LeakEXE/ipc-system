@@ -21,7 +21,7 @@ const {
     approveSubmission,
     rejectSubmission
 } = require('../utils/approvalSchema');
-const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
+const { movePhotoToApprovedFolder, deletePhotoIfOrphan } = require('../utils/fileUtils');
 const { ensureUploadSubdir, UPLOAD_DIR, resolveUploadPath } = require('../utils/paths');
 const fs = require('fs');
 // Local file storage only - Google Drive removed
@@ -695,6 +695,13 @@ router.put('/superadmin/:type/:id', auth, approverFor('type'), async (req, res) 
             for (const row of targetRows) {
             const data = row;
             await rejectSubmission(table, row.id, notes || 'Ditolak oleh SuperAdmin');
+
+            // Delete the evidence file when no other row references it anymore
+            // (kelompok siblings share one file — never strand them).
+            const fotoVal = data.foto ?? data.foto_path;
+            if (fotoVal) {
+                await deletePhotoIfOrphan(db, fotoVal, { exclude: { table, id: row.id }, folderHint: type });
+            }
 
             // Log activity
             await logActivity(req.user.id, `REJECT_${type.toUpperCase()}`, `${actorLabel} ${req.user.nama} rejected ${type} for ${data.nama} (${data.nis}): ${notes || 'No reason'}`, req.ip);

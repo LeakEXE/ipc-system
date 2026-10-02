@@ -119,8 +119,7 @@ const movePhotoToApprovedFolder = (currentFilePath, recordType) => {
  * @param {string} filePath - File path relative to project root
  * @returns {boolean} True if deleted successfully
  */
-const deletePhotoFile = (filePath) => {
-    if (!filePath) {
+const deletePhotoFile = (filePath) => {    if (!filePath) {
         return false;
     }
 
@@ -151,9 +150,127 @@ const deletePhotoFile = (filePath) => {
     }
 };
 
+/**
+ * Every table/column that can reference an evidence file, avatar, or logo.
+ * Used both to avoid deleting live files and to flag orphans in file-manager.
+ * (perilaku has no file column; siswa_approvals/biodata/password tables hold no files.)
+ */
+const FOTO_REFERENCES = [
+    { table: 'prestasi', column: 'foto' },
+    { table: 'event', column: 'foto' },
+    { table: 'organisasi', column: 'foto' },
+    { table: 'kepanitiaan', column: 'foto' },
+    { table: 'pelanggaran', column: 'foto' },
+    { table: 'prestasi_approvals', column: 'foto' },
+    { table: 'event_approvals', column: 'foto' },
+    { table: 'organisasi_approvals', column: 'foto' },
+    { table: 'kepanitiaan_approvals', column: 'foto' },
+    { table: 'users', column: 'foto' },
+    { table: 'school_config', column: 'logo_url' }
+];
+
+/**
+ * Normalize a stored file reference for comparison.
+ * DB holds three shapes: 'uploads/<type>/f' (central flow + approved rows),
+ * '/uploads/...' (leading slash, e.g. avatars), and bare 'f' (per-type direct rows).
+ * All three normalize to a path relative to uploads/ (or the bare name).
+ */
+const normalizeFotoValue = (v) => String(v || '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/^uploads\//i, '');
+
+/**
+ * Collect every live file reference in the DB.
+ * @param {object} db - db wrapper (or transaction conn) with .query()
+ * @param {{table:string,id:number}|null} exclude - row to ignore (the one being rejected/deleted)
+ * @returns {{full:Set<string>, base:Set<string>}} normalized paths + basenames
+ */
+async function collectFotoReferences(db, exclude = null) {
+    const full = new Set();
+    const base = new Set();
+    for (const { table, column } of FOTO_REFERENCES) {
+        let rows;
+        try {
+            if (exclude && exclude.table === table) {
+                [rows] = await db.query(
+                    `SELECT ${column} AS v FROM ${table} WHERE ${column} IS NOT NULL AND ${column} <> '' AND id <> ?`,
+                    [exclude.id]
+                );
+            } else {
+                [rows] = await db.query(
+                    `SELECT ${column} AS v FROM ${table} WHERE ${column} IS NOT NULL AND ${column} <> ''`
+                );
+            }
+        } catch {
+            continue; // missing table/column on older schemas
+        }
+        for (const r of rows || []) {
+            const n = normalizeFotoValue(r.v);
+            if (!n) continue;
+            full.add(n);
+            base.add(n.split('/').pop());
+        }
+    }
+    return { full, base };
+}
+
+/**
+ * Is a file (listing path like '/uploads/approved/prestasi/f.jpg', a DB-style
+ * 'uploads/...' value, or a bare filename) still referenced by any DB row?
+ * Basename fallback errs toward "referenced" — never strand a live file over
+ * a naming collision; true orphans surface in file-manager instead.
+ */
+function isFotoReferenced(refs, filePath) {
+    const n = normalizeFotoValue(filePath);
+    if (!n) return false;
+    if (refs.full.has(n)) return true;
+    return refs.base.has(n.split('/').pop());
+}
+
+/**
+ * Delete the physical file only when no DB row references it anymore.
+ * Group siblings often share one evidence file — this is what keeps a reject
+ * or record-delete from pulling it out from under the others.
+ * @param {object} db - db wrapper (or transaction conn)
+ * @param {string} storedValue - the foto value from the row being rejected/deleted
+ * @param {object} opts - { exclude: {table,id}|null, folderHint: uploads subfolder for bare filenames }
+ * @returns {boolean} True if a file was actually deleted
+ */
+async function deletePhotoIfOrphan(db, storedValue, opts = {}) {
+    const { exclude = null, folderHint = null } = opts;
+    const norm = normalizeFotoValue(storedValue);
+    if (!norm) return false;
+
+    const refs = await collectFotoReferences(db, exclude);
+    const base = norm.split('/').pop();
+    if (refs.full.has(norm) || refs.base.has(base)) return false; // still referenced
+
+    // Locate on disk: full refs resolve under UPLOAD_DIR, bare names need
+    // their type folder (e.g. per-type direct rows store just 'f.jpg').
+    const abs = norm.includes('/')
+        ? path.join(UPLOAD_DIR, norm)
+        : (folderHint ? path.join(UPLOAD_DIR, folderHint, norm) : null);
+    if (!abs || !validatePath(abs, UPLOAD_DIR)) return false;
+
+    try {
+        if (!fs.existsSync(abs)) return false; // already gone (e.g. moved on approve)
+        fs.unlinkSync(abs);
+        return true;
+    } catch (error) {
+        console.error('Error deleting orphan photo:', abs, error.message);
+        return false;
+    }
+}
+
 module.exports = {
     movePhotoToApprovedFolder,
     deletePhotoFile,
     sanitizePath,
-    validatePath
+    validatePath,
+    FOTO_REFERENCES,
+    normalizeFotoValue,
+    collectFotoReferences,
+    isFotoReferenced,
+    deletePhotoIfOrphan
 };

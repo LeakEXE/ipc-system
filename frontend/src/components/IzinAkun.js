@@ -581,6 +581,61 @@ function IzinAkun() {
         .toggle-cell:active{transform:scale(.95);}
         .toggle-cell.on{background:var(--green);}
         .toggle-cell.off{background:var(--red);}
+        /* Approval-scope toggles: iOS-style switch, same look as KonfigurasiIPT .ipt-switch */
+        .scope-switch{
+          display:flex;
+          align-items:center;
+          gap:10px;
+          cursor:pointer;
+          font-weight:500;
+          color:var(--gray-900);
+        }
+        /* Beat the file-global input[type="checkbox"] rule by specificity */
+        .scope-switch input[type="checkbox"]{
+          position:absolute;
+          opacity:0;
+          width:0;
+          height:0;
+          margin:0;
+          padding:0;
+          border:none;
+          pointer-events:none;
+        }
+        .scope-switch-track{
+          position:relative;
+          width:44px;
+          height:24px;
+          border-radius:999px;
+          background:#D7DBE4;
+          transition:background .2s ease;
+          flex-shrink:0;
+        }
+        .scope-switch-track::after{
+          content:'';
+          position:absolute;
+          top:2px;
+          left:2px;
+          width:20px;
+          height:20px;
+          border-radius:50%;
+          background:#fff;
+          box-shadow:0 1px 3px rgba(0,0,0,.25);
+          transition:transform .2s ease;
+        }
+        .scope-switch input:checked + .scope-switch-track{
+          background:#10b981;
+        }
+        .scope-switch input:checked + .scope-switch-track::after{
+          transform:translateX(20px);
+        }
+        .scope-switch input:focus-visible + .scope-switch-track{
+          outline:2px solid #3B82F6;
+          outline-offset:2px;
+        }
+        .scope-switch-label .when-on{ display:none; }
+        .scope-switch-label .when-off{ display:inline; color:var(--gray-400); }
+        .scope-switch input:checked ~ .scope-switch-label .when-on{ display:inline; }
+        .scope-switch input:checked ~ .scope-switch-label .when-off{ display:none; }
         @media (max-width: 1024px){
           .bulk-grid{grid-template-columns:1fr;}
           .filter-row{grid-template-columns:1fr 1fr; }
@@ -991,15 +1046,20 @@ function IzinAkun() {
                     Kosongkan
                   </button>
                 </div>
-                <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '10px', marginBottom: '12px' }}>
+                <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '6px 10px', marginBottom: '12px' }}>
                   {APPROVAL_JENIS.map((j) => (
-                    <label key={j.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '4px 0', cursor: 'pointer' }}>
+                    <label key={j.key} className="scope-switch" style={{ fontSize: '13px', padding: '8px 0' }}>
                       <input
                         type="checkbox"
                         checked={scopeDraft.includes(j.key)}
                         onChange={() => toggleScopeDraft(j.key)}
                       />
-                      {j.label}
+                      <span className="scope-switch-track" />
+                      <span className="scope-switch-label">
+                        {j.label}
+                        <span className="when-on"> · Aktif</span>
+                        <span className="when-off"> · Non-Aktif</span>
+                      </span>
                     </label>
                   ))}
                 </div>

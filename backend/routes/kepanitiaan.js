@@ -6,7 +6,7 @@ const multer = require('multer');
 const { evidenceFileFilter, EVIDENCE_LIMITS } = require('../utils/evidenceUpload');
 const path = require('path');
 const fs = require('fs');
-const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
+const { movePhotoToApprovedFolder, deletePhotoIfOrphan } = require('../utils/fileUtils');
 const { ensureUploadSubdir, resolveUploadPath } = require('../utils/paths');
 
 // Configure multer for file uploads
@@ -145,7 +145,14 @@ router.put('/:id/reject', auth, async (req, res) => {
         const { rejection_reason } = req.body;
         const kepanitiaanId = req.params.id;
         
+        const [rows] = await db.query('SELECT foto FROM kepanitiaan WHERE id = ?', [kepanitiaanId]);
+
         await db.query('UPDATE kepanitiaan SET status = ?, rejection_reason = ? WHERE id = ?', ['rejected', rejection_reason, kepanitiaanId]);
+
+        // Delete the evidence file when no other row references it anymore
+        if (rows[0]?.foto) {
+            await deletePhotoIfOrphan(db, rows[0].foto, { exclude: { table: 'kepanitiaan', id: kepanitiaanId }, folderHint: 'kepanitiaan' });
+        }
 
         await db.query(
             'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
@@ -255,16 +262,14 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
             );
         }
 
-        // Delete photo file if exists
-        if (kepanitiaanData.foto) {
-            const photoPath = resolveUploadPath(path.join('uploads', kepanitiaanData.foto));
-            if (fs.existsSync(photoPath)) {
-                fs.unlinkSync(photoPath);
-            }
-        }
-
         // Delete from database
         await db.query('DELETE FROM kepanitiaan WHERE id = ?', [kepanitiaanId]);
+
+        // Delete the evidence file when no other row references it anymore
+        // (kelompok siblings may share one file — never strand them).
+        if (kepanitiaanData.foto) {
+            await deletePhotoIfOrphan(db, kepanitiaanData.foto, { folderHint: 'kepanitiaan' });
+        }
 
         // Log activity
         await db.query(
