@@ -309,7 +309,7 @@ DROP TABLE IF EXISTS ipt_history CASCADE;
 CREATE TABLE ipt_history (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
-    jenis_perubahan TEXT NOT NULL CHECK (jenis_perubahan IN ('prestasi', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran', 'perilaku', 'initial', 'manual', 'sync', 'prestasi_update', 'perilaku_update', 'event_update', 'event_delete', 'perilaku_delete')),
+    jenis_perubahan TEXT NOT NULL CHECK (jenis_perubahan IN ('prestasi', 'organisasi', 'kepanitiaan', 'event', 'pelanggaran', 'perilaku', 'initial', 'manual', 'sync', 'prestasi_update', 'prestasi_delete', 'organisasi_update', 'organisasi_delete', 'kepanitiaan_update', 'kepanitiaan_delete', 'event_update', 'event_delete', 'pelanggaran_update', 'pelanggaran_delete', 'perilaku_update', 'perilaku_delete')),
     point_change INTEGER NOT NULL,
     ipt_sebelum INTEGER NOT NULL,
     ipt_sesudah INTEGER NOT NULL,
