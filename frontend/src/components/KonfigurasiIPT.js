@@ -573,6 +573,62 @@ function KonfigurasiIPT() {
 
   return (
     <div>
+      <style>{`
+        .form-group .ipt-switch{
+          display:inline-flex;
+          align-items:center;
+          gap:10px;
+          cursor:pointer;
+          margin-bottom:0;
+          font-weight:600;
+          color:var(--text-primary);
+        }
+        /* Override global .form-group input { width:100%; padding:14px; border:2px } */
+        .form-group .ipt-switch input{
+          position:absolute;
+          opacity:0;
+          width:0;
+          height:0;
+          margin:0;
+          padding:0;
+          border:none;
+        }
+        .ipt-switch-track{
+          position:relative;
+          width:44px;
+          height:24px;
+          border-radius:999px;
+          background:#D7DBE4;
+          transition:background .2s ease;
+          flex-shrink:0;
+        }
+        .ipt-switch-track::after{
+          content:'';
+          position:absolute;
+          top:2px;
+          left:2px;
+          width:20px;
+          height:20px;
+          border-radius:50%;
+          background:#fff;
+          box-shadow:0 1px 3px rgba(0,0,0,.25);
+          transition:transform .2s ease;
+        }
+        .ipt-switch input:checked + .ipt-switch-track{
+          background:#10b981;
+        }
+        .ipt-switch input:checked + .ipt-switch-track::after{
+          transform:translateX(20px);
+        }
+        .ipt-switch input:focus-visible + .ipt-switch-track{
+          outline:2px solid #3B82F6;
+          outline-offset:2px;
+        }
+        .ipt-switch-label .when-on{ display:none; }
+        .ipt-switch-label .when-off{ display:inline; }
+        .ipt-switch input:checked ~ .ipt-switch-label .when-on{ display:inline; }
+        .ipt-switch input:checked ~ .ipt-switch-label .when-off{ display:none; }
+      `}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <div
           style={{
@@ -1034,14 +1090,18 @@ function KonfigurasiIPT() {
                 />
               </div>}
               <div className="form-group">
-                <label>
+                <label>Status</label>
+                <label className="ipt-switch">
                   <input
                     type="checkbox"
                     name="is_active"
                     defaultChecked={editingConfig.is_active}
-                    style={{ marginRight: 8 }}
                   />
-                  Aktif
+                  <span className="ipt-switch-track" />
+                  <span className="ipt-switch-label">
+                    <span className="when-on">Aktif</span>
+                    <span className="when-off">Non-Aktif</span>
+                  </span>
                 </label>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
