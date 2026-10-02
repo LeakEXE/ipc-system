@@ -672,8 +672,8 @@ router.get('/:id', auth, async (req, res) => {
     }
 });
 
-// Create student account (Superadmin creates directly, Guru needs approval)
-router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
+// Create student account (Superadmin only — other roles have no create access)
+router.post('/create-student', auth, superAdminOnly, async (req, res) => {
     try {
         const { nama, nis, jurusan, password, wali_kelas, grha, tahun_pelajaran } = req.body;
 
@@ -710,52 +710,31 @@ router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
         // Auto-generate a unique username (user changes it on first login)
         const username = await generateUsername(nama);
 
-        // If SuperAdmin, create directly
-        if (req.user.role === 'superadmin') {
-            const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(calculatedClass));
-            const [result] = await db.query(
-                'INSERT INTO users (nama, nis, username, password, role, kelas, wali_kelas, grha, jurusan, ipt_total, ipt_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [nama, nis, username, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipt_awal, ipt_awal, tahun_pelajaran]
-            );
-
-            // Create default permissions
-            await db.query(
-                'INSERT INTO permissions (user_id) VALUES (?)',
-                [result.insertId]
-            );
-
-            // Log IPT history
-            await db.query(
-                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [result.insertId, 'initial', ipt_awal, 0, ipt_awal, 'IPT awal diberikan']
-            );
-
-            // Log activity
-            await db.query(
-                'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-                [req.user.id, 'CREATE_STUDENT', `Created student account for ${nama} (${nis})`]
-            );
-
-            return res.status(201).json({ message: 'Akun siswa berhasil dibuat!', username });
-        }
-
-        // If Guru, create approval request
+        const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(calculatedClass));
         const [result] = await db.query(
-            "INSERT INTO student_creation_approvals (nama, nis, kelas, grha, jurusan, password, tahun_pelajaran, requested_by, superadmin_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
-            [nama, nis, calculatedClass, grha, jurusan, hashedPassword, tahun_pelajaran, req.user.id]
+            'INSERT INTO users (nama, nis, username, password, role, kelas, wali_kelas, grha, jurusan, ipt_total, ipt_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [nama, nis, username, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipt_awal, ipt_awal, tahun_pelajaran]
         );
 
-        // Notify superadmin
-        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
-        for (const admin of superadmins) {
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) 
-                 VALUES (?, 'approval_needed', 'Persetujuan Pembuatan Akun Siswa', ?, ?, 'student_creation')`,
-                [admin.id, `Guru mengajukan pembuatan akun siswa: ${nama} (${nis})`, result.insertId]
-            );
-        }
+        // Create default permissions
+        await db.query(
+            'INSERT INTO permissions (user_id) VALUES (?)',
+            [result.insertId]
+        );
 
-        res.status(201).json({ message: 'Permintaan pembuatan akun siswa berhasil diajukan, menunggu persetujuan SuperAdmin!' });
+        // Log IPT history
+        await db.query(
+            'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+            [result.insertId, 'initial', ipt_awal, 0, ipt_awal, 'IPT awal diberikan']
+        );
+
+        // Log activity
+        await db.query(
+            'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
+            [req.user.id, 'CREATE_STUDENT', `Created student account for ${nama} (${nis})`]
+        );
+
+        res.status(201).json({ message: 'Akun siswa berhasil dibuat!', username });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });

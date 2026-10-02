@@ -780,7 +780,7 @@ function KelolaAkun() {
         {message && <div className="alert alert-success" style={{ marginBottom: '20px' }}>{message}</div>}
 
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-          {(userRole === 'superadmin' || userRole === 'guru') && (
+          {userRole === 'superadmin' && (
             <button 
               onClick={() => { setShowCreateModal(true); setCreateModalType('student'); setFormData({}); }}
               style={{ 
