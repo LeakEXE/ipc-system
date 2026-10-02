@@ -379,23 +379,6 @@ router.get('/biodata-approvals', auth, superAdminOnly, async (req, res) => {
     }
 });
 
-// Get student creation approvals for SuperAdmin - MUST BE BEFORE /:id
-router.get('/student-creation-approvals', auth, superAdminOnly, async (req, res) => {
-    try {
-        const [approvals] = await db.query(
-            `SELECT s.*, requester.nama as requested_by_name
-             FROM student_creation_approvals s
-             JOIN users requester ON s.requested_by = requester.id
-             WHERE s.superadmin_status = 'pending'
-             ORDER BY s.created_at DESC`
-        );
-        res.json(approvals);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
 // Get pending password reset requests for SuperAdmin - MUST BE BEFORE /:id
 router.get('/password-reset-approvals', auth, superAdminOnly, async (req, res) => {
     try {
@@ -693,16 +676,6 @@ router.post('/create-student', auth, superAdminOnly, async (req, res) => {
 
         if (existing.length > 0) {
             return res.status(400).json({ message: 'NIS sudah terdaftar' });
-        }
-
-        // Check for duplicate in pending approvals
-        const [existingApproval] = await db.query(
-            "SELECT id FROM student_creation_approvals WHERE nis = ? AND superadmin_status = 'pending'",
-            [nis]
-        );
-
-        if (existingApproval.length > 0) {
-            return res.status(400).json({ message: 'NIS sedang dalam proses approval' });
         }
 
         const hashedPassword = bcrypt.hashSync(password, 10);
@@ -1297,81 +1270,6 @@ router.put('/:id/biodata', auth, superAdminOnly, async (req, res) => {
         }
 
         res.json({ message: 'Biodata updated successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Approve/Reject student creation (SuperAdmin only)
-router.put('/student-creation-approvals/:id', auth, superAdminOnly, async (req, res) => {
-    try {
-        const approvalId = parseInt(req.params.id);
-        const { status, notes } = req.body;
-        
-        // Get approval data
-        const [approval] = await db.query(
-            'SELECT id, nama, nis, kelas, grha, jurusan, password, tahun_pelajaran, requested_by, superadmin_status, created_at FROM student_creation_approvals WHERE id = ?',
-            [approvalId]
-        );
-        
-        if (approval.length === 0) {
-            return res.status(404).json({ message: 'Approval request not found' });
-        }
-        
-        const data = approval[0];
-        
-        if (status === 'approved') {
-            // Create student account (IPT awal follows the grade default)
-            const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(data.kelas));
-            const username = await generateUsername(data.nama);
-            const [result] = await db.query(
-                'INSERT INTO users (nama, nis, username, password, role, kelas, grha, jurusan, ipt_total, ipt_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [data.nama, data.nis, username, data.password, 'siswa', data.kelas, data.grha, data.jurusan, ipt_awal, ipt_awal, data.tahun_pelajaran]
-            );
-            
-            // Create default permissions
-            await db.query(
-                'INSERT INTO permissions (user_id) VALUES (?)',
-                [result.insertId]
-            );
-            
-            // Log IPT history
-            await db.query(
-                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [result.insertId, 'initial', ipt_awal, 0, ipt_awal, 'IPT awal diberikan']
-            );
-            
-            // Update approval status
-            await db.query(
-                'UPDATE student_creation_approvals SET superadmin_status = ?, superadmin_notes = ?, superadmin_approved_at = NOW() WHERE id = ?',
-                ['approved', notes || 'Disetujui oleh SuperAdmin', approvalId]
-            );
-            
-            // Notify the requesting teacher
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) 
-                 VALUES (?, 'approved', 'Pembuatan Akun Siswa Disetujui', ?, ?, 'student_creation')`,
-                [data.requested_by, `Pembuatan akun siswa ${data.nama} (${data.nis}) telah disetujui oleh SuperAdmin.`, approvalId]
-            );
-            
-            res.json({ message: 'Akun siswa berhasil dibuat!' });
-        } else {
-            // Reject
-            await db.query(
-                'UPDATE student_creation_approvals SET superadmin_status = ?, superadmin_notes = ? WHERE id = ?',
-                ['rejected', notes || 'Ditolak oleh SuperAdmin', approvalId]
-            );
-            
-            // Notify the requesting teacher
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) 
-                 VALUES (?, 'rejected', 'Pembuatan Akun Siswa Ditolak', ?, ?, 'student_creation')`,
-                [data.requested_by, `Pembuatan akun siswa ${data.nama} (${data.nis}) ditolak: ${notes || 'Tidak ada alasan'}`, approvalId]
-            );
-            
-            res.json({ message: 'Pengajuan pembuatan akun siswa ditolak' });
-        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });

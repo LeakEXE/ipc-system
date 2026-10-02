@@ -29,7 +29,6 @@ function Approvals() {
     kepanitiaan: [],
     pelanggaran: [],
     biodata: [],
-    student_creation: [],
     password_reset: []
   });
   const [loading, setLoading] = useState(true);
@@ -39,8 +38,8 @@ function Approvals() {
   const [tempPassword, setTempPassword] = useState('');
   const [message, setMessage] = useState('');
   // Access gating: superadmin always; others need at least one approval scope.
-  // Non-superadmin approvers only see IPT tabs (biodata/student-creation/
-  // password-reset stay superadmin-only, both in UI and on the backend).
+  // Non-superadmin approvers only see IPT tabs (biodata/password-reset stay
+  // superadmin-only, both in UI and on the backend).
   const [hasAccess, setHasAccess] = useState(false);
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   // Enlarged photo popup (same pattern as DriveViewer: URL string or null)
@@ -77,11 +76,10 @@ function Approvals() {
         return;
       }
 
-      const [approvalsRes, biodataRes, studentCreationRes, passwordResetRes] = await Promise.all([
+      const [approvalsRes, biodataRes, passwordResetRes] = await Promise.all([
         api.get('/approvals/all'),
-        // Biodata, account-creation & password-reset approvals stay superadmin-only
+        // Biodata & password-reset approvals stay superadmin-only
         superadmin ? api.get('/users/biodata-approvals') : Promise.resolve({ data: [] }),
-        superadmin ? api.get('/users/student-creation-approvals') : Promise.resolve({ data: [] }),
         superadmin ? api.get('/users/password-reset-approvals') : Promise.resolve({ data: [] })
       ]);
       setApprovals({
@@ -92,7 +90,6 @@ function Approvals() {
         pelanggaran: [],
         ...(approvalsRes.data || {}),
         biodata: biodataRes.data || [],
-        student_creation: studentCreationRes.data || [],
         password_reset: passwordResetRes.data || []
       });
     } catch (error) {
@@ -111,11 +108,6 @@ function Approvals() {
     try {
       if (type === 'biodata') {
         await api.put(`/users/biodata-approvals/${id}`, {
-          status: 'approved',
-          notes: notes || 'Disetujui'
-        });
-      } else if (type === 'student_creation') {
-        await api.put(`/users/student-creation-approvals/${id}`, {
           status: 'approved',
           notes: notes || 'Disetujui'
         });
@@ -138,7 +130,6 @@ function Approvals() {
       
       const typeLabels = {
         biodata: 'Update biodata',
-        student_creation: 'Pembuatan akun siswa',
         password_reset: 'Reset password',
         prestasi: 'Prestasi',
         event: 'Event',
@@ -163,11 +154,6 @@ function Approvals() {
           status: 'rejected',
           notes: notes || 'Ditolak'
         });
-      } else if (type === 'student_creation') {
-        await api.put(`/users/student-creation-approvals/${id}`, {
-          status: 'rejected',
-          notes: notes || 'Ditolak'
-        });
       } else if (type === 'password_reset') {
         await api.put(`/users/password-reset-approvals/${id}`, {
           status: 'rejected',
@@ -182,7 +168,6 @@ function Approvals() {
       
       const typeLabels = {
         biodata: 'Update biodata',
-        student_creation: 'Pembuatan akun siswa',
         password_reset: 'Reset password',
         prestasi: 'Prestasi',
         event: 'Event',
@@ -207,7 +192,6 @@ function Approvals() {
     if (data.length === 0) {
       const emptyLabels = {
         biodata: 'update biodata',
-        student_creation: 'pembuatan akun siswa',
         password_reset: 'reset password'
       };
       return (
@@ -256,7 +240,6 @@ function Approvals() {
       kepanitiaan: ['Diajukan Oleh', 'Nama', 'NIS', 'Kepanitiaan', 'Jabatan', 'Foto', 'Status', 'Aksi'],
       pelanggaran: ['Diajukan Oleh', 'Nama', 'NIS', 'Keterangan', 'Jenis', 'Foto', 'Status', 'Aksi'],
       biodata: ['Diajukan Oleh', 'Nama', 'NIS', 'NIS Baru', 'Perubahan', 'Status', 'Aksi'],
-      student_creation: ['Diajukan Oleh', 'Nama', 'NIS', 'Kelas', 'Status', 'Aksi'],
       password_reset: ['Diajukan Oleh', 'Nama', 'NIS/NIP', 'Role', 'Tanggal', 'Status', 'Aksi'],
     };
 
@@ -297,7 +280,7 @@ function Approvals() {
       return getPhotoUrl(foto);
     };
 
-    const usesApprovalStatus = !['biodata', 'student_creation', 'password_reset'].includes(type);
+    const usesApprovalStatus = !['biodata', 'password_reset'].includes(type);
 
     // Get data columns for mobile cards (exclude diajukan, nama, nis, foto, status, aksi)
     const dataCols = columns[type].filter(c => 
@@ -363,9 +346,6 @@ function Approvals() {
       if (type === 'biodata') {
         if (col === 'NIS Baru') return item.nis_baru;
         if (col === 'Perubahan') return getBiodataChangesText(item);
-      }
-      if (type === 'student_creation') {
-        if (col === 'Kelas') return item.kelas;
       }
       if (type === 'password_reset') {
         if (col === 'NIS/NIP') return item.nis;
@@ -828,62 +808,6 @@ function Approvals() {
                     </td>
                   </>
                 )}
-                {type === 'student_creation' && (
-                  <>
-                    <td>{item.kelas}</td>
-                    <td>
-                      {item.superadmin_status === 'pending' ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '999px',
-                          fontSize: '12.5px',
-                          fontWeight: '700',
-                          whiteSpace: 'nowrap',
-                          background: AMBER_BG,
-                          color: '#a86a05'
-                        }}>
-                          <span style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            background: AMBER,
-                            animation: 'blink 1.4s ease-in-out infinite'
-                          }}></span>
-                          MENUNGGU
-                        </span>
-                      ) : item.superadmin_status === 'approved' ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '999px',
-                          fontSize: '12.5px',
-                          fontWeight: '700',
-                          whiteSpace: 'nowrap',
-                          background: '#e5f7ee',
-                          color: GREEN_DARK
-                        }}><StatusIcon status="approved" /> DISETUJUI</span>
-                      ) : (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '999px',
-                          fontSize: '12.5px',
-                          fontWeight: '700',
-                          whiteSpace: 'nowrap',
-                          background: '#fdeaea',
-                          color: RED_DARK
-                        }}><StatusIcon status="rejected" /> DITOLAK</span>
-                      )}
-                    </td>
-                  </>
-                )}
                 {type === 'password_reset' && (
                   <>
                     <td>{formatDisplayText(item.role)}</td>
@@ -1035,7 +959,7 @@ function Approvals() {
                   borderBottom: `1px solid ${BORDER}`,
                   verticalAlign: "middle"
                 }}>
-                  {type === 'biodata' || type === 'student_creation' || type === 'password_reset' ? (
+                  {type === 'biodata' || type === 'password_reset' ? (
                     item.superadmin_status === 'approved' ? (
                       <span style={{ color: MUTED, fontSize: "12.5px" }}>Selesai diproses</span>
                     ) : item.superadmin_status === 'rejected' ? (
@@ -1201,7 +1125,6 @@ function Approvals() {
   // same gate — other approvers can neither list nor action them).
   const SUPERADMIN_TABS = [
     { key: 'biodata', label: 'Biodata' },
-    { key: 'student_creation', label: 'Pembuatan Akun' },
     { key: 'password_reset', label: 'Reset Password' },
   ];
   const tabs = [...ALL_TABS, ...(isSuperadmin ? SUPERADMIN_TABS : [])]
