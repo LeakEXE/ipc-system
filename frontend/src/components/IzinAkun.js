@@ -460,6 +460,12 @@ function IzinAkun() {
           cursor:pointer;
           vertical-align:middle;
         }
+        input[type="checkbox"]{
+          width:auto;
+          padding:0;
+          margin:0;
+          flex-shrink:0;
+        }
         tbody tr.row-selected{background:#eff6ff;}
         tbody tr.row-selected:hover{background:#dbeafe;}
         .chip-flow{

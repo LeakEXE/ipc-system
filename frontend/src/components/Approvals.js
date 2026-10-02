@@ -29,15 +29,20 @@ function Approvals() {
     kepanitiaan: [],
     pelanggaran: [],
     biodata: [],
-    student_creation: []
+    student_creation: [],
+    password_reset: []
   });
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [notes, setNotes] = useState('');
+  // Temporary password the superadmin hands to a user on a granted reset
+  const [tempPassword, setTempPassword] = useState('');
   const [message, setMessage] = useState('');
   // Access gating: superadmin always; others need at least one approval scope.
-  // Non-superadmin approvers only see IPT tabs (biodata/student-creation stay superadmin-only).
+  // Non-superadmin approvers only see IPT tabs (biodata/student-creation/
+  // password-reset stay superadmin-only, both in UI and on the backend).
   const [hasAccess, setHasAccess] = useState(false);
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
   // Enlarged photo popup (same pattern as DriveViewer: URL string or null)
   const [previewImage, setPreviewImage] = useState(null);
   const [previewError, setPreviewError] = useState(false);
@@ -55,6 +60,7 @@ function Approvals() {
         storedRole = '';
       }
       const superadmin = storedRole === 'superadmin';
+      setIsSuperadmin(superadmin);
 
       let canApprove = superadmin;
       if (!superadmin) {
@@ -71,11 +77,12 @@ function Approvals() {
         return;
       }
 
-      const [approvalsRes, biodataRes, studentCreationRes] = await Promise.all([
+      const [approvalsRes, biodataRes, studentCreationRes, passwordResetRes] = await Promise.all([
         api.get('/approvals/all'),
-        // Biodata & account-creation approvals stay superadmin-only
+        // Biodata, account-creation & password-reset approvals stay superadmin-only
         superadmin ? api.get('/users/biodata-approvals') : Promise.resolve({ data: [] }),
-        superadmin ? api.get('/users/student-creation-approvals') : Promise.resolve({ data: [] })
+        superadmin ? api.get('/users/student-creation-approvals') : Promise.resolve({ data: [] }),
+        superadmin ? api.get('/users/password-reset-approvals') : Promise.resolve({ data: [] })
       ]);
       setApprovals({
         prestasi: [],
@@ -85,7 +92,8 @@ function Approvals() {
         pelanggaran: [],
         ...(approvalsRes.data || {}),
         biodata: biodataRes.data || [],
-        student_creation: studentCreationRes.data || []
+        student_creation: studentCreationRes.data || [],
+        password_reset: passwordResetRes.data || []
       });
     } catch (error) {
       console.error('Error fetching approvals:', error);
@@ -111,6 +119,16 @@ function Approvals() {
           status: 'approved',
           notes: notes || 'Disetujui'
         });
+      } else if (type === 'password_reset') {
+        if (!tempPassword || tempPassword.length < 6) {
+          setMessage('Password sementara minimal 6 karakter');
+          return;
+        }
+        await api.put(`/users/password-reset-approvals/${id}`, {
+          status: 'approved',
+          notes: notes || 'Disetujui',
+          tempPassword
+        });
       } else {
         await api.put(`/approvals/superadmin/${type}/${id}`, {
           status: 'approved',
@@ -121,6 +139,7 @@ function Approvals() {
       const typeLabels = {
         biodata: 'Update biodata',
         student_creation: 'Pembuatan akun siswa',
+        password_reset: 'Reset password',
         prestasi: 'Prestasi',
         event: 'Event',
         organisasi: 'Organisasi',
@@ -130,6 +149,7 @@ function Approvals() {
       setMessage(`${typeLabels[type] || type} berhasil disetujui!`);
       setSelectedItem(null);
       setNotes('');
+      setTempPassword('');
       fetchApprovals();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menyetujui');
@@ -148,6 +168,11 @@ function Approvals() {
           status: 'rejected',
           notes: notes || 'Ditolak'
         });
+      } else if (type === 'password_reset') {
+        await api.put(`/users/password-reset-approvals/${id}`, {
+          status: 'rejected',
+          notes: notes || 'Ditolak'
+        });
       } else {
         await api.put(`/approvals/superadmin/${type}/${id}`, {
           status: 'rejected',
@@ -158,6 +183,7 @@ function Approvals() {
       const typeLabels = {
         biodata: 'Update biodata',
         student_creation: 'Pembuatan akun siswa',
+        password_reset: 'Reset password',
         prestasi: 'Prestasi',
         event: 'Event',
         organisasi: 'Organisasi',
@@ -167,6 +193,7 @@ function Approvals() {
       setMessage(`${typeLabels[type] || type} ditolak`);
       setSelectedItem(null);
       setNotes('');
+      setTempPassword('');
       fetchApprovals();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menolak');
@@ -178,6 +205,11 @@ function Approvals() {
 
   const renderTable = (data, type) => {
     if (data.length === 0) {
+      const emptyLabels = {
+        biodata: 'update biodata',
+        student_creation: 'pembuatan akun siswa',
+        password_reset: 'reset password'
+      };
       return (
         <div style={{
           padding: "60px 20px",
@@ -185,7 +217,7 @@ function Approvals() {
           color: MUTED
         }}>
           <span style={{ display: 'inline-flex', color: 'var(--muted-light)' }}><Inbox size={34} /></span>
-          <strong style={{ color: TEXT, display: "block", marginBottom: "4px", fontSize: "15px" }}>Belum ada pengajuan {type}</strong>
+          <strong style={{ color: TEXT, display: "block", marginBottom: "4px", fontSize: "15px" }}>Belum ada pengajuan {emptyLabels[type] || type}</strong>
           Pengajuan baru akan muncul di sini untuk ditinjau.
         </div>
       );
@@ -223,6 +255,9 @@ function Approvals() {
       organisasi: ['Diajukan Oleh', 'Nama', 'NIS', 'Organisasi', 'Jabatan', 'Foto', 'Status', 'Aksi'],
       kepanitiaan: ['Diajukan Oleh', 'Nama', 'NIS', 'Kepanitiaan', 'Jabatan', 'Foto', 'Status', 'Aksi'],
       pelanggaran: ['Diajukan Oleh', 'Nama', 'NIS', 'Keterangan', 'Jenis', 'Foto', 'Status', 'Aksi'],
+      biodata: ['Diajukan Oleh', 'Nama', 'NIS', 'NIS Baru', 'Perubahan', 'Status', 'Aksi'],
+      student_creation: ['Diajukan Oleh', 'Nama', 'NIS', 'Kelas', 'Status', 'Aksi'],
+      password_reset: ['Diajukan Oleh', 'Nama', 'NIS/NIP', 'Role', 'Tanggal', 'Status', 'Aksi'],
     };
 
     const getPhotoUrl = (path, uploadFolder = 'approvals') => {
@@ -262,7 +297,7 @@ function Approvals() {
       return getPhotoUrl(foto);
     };
 
-    const usesApprovalStatus = !['biodata', 'student_creation'].includes(type);
+    const usesApprovalStatus = !['biodata', 'student_creation', 'password_reset'].includes(type);
 
     // Get data columns for mobile cards (exclude diajukan, nama, nis, foto, status, aksi)
     const dataCols = columns[type].filter(c => 
@@ -283,9 +318,22 @@ function Approvals() {
         'Kepanitiaan': 'Kepanitiaan',
         'Keterangan': 'Keterangan',
         'Jenis': 'Jenis',
-        'Karakter': 'Karakter'
+        'Karakter': 'Karakter',
+        'NIS/NIP': 'NIS/NIP',
+        'Role': 'Role',
+        'Tanggal': 'Tanggal'
       };
       return labelMap[col] || col;
+    };
+
+    const getBiodataChangesText = (item) => {
+      const parts = [];
+      if (item.nama_baru !== item.nama_lama) parts.push(`Nama: ${item.nama_lama} → ${item.nama_baru}`);
+      if (item.kelas_baru !== item.kelas_lama) parts.push(`Kelas: ${item.kelas_lama} → ${item.kelas_baru}`);
+      if (item.jurusan_baru !== item.jurusan_lama) parts.push(`Jurusan: ${item.jurusan_lama} → ${item.jurusan_baru}`);
+      if (item.tahun_pelajaran_baru !== item.tahun_pelajaran_lama) parts.push(`Tahun Pelajaran: ${item.tahun_pelajaran_lama} → ${item.tahun_pelajaran_baru}`);
+      if (item.grha_baru !== item.grha_lama) parts.push(`Grha: ${item.grha_lama} → ${item.grha_baru}`);
+      return parts.join(' • ');
     };
 
     const getFieldValue = (item, col, type) => {
@@ -312,6 +360,18 @@ function Approvals() {
         if (col === 'Keterangan') return item.keterangan;
         if (col === 'Jenis') return item.jenis_pelanggaran;
       }
+      if (type === 'biodata') {
+        if (col === 'NIS Baru') return item.nis_baru;
+        if (col === 'Perubahan') return getBiodataChangesText(item);
+      }
+      if (type === 'student_creation') {
+        if (col === 'Kelas') return item.kelas;
+      }
+      if (type === 'password_reset') {
+        if (col === 'NIS/NIP') return item.nis;
+        if (col === 'Role') return formatDisplayText(item.role);
+        if (col === 'Tanggal') return item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+      }
       return '';
     };
 
@@ -333,9 +393,9 @@ function Approvals() {
             marginBottom: '10px'
           }}>
             <div>
-              <div style={{ fontWeight: '700', fontSize: '15px', color: TEXT }}>{item.nama}</div>
+              <div style={{ fontWeight: '700', fontSize: '15px', color: TEXT }}>{item.nama || item.student_name}</div>
               <div style={{ fontWeight: '500', fontSize: '12.5px', color: MUTED, marginTop: '2px' }}>
-                NIS {item.nis} · diajukan oleh {item.user_name || 'Unknown'}
+                NIS {item.nis || item.nis_lama || '-'} · diajukan oleh {item.user_name || item.requested_by_name || 'Unknown'}
               </div>
               {item._groupSize > 1 && (
                 <div style={{ fontSize: '12.5px', color: TEXT, fontWeight: '600', marginTop: '4px' }}>
@@ -581,14 +641,14 @@ function Approvals() {
                   borderBottom: `1px solid ${BORDER}`,
                   verticalAlign: "middle",
                   color: MUTED
-                }}>{item.user_name || 'Unknown'}</td>
+                }}>{item.user_name || item.requested_by_name || 'Unknown'}</td>
                 <td style={{
                   padding: "16px 18px",
                   borderBottom: `1px solid ${BORDER}`,
                   verticalAlign: "middle",
                   fontWeight: "600",
                   color: TEXT
-                }}>{item.nama}
+                }}>{item.nama || item.student_name}
                   {item._groupSize > 1 && (
                     <div style={{ fontWeight: '500', fontSize: '12px', color: MUTED, marginTop: '2px' }}>
                       Kelompok · {item._groupSize} siswa
@@ -599,7 +659,7 @@ function Approvals() {
                   borderBottom: `1px solid ${BORDER}`,
                   verticalAlign: "middle",
                   color: TEXT
-                }}>{item.nis}
+                }}>{item.nis || item.nis_lama || item.student_nis}
                   {item._groupSize > 1 && (
                     <div style={{ fontSize: '12px', color: MUTED, marginTop: '2px' }}>
                       {item._memberNames.join(', ')}
@@ -705,8 +765,6 @@ function Approvals() {
                 )}
                 {type === 'biodata' && (
                   <>
-                    <td>{item.student_name}</td>
-                    <td>{item.nis_lama}</td>
                     <td>{item.nis_baru}</td>
                     <td>
                       <small>
@@ -717,7 +775,6 @@ function Approvals() {
                         {item.grha_baru !== item.grha_lama && <div>Grha: {item.grha_lama} → {item.grha_baru}</div>}
                       </small>
                     </td>
-                    <td>{item.requested_by_name}</td>
                     <td>
                       {item.superadmin_status === 'pending' ? (
                         <span style={{
@@ -773,10 +830,64 @@ function Approvals() {
                 )}
                 {type === 'student_creation' && (
                   <>
-                    <td>{item.nama}</td>
-                    <td>{item.nis}</td>
                     <td>{item.kelas}</td>
-                    <td>{item.requested_by_name}</td>
+                    <td>
+                      {item.superadmin_status === 'pending' ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '999px',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          whiteSpace: 'nowrap',
+                          background: AMBER_BG,
+                          color: '#a86a05'
+                        }}>
+                          <span style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: AMBER,
+                            animation: 'blink 1.4s ease-in-out infinite'
+                          }}></span>
+                          MENUNGGU
+                        </span>
+                      ) : item.superadmin_status === 'approved' ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '999px',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          whiteSpace: 'nowrap',
+                          background: '#e5f7ee',
+                          color: GREEN_DARK
+                        }}><StatusIcon status="approved" /> DISETUJUI</span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '999px',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          whiteSpace: 'nowrap',
+                          background: '#fdeaea',
+                          color: RED_DARK
+                        }}><StatusIcon status="rejected" /> DITOLAK</span>
+                      )}
+                    </td>
+                  </>
+                )}
+                {type === 'password_reset' && (
+                  <>
+                    <td>{formatDisplayText(item.role)}</td>
+                    <td>{item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</td>
                     <td>
                       {item.superadmin_status === 'pending' ? (
                         <span style={{
@@ -924,7 +1035,7 @@ function Approvals() {
                   borderBottom: `1px solid ${BORDER}`,
                   verticalAlign: "middle"
                 }}>
-                  {type === 'biodata' || type === 'student_creation' ? (
+                  {type === 'biodata' || type === 'student_creation' || type === 'password_reset' ? (
                     item.superadmin_status === 'approved' ? (
                       <span style={{ color: MUTED, fontSize: "12.5px" }}>Selesai diproses</span>
                     ) : item.superadmin_status === 'rejected' ? (
@@ -1086,7 +1197,14 @@ function Approvals() {
     { key: 'kepanitiaan', label: 'Kepanitiaan' },
     { key: 'pelanggaran', label: 'Pelanggaran' },
   ];
-  const tabs = ALL_TABS
+  // Account-related approvals are superadmin-only (backend enforces the
+  // same gate — other approvers can neither list nor action them).
+  const SUPERADMIN_TABS = [
+    { key: 'biodata', label: 'Biodata' },
+    { key: 'student_creation', label: 'Pembuatan Akun' },
+    { key: 'password_reset', label: 'Reset Password' },
+  ];
+  const tabs = [...ALL_TABS, ...(isSuperadmin ? SUPERADMIN_TABS : [])]
     .filter((t) => approvals[t.key] !== undefined)
     .map((t) => ({ ...t, count: approvals[t.key]?.length || 0 }));
   const effectiveTab = tabs.some((t) => t.key === activeTab) ? activeTab : (tabs[0]?.key || 'prestasi');
@@ -1246,57 +1364,110 @@ function Approvals() {
                 onBlur={(e) => e.currentTarget.style.borderColor = BORDER}
               />
             </div>
+            {selectedItem.type === 'password_reset' && selectedItem.action !== 'reject' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: TEXT,
+                  marginBottom: '8px'
+                }}>Password Sementara:</label>
+                <input
+                  type="text"
+                  value={tempPassword}
+                  onChange={(e) => setTempPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
+                  minLength={6}
+                  autoComplete="new-password"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    transition: 'border-color 0.15s ease',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = BLUE}
+                  onBlur={(e) => e.currentTarget.style.borderColor = BORDER}
+                />
+                <div style={{ fontSize: '12px', color: MUTED, marginTop: '6px', lineHeight: 1.5 }}>
+                  Berikan password ini ke user secara langsung. User akan dipaksa menggantinya
+                  dengan password baru saat login berikutnya.
+                </div>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               {selectedItem.action === 'reject' ? (
-                <button 
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 18px',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    color: '#fff',
-                    background: RED,
-                    boxShadow: '0 4px 10px -4px rgba(227,72,72,.5)',
-                    transition: 'filter 0.15s ease, transform 0.1s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.06)'}
-                  onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
-                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
-                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                  onClick={() => handleReject(selectedItem.type, selectedItem.id)}
-                >
-                  <StatusIcon status="rejected" /> Tolak
-                </button>
+                (() => {
+                  // Reset rejections must carry a reason for the requester
+                  const resetNeedsNotes = selectedItem.type === 'password_reset' && !notes.trim();
+                  return (
+                    <button
+                      disabled={resetNeedsNotes}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 18px',
+                        fontSize: '14px',
+                        fontWeight: '700',
+                        cursor: resetNeedsNotes ? 'not-allowed' : 'pointer',
+                        opacity: resetNeedsNotes ? 0.55 : 1,
+                        color: '#fff',
+                        background: RED,
+                        boxShadow: resetNeedsNotes ? 'none' : '0 4px 10px -4px rgba(227,72,72,.5)',
+                        transition: 'filter 0.15s ease, transform 0.1s ease, opacity 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => { if (!resetNeedsNotes) e.currentTarget.style.filter = 'brightness(1.06)'; }}
+                      onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
+                      onMouseDown={(e) => { if (!resetNeedsNotes) e.currentTarget.style.transform = 'scale(0.96)'; }}
+                      onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      onClick={() => handleReject(selectedItem.type, selectedItem.id)}
+                    >
+                      <StatusIcon status="rejected" /> Tolak
+                    </button>
+                  );
+                })()
               ) : (
-                <button 
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 18px',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    color: '#fff',
-                    background: GREEN,
-                    boxShadow: '0 4px 10px -4px rgba(22,168,117,.5)',
-                    transition: 'filter 0.15s ease, transform 0.1s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.06)'}
-                  onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
-                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
-                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                  onClick={() => handleApprove(selectedItem.type, selectedItem.id)}
-                >
-                  <StatusIcon status="approved" /> Setuju
-                </button>
+                (() => {
+                  // Reset grants need a valid temp password before submitting
+                  const resetNeedsPassword = selectedItem.type === 'password_reset'
+                    && (!tempPassword || tempPassword.length < 6);
+                  return (
+                    <button
+                      disabled={resetNeedsPassword}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 18px',
+                        fontSize: '14px',
+                        fontWeight: '700',
+                        cursor: resetNeedsPassword ? 'not-allowed' : 'pointer',
+                        opacity: resetNeedsPassword ? 0.55 : 1,
+                        color: '#fff',
+                        background: GREEN,
+                        boxShadow: resetNeedsPassword ? 'none' : '0 4px 10px -4px rgba(22,168,117,.5)',
+                        transition: 'filter 0.15s ease, transform 0.1s ease, opacity 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => { if (!resetNeedsPassword) e.currentTarget.style.filter = 'brightness(1.06)'; }}
+                      onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
+                      onMouseDown={(e) => { if (!resetNeedsPassword) e.currentTarget.style.transform = 'scale(0.96)'; }}
+                      onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      onClick={() => handleApprove(selectedItem.type, selectedItem.id)}
+                    >
+                      <StatusIcon status="approved" /> Setuju
+                    </button>
+                  );
+                })()
               )}
               <button 
                 style={{
@@ -1317,7 +1488,7 @@ function Approvals() {
                 onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
                 onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
                 onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                onClick={() => { setSelectedItem(null); setNotes(''); }}
+                onClick={() => { setSelectedItem(null); setNotes(''); setTempPassword(''); }}
               >
                 Batal
               </button>

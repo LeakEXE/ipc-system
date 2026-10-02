@@ -292,4 +292,64 @@ router.post('/change-password', auth, async (req, res) => {
     }
 });
 
+// ---- Password reset request (self-service; superadmin grants/rejects) ----
+
+// Latest request for the logged-in user (drives the Profile page button state)
+router.get('/password-reset-request', auth, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT id, status, superadmin_notes, superadmin_approved_at, created_at
+             FROM password_reset_requests
+             WHERE user_id = ?
+             ORDER BY created_at DESC, id DESC
+             LIMIT 1`,
+            [req.user.id]
+        );
+        res.json(rows[0] || null);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Submit a new password reset request (non-superadmin only)
+router.post('/password-reset-request', auth, async (req, res) => {
+    try {
+        if (req.user.role === 'superadmin') {
+            return res.status(403).json({ message: 'Superadmin tidak perlu mengajukan reset password' });
+        }
+
+        // One live request at a time
+        const [pending] = await db.query(
+            "SELECT id FROM password_reset_requests WHERE user_id = ? AND status = 'pending'",
+            [req.user.id]
+        );
+        if (pending.length > 0) {
+            return res.status(400).json({ message: 'Permintaan reset password sedang menunggu persetujuan SuperAdmin' });
+        }
+
+        const [result] = await db.query(
+            'INSERT INTO password_reset_requests (user_id, requested_by) VALUES (?, ?)',
+            [req.user.id, req.user.id]
+        );
+
+        // Notify every superadmin (same pattern as student-creation requests)
+        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
+        for (const admin of superadmins) {
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
+                 VALUES (?, 'approval_needed', 'Permintaan Reset Password', ?, ?, 'password_reset')`,
+                [admin.id, `${req.user.nama} mengajukan permintaan reset password akunnya.`, result.insertId]
+            );
+        }
+
+        await logActivity(req.user.id, 'PASSWORD_RESET_REQUEST', `${req.user.nama} mengajukan permintaan reset password`, req.ip);
+
+        res.status(201).json({ message: 'Permintaan reset password berhasil diajukan, menunggu persetujuan SuperAdmin!', id: result.insertId });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 module.exports = router;

@@ -492,11 +492,16 @@ function Profile() {
     newPassword: '',
     confirmPassword: ''
   });
+  // Password reset request (self-service → superadmin approval)
+  const [resetRequest, setResetRequest] = useState(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   useEffect(() => {
     fetchProfile();
     fetchIptHistory();
     fetchSummary();
+    fetchResetRequest();
   }, []);
 
   useEffect(() => {
@@ -532,6 +537,29 @@ function Profile() {
       console.error('Error fetching summary:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchResetRequest = async () => {
+    try {
+      const response = await api.get('/profile/password-reset-request');
+      setResetRequest(response.data);
+    } catch (error) {
+      console.error('Error fetching password reset request:', error);
+    }
+  };
+
+  const handleResetRequest = async () => {
+    setResetSubmitting(true);
+    try {
+      const res = await api.post('/profile/password-reset-request');
+      setShowResetConfirm(false);
+      await fetchResetRequest();
+      alert(res.data?.message || 'Permintaan reset password berhasil diajukan');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Gagal mengajukan permintaan reset password');
+    } finally {
+      setResetSubmitting(false);
     }
   };
 
@@ -980,6 +1008,31 @@ function Profile() {
         ) : (
           <button className="btn btn-primary" onClick={() => setPasswordMode(true)}>Ubah Password</button>
         )}
+
+        {/* Password reset request — superadmin doesn't need it */}
+        {user.role !== 'superadmin' && (
+          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+            {resetRequest?.status === 'pending' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--warning-color, #a86a05)' }}>
+                <span style={{
+                  width: '8px', height: '8px', borderRadius: '50%', background: 'var(--warning-color, #d97706)', animation: 'blink 1.4s ease-in-out infinite', flexShrink: 0
+                }}></span>
+                Menunggu persetujuan SuperAdmin
+              </div>
+            ) : (
+              <>
+                <button className="btn btn-danger" onClick={() => setShowResetConfirm(true)}>
+                  Ajukan Reset Password
+                </button>
+                {resetRequest?.status === 'rejected' && (
+                  <div style={{ marginTop: '8px', fontSize: '12.5px', color: 'var(--slate)' }}>
+                    Permintaan sebelumnya ditolak{resetRequest.superadmin_notes ? `: ${resetRequest.superadmin_notes}` : ''}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {user.role === 'siswa' && (
@@ -1050,6 +1103,61 @@ function Profile() {
           onCancel={closeCrop}
           onSave={handleCropSave}
         />
+      )}
+
+      {/* Password reset request confirmation */}
+      {showResetConfirm && (
+        <div
+          className="app-modal-overlay"
+          onClick={() => { if (!resetSubmitting) setShowResetConfirm(false); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1500
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--card-radius, 12px)',
+              boxShadow: '0 12px 30px -10px rgba(0,0,0,.4)',
+              width: '440px',
+              maxWidth: '90%',
+              padding: '24px'
+            }}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: '700', margin: '0 0 12px', color: 'var(--ink)' }}>
+              Ajukan Reset Password?
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--slate)', margin: '0 0 6px', lineHeight: 1.6 }}>
+              Permintaan akan dikirim ke SuperAdmin untuk ditinjau. Jika disetujui, Anda akan
+              diberi <strong>password sementara</strong> dan wajib menggantinya dengan password
+              baru saat login berikutnya.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resetSubmitting}
+              >
+                Batal
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleResetRequest}
+                disabled={resetSubmitting}
+              >
+                {resetSubmitting ? 'Mengirim...' : 'Ya, Ajukan'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

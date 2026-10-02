@@ -443,43 +443,47 @@ function Dashboard() {
               </div>
             </div>
 
-            <div className="chart-box" style={{ animationDelay: '0.20s' }}>
-              <h4>Pelanggaran per Kelas</h4>
-              <p className="chart-sub">Pelanggaran disetujui per kelas</p>
-              <div className="chart-body">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.pelanggaran_by_kelas || []}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eef0f6" />
-                    <XAxis dataKey="kelas" tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis allowDecimals={false} tickFormatter={(v) => Math.round(v)} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <Tooltip formatter={(v) => [v, 'Jumlah Pelanggaran']} contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="count" fill="#ef4444" name="Jumlah Pelanggaran" radius={[6, 6, 0, 0]} maxBarSize={30} label={showLabels ? { position: 'top', fill: '#0f172a', fontSize: 12, fontWeight: 'bold' } : false} />
-                  </BarChart>
-                </ResponsiveContainer>
-                {(!stats.pelanggaran_by_kelas || stats.pelanggaran_by_kelas.every((x) => Number(x.count) === 0)) && (
-                  <div className="chart-empty">Belum ada pelanggaran tercatat — kabar baik!</div>
-                )}
-              </div>
-            </div>
+            {user?.role === 'siswa' && (
+              <>
+                <div className="chart-box" style={{ animationDelay: '0.20s' }}>
+                  <h4>Pelanggaran per Kelas</h4>
+                  <p className="chart-sub">Pelanggaran disetujui per kelas</p>
+                  <div className="chart-body">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stats.pelanggaran_by_kelas || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eef0f6" />
+                        <XAxis dataKey="kelas" tick={{ fontSize: 11, fill: '#64748b' }} />
+                        <YAxis allowDecimals={false} tickFormatter={(v) => Math.round(v)} tick={{ fontSize: 11, fill: '#64748b' }} />
+                        <Tooltip formatter={(v) => [v, 'Jumlah Pelanggaran']} contentStyle={TOOLTIP_STYLE} />
+                        <Bar dataKey="count" fill="#ef4444" name="Jumlah Pelanggaran" radius={[6, 6, 0, 0]} maxBarSize={30} label={showLabels ? { position: 'top', fill: '#0f172a', fontSize: 12, fontWeight: 'bold' } : false} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    {(!stats.pelanggaran_by_kelas || stats.pelanggaran_by_kelas.every((x) => Number(x.count) === 0)) && (
+                      <div className="chart-empty">Belum ada pelanggaran tercatat — kabar baik!</div>
+                    )}
+                  </div>
+                </div>
 
-            <div className="chart-box" style={{ animationDelay: '0.22s' }}>
-              <h4>Pelanggaran per Grha</h4>
-              <p className="chart-sub">Pelanggaran disetujui per grha</p>
-              <div className="chart-body">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.pelanggaran_by_grha || []}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eef0f6" />
-                    <XAxis dataKey="grha" tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis allowDecimals={false} tickFormatter={(v) => Math.round(v)} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <Tooltip formatter={(v) => [v, 'Jumlah Pelanggaran']} contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="count" fill="#ef4444" name="Jumlah Pelanggaran" radius={[6, 6, 0, 0]} maxBarSize={30} label={showLabels ? { position: 'top', fill: '#0f172a', fontSize: 12, fontWeight: 'bold' } : false} />
-                  </BarChart>
-                </ResponsiveContainer>
-                {(!stats.pelanggaran_by_grha || stats.pelanggaran_by_grha.every((x) => Number(x.count) === 0)) && (
-                  <div className="chart-empty">Belum ada pelanggaran tercatat — kabar baik!</div>
-                )}
-              </div>
-            </div>
+                <div className="chart-box" style={{ animationDelay: '0.22s' }}>
+                  <h4>Pelanggaran per Grha</h4>
+                  <p className="chart-sub">Pelanggaran disetujui per grha</p>
+                  <div className="chart-body">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stats.pelanggaran_by_grha || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eef0f6" />
+                        <XAxis dataKey="grha" tick={{ fontSize: 11, fill: '#64748b' }} />
+                        <YAxis allowDecimals={false} tickFormatter={(v) => Math.round(v)} tick={{ fontSize: 11, fill: '#64748b' }} />
+                        <Tooltip formatter={(v) => [v, 'Jumlah Pelanggaran']} contentStyle={TOOLTIP_STYLE} />
+                        <Bar dataKey="count" fill="#ef4444" name="Jumlah Pelanggaran" radius={[6, 6, 0, 0]} maxBarSize={30} label={showLabels ? { position: 'top', fill: '#0f172a', fontSize: 12, fontWeight: 'bold' } : false} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    {(!stats.pelanggaran_by_grha || stats.pelanggaran_by_grha.every((x) => Number(x.count) === 0)) && (
+                      <div className="chart-empty">Belum ada pelanggaran tercatat — kabar baik!</div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="chart-box chart-span" style={{ animationDelay: '0.25s' }}>
               <h4>Ringkasan IPT</h4>
