@@ -346,15 +346,10 @@ function KelolaAkun() {
   const handleUpdateUser = async (e) => {
     e.preventDefault();
     try {
-      if (userRole === 'guru' && editStudent.role === 'siswa') {
-        // Guru needs approval to update student biodata
-        await api.post(`/users/${editStudent.id}/biodata-request`, formData);
-        setMessage('Permintaan update biodata berhasil diajukan, menunggu persetujuan SuperAdmin!');
-      } else {
-        // SuperAdmin updates directly
-        await api.put(`/users/${editStudent.id}/biodata`, formData);
-        setMessage(`Data ${editStudent.role === 'siswa' ? 'siswa' : 'guru'} berhasil diupdate!`);
-      }
+      // Biodata edits apply directly, no approval needed (guru/pegawai may
+      // only touch siswa targets — enforced server-side too).
+      await api.put(`/users/${editStudent.id}/biodata`, formData);
+      setMessage(`Data ${editStudent.role === 'siswa' ? 'siswa' : 'guru'} berhasil diupdate!`);
       
       setShowEditBiodataModal(false);
       setEditStudent(null);
@@ -780,7 +775,7 @@ function KelolaAkun() {
         {message && <div className="alert alert-success" style={{ marginBottom: '20px' }}>{message}</div>}
 
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-          {(userRole === 'superadmin' || userRole === 'guru') && (
+          {userRole === 'superadmin' && (
             <button 
               onClick={() => { setShowCreateModal(true); setCreateModalType('student'); setFormData({}); }}
               style={{ 

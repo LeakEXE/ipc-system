@@ -360,42 +360,6 @@ router.get('/', auth, teacherOrSuperAdmin, async (req, res) => {
     }
 });
 
-// Get all users (Superadmin and Teacher)
-router.get('/biodata-approvals', auth, superAdminOnly, async (req, res) => {
-    try {
-        const [approvals] = await db.query(
-            `SELECT b.*, u.nama as student_name, u.nis as student_nis, 
-                    requester.nama as requested_by_name
-             FROM biodata_update_approvals b
-             JOIN users u ON b.user_id = u.id
-             JOIN users requester ON b.requested_by = requester.id
-             WHERE b.superadmin_status = 'pending'
-             ORDER BY b.created_at DESC`
-        );
-        res.json(approvals);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Get student creation approvals for SuperAdmin - MUST BE BEFORE /:id
-router.get('/student-creation-approvals', auth, superAdminOnly, async (req, res) => {
-    try {
-        const [approvals] = await db.query(
-            `SELECT s.*, requester.nama as requested_by_name
-             FROM student_creation_approvals s
-             JOIN users requester ON s.requested_by = requester.id
-             WHERE s.superadmin_status = 'pending'
-             ORDER BY s.created_at DESC`
-        );
-        res.json(approvals);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
 // Get pending password reset requests for SuperAdmin - MUST BE BEFORE /:id
 router.get('/password-reset-approvals', auth, superAdminOnly, async (req, res) => {
     try {
@@ -672,8 +636,8 @@ router.get('/:id', auth, async (req, res) => {
     }
 });
 
-// Create student account (Superadmin creates directly, Guru needs approval)
-router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
+// Create student account (Superadmin only — other roles have no create access)
+router.post('/create-student', auth, superAdminOnly, async (req, res) => {
     try {
         const { nama, nis, jurusan, password, wali_kelas, grha, tahun_pelajaran } = req.body;
 
@@ -695,67 +659,36 @@ router.post('/create-student', auth, teacherOrSuperAdmin, async (req, res) => {
             return res.status(400).json({ message: 'NIS sudah terdaftar' });
         }
 
-        // Check for duplicate in pending approvals
-        const [existingApproval] = await db.query(
-            "SELECT id FROM student_creation_approvals WHERE nis = ? AND superadmin_status = 'pending'",
-            [nis]
-        );
-
-        if (existingApproval.length > 0) {
-            return res.status(400).json({ message: 'NIS sedang dalam proses approval' });
-        }
-
         const hashedPassword = bcrypt.hashSync(password, 10);
 
         // Auto-generate a unique username (user changes it on first login)
         const username = await generateUsername(nama);
 
-        // If SuperAdmin, create directly
-        if (req.user.role === 'superadmin') {
-            const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(calculatedClass));
-            const [result] = await db.query(
-                'INSERT INTO users (nama, nis, username, password, role, kelas, wali_kelas, grha, jurusan, ipt_total, ipt_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [nama, nis, username, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipt_awal, ipt_awal, tahun_pelajaran]
-            );
-
-            // Create default permissions
-            await db.query(
-                'INSERT INTO permissions (user_id) VALUES (?)',
-                [result.insertId]
-            );
-
-            // Log IPT history
-            await db.query(
-                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [result.insertId, 'initial', ipt_awal, 0, ipt_awal, 'IPT awal diberikan']
-            );
-
-            // Log activity
-            await db.query(
-                'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-                [req.user.id, 'CREATE_STUDENT', `Created student account for ${nama} (${nis})`]
-            );
-
-            return res.status(201).json({ message: 'Akun siswa berhasil dibuat!', username });
-        }
-
-        // If Guru, create approval request
+        const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(calculatedClass));
         const [result] = await db.query(
-            "INSERT INTO student_creation_approvals (nama, nis, kelas, grha, jurusan, password, tahun_pelajaran, requested_by, superadmin_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
-            [nama, nis, calculatedClass, grha, jurusan, hashedPassword, tahun_pelajaran, req.user.id]
+            'INSERT INTO users (nama, nis, username, password, role, kelas, wali_kelas, grha, jurusan, ipt_total, ipt_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [nama, nis, username, hashedPassword, 'siswa', calculatedClass, wali_kelas, grha, jurusan, ipt_awal, ipt_awal, tahun_pelajaran]
         );
 
-        // Notify superadmin
-        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
-        for (const admin of superadmins) {
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) 
-                 VALUES (?, 'approval_needed', 'Persetujuan Pembuatan Akun Siswa', ?, ?, 'student_creation')`,
-                [admin.id, `Guru mengajukan pembuatan akun siswa: ${nama} (${nis})`, result.insertId]
-            );
-        }
+        // Create default permissions
+        await db.query(
+            'INSERT INTO permissions (user_id) VALUES (?)',
+            [result.insertId]
+        );
 
-        res.status(201).json({ message: 'Permintaan pembuatan akun siswa berhasil diajukan, menunggu persetujuan SuperAdmin!' });
+        // Log IPT history
+        await db.query(
+            'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
+            [result.insertId, 'initial', ipt_awal, 0, ipt_awal, 'IPT awal diberikan']
+        );
+
+        // Log activity
+        await db.query(
+            'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
+            [req.user.id, 'CREATE_STUDENT', `Created student account for ${nama} (${nis})`]
+        );
+
+        res.status(201).json({ message: 'Akun siswa berhasil dibuat!', username });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -1108,149 +1041,9 @@ router.put('/:id/ipt', auth, superAdminOnly, async (req, res) => {
     }
 });
 
-// Request biodata update (Guru only - needs SuperAdmin approval)
-router.post('/:id/biodata-request', auth, async (req, res) => {
-    try {
-        const userId = parseInt(req.params.id);
-        const requestedBy = req.user.id;
-        const { nama, nis, jurusan, grha, tahun_pelajaran } = req.body;
-
-        // Only guru/pegawai can request biodata updates
-        if (req.user.role !== 'guru' && req.user.role !== 'pegawai') {
-            return res.status(403).json({ message: 'Only teachers can request biodata updates' });
-        }
-        
-        // Validate tahun_pelajaran format if provided
-        if (tahun_pelajaran && !validateTahunPelajaran(tahun_pelajaran)) {
-            return res.status(400).json({ message: 'Tahun pelajaran tidak valid. Format harus YYYY-YYYY (contoh: 2024-2025)' });
-        }
-
-        // Calculate class based on jurusan and tahun_pelajaran
-        const calculatedClass = calculateFullClass(tahun_pelajaran, jurusan);
-        
-        // Get current student data
-        const [student] = await db.query(
-            'SELECT nama, nis, jurusan, grha, tahun_pelajaran FROM users WHERE id = ? AND role = ?',
-            [userId, 'siswa']
-        );
-        
-        if (student.length === 0) {
-            return res.status(404).json({ message: 'Student not found' });
-        }
-        
-        const current = student[0];
-        
-        // Create approval request
-        const [result] = await db.query(
-            `INSERT INTO biodata_update_approvals 
-            (user_id, nama_baru, nis_baru, kelas_baru, jurusan_baru, tahun_pelajaran_baru, grha_baru,
-             nama_lama, nis_lama, kelas_lama, jurusan_lama, tahun_pelajaran_lama, grha_lama, requested_by,
-             pembina_status, superadmin_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')`,
-            [userId, nama, nis, calculatedClass, jurusan, tahun_pelajaran, grha,
-             current.nama, current.nis, current.kelas, current.jurusan, current.tahun_pelajaran, current.grha,
-             requestedBy]
-        );
-        
-        // Notify superadmin
-        const [superadmins] = await db.query("SELECT id FROM users WHERE role = 'superadmin'");
-        for (const admin of superadmins) {
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) 
-                 VALUES (?, 'approval_needed', 'Persetujuan Update Biodata', ?, ?, 'biodata')`,
-                [admin.id, `Guru mengajukan perubahan biodata untuk siswa: ${current.nama} (${current.nis})`, result.insertId]
-            );
-        }
-        
-        res.json({ message: 'Permintaan update biodata berhasil diajukan, menunggu persetujuan SuperAdmin' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Approve/Reject biodata update (SuperAdmin only)
-router.put('/biodata-approvals/:id', auth, superAdminOnly, async (req, res) => {
-    try {
-        const approvalId = parseInt(req.params.id);
-        const { status, notes } = req.body;
-
-        // Get approval data
-        const [approval] = await db.query(
-            'SELECT id, user_id, nama_baru, nis_baru, kelas_baru, jurusan_baru, tahun_pelajaran_baru, grha_baru, nama_lama, nis_lama, kelas_lama, jurusan_lama, tahun_pelajaran_lama, grha_lama, requested_by, superadmin_status, created_at FROM biodata_update_approvals WHERE id = ?',
-            [approvalId]
-        );
-
-        if (approval.length === 0) {
-            return res.status(404).json({ message: 'Approval request not found' });
-        }
-
-        const data = approval[0];
-
-        if (status === 'approved') {
-            // Capture pre-update identity so copies can be synced afterwards.
-            const [currentUserRows] = await db.query(
-                'SELECT nama, nis FROM users WHERE id = ?',
-                [data.user_id]
-            );
-            const oldBiodata = {
-                nama: currentUserRows[0]?.nama || data.nama_lama || null,
-                nis: currentUserRows[0]?.nis || data.nis_lama || null,
-            };
-
-            // Update student data with new biodata
-            await db.query(
-                'UPDATE users SET nama = ?, nis = ?, kelas = ?, jurusan = ?, tahun_pelajaran = ?, grha = ? WHERE id = ?',
-                [data.nama_baru, data.nis_baru, data.kelas_baru, data.jurusan_baru, data.tahun_pelajaran_baru, data.grha_baru, data.user_id]
-            );
-
-            // Propagate the approved biodata into record snapshots, logs, notifications.
-            await syncBiodataChange(data.user_id, oldBiodata);
-
-            // Update approval status
-            await db.query(
-                'UPDATE biodata_update_approvals SET superadmin_status = ?, superadmin_notes = ?, superadmin_approved_at = NOW() WHERE id = ?',
-                ['approved', notes || 'Disetujui oleh SuperAdmin', approvalId]
-            );
-
-            // Log activity
-            await logActivity(req.user.id, 'APPROVE_BIODATA_UPDATE', `SuperAdmin ${req.user.nama} approved biodata update for student ${data.nama_lama} (${data.nis_lama})`, req.ip);
-
-            // Notify student
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
-                 VALUES (?, 'approved', 'Biodata Diperbarui', ?, ?, 'biodata')`,
-                [data.user_id, 'Biodata Anda telah berhasil diperbarui oleh SuperAdmin.', approvalId]
-            );
-
-            res.json({ message: 'Biodata siswa berhasil diupdate' });
-        } else {
-            // Reject
-            await db.query(
-                'UPDATE biodata_update_approvals SET superadmin_status = ?, superadmin_notes = ? WHERE id = ?',
-                ['rejected', notes || 'Ditolak oleh SuperAdmin', approvalId]
-            );
-
-            // Log activity
-            await logActivity(req.user.id, 'REJECT_BIODATA_UPDATE', `SuperAdmin ${req.user.nama} rejected biodata update for student ${data.nama_lama} (${data.nis_lama})`, req.ip);
-
-            // Notify student
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
-                 VALUES (?, 'rejected', 'Pengajuan Update Biodata Ditolak', ?, ?, 'biodata')`,
-                [data.user_id, `Pengajuan update biodata ditolak: ${notes || 'Tidak ada alasan'}`, approvalId]
-            );
-
-            res.json({ message: 'Pengajuan update biodata ditolak' });
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Update biodata directly (Superadmin only - no approval needed)
-router.put('/:id/biodata', auth, superAdminOnly, async (req, res) => {
+// Update biodata directly, no approval needed.
+// Superadmin may edit anyone; guru/pegawai may edit siswa biodata only.
+router.put('/:id/biodata', auth, teacherOrSuperAdmin, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const { nama, nis, jurusan, grha, tahun_pelajaran, nip, jabatan, detail, alamat, no_hp } = req.body;
@@ -1266,6 +1059,13 @@ router.put('/:id/biodata', auth, superAdminOnly, async (req, res) => {
         const oldName = user[0].nama;
         const oldNis = user[0].nis || null;
         const oldNip = user[0].nip || null;
+
+        // Guru/pegawai edit other accounts here only for siswa targets
+        // (own-account edits go through PUT /:id; staff accounts stay
+        // superadmin-only). UI gating alone is not enforcement.
+        if (req.user.role !== 'superadmin' && role !== 'siswa') {
+            return res.status(403).json({ message: 'Hanya biodata siswa yang dapat diubah' });
+        }
 
         if (role === 'siswa') {
             // Validate tahun_pelajaran format if provided
@@ -1286,7 +1086,7 @@ router.put('/:id/biodata', auth, superAdminOnly, async (req, res) => {
             await syncBiodataChange(userId, { nama: oldName, nis: oldNis });
 
             // Log activity
-            await logActivity(req.user.id, 'UPDATE_BIODATA_DIRECT', `SuperAdmin ${req.user.nama} directly updated biodata for student ${oldName} (${nis}) to ${nama}`, req.ip);
+            await logActivity(req.user.id, 'UPDATE_BIODATA_DIRECT', `${req.user.nama} (${req.user.role}) directly updated biodata for student ${oldName} (${nis}) to ${nama}`, req.ip);
         } else if (role === 'guru' || role === 'pegawai') {
             const storedDetail = user[0].detail || null;
             const newJabatan = teacherJabatan || storedDetail;
@@ -1314,85 +1114,10 @@ router.put('/:id/biodata', auth, superAdminOnly, async (req, res) => {
             await syncBiodataChange(userId, { nama: oldName, nip: oldNip });
 
             // Log activity
-            await logActivity(req.user.id, 'UPDATE_BIODATA_DIRECT', `SuperAdmin ${req.user.nama} directly updated biodata for teacher ${oldName} (${nip}) to ${nama}`, req.ip);
+            await logActivity(req.user.id, 'UPDATE_BIODATA_DIRECT', `${req.user.nama} (${req.user.role}) directly updated biodata for teacher ${oldName} (${nip}) to ${nama}`, req.ip);
         }
 
         res.json({ message: 'Biodata updated successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Approve/Reject student creation (SuperAdmin only)
-router.put('/student-creation-approvals/:id', auth, superAdminOnly, async (req, res) => {
-    try {
-        const approvalId = parseInt(req.params.id);
-        const { status, notes } = req.body;
-        
-        // Get approval data
-        const [approval] = await db.query(
-            'SELECT id, nama, nis, kelas, grha, jurusan, password, tahun_pelajaran, requested_by, superadmin_status, created_at FROM student_creation_approvals WHERE id = ?',
-            [approvalId]
-        );
-        
-        if (approval.length === 0) {
-            return res.status(404).json({ message: 'Approval request not found' });
-        }
-        
-        const data = approval[0];
-        
-        if (status === 'approved') {
-            // Create student account (IPT awal follows the grade default)
-            const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(data.kelas));
-            const username = await generateUsername(data.nama);
-            const [result] = await db.query(
-                'INSERT INTO users (nama, nis, username, password, role, kelas, grha, jurusan, ipt_total, ipt_awal, tahun_pelajaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [data.nama, data.nis, username, data.password, 'siswa', data.kelas, data.grha, data.jurusan, ipt_awal, ipt_awal, data.tahun_pelajaran]
-            );
-            
-            // Create default permissions
-            await db.query(
-                'INSERT INTO permissions (user_id) VALUES (?)',
-                [result.insertId]
-            );
-            
-            // Log IPT history
-            await db.query(
-                'INSERT INTO ipt_history (user_id, jenis_perubahan, point_change, ipt_sebelum, ipt_sesudah, keterangan) VALUES (?, ?, ?, ?, ?, ?)',
-                [result.insertId, 'initial', ipt_awal, 0, ipt_awal, 'IPT awal diberikan']
-            );
-            
-            // Update approval status
-            await db.query(
-                'UPDATE student_creation_approvals SET superadmin_status = ?, superadmin_notes = ?, superadmin_approved_at = NOW() WHERE id = ?',
-                ['approved', notes || 'Disetujui oleh SuperAdmin', approvalId]
-            );
-            
-            // Notify the requesting teacher
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) 
-                 VALUES (?, 'approved', 'Pembuatan Akun Siswa Disetujui', ?, ?, 'student_creation')`,
-                [data.requested_by, `Pembuatan akun siswa ${data.nama} (${data.nis}) telah disetujui oleh SuperAdmin.`, approvalId]
-            );
-            
-            res.json({ message: 'Akun siswa berhasil dibuat!' });
-        } else {
-            // Reject
-            await db.query(
-                'UPDATE student_creation_approvals SET superadmin_status = ?, superadmin_notes = ? WHERE id = ?',
-                ['rejected', notes || 'Ditolak oleh SuperAdmin', approvalId]
-            );
-            
-            // Notify the requesting teacher
-            await db.query(
-                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type) 
-                 VALUES (?, 'rejected', 'Pembuatan Akun Siswa Ditolak', ?, ?, 'student_creation')`,
-                [data.requested_by, `Pembuatan akun siswa ${data.nama} (${data.nis}) ditolak: ${notes || 'Tidak ada alasan'}`, approvalId]
-            );
-            
-            res.json({ message: 'Pengajuan pembuatan akun siswa ditolak' });
-        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
