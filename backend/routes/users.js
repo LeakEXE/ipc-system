@@ -155,6 +155,29 @@ router.get('/nis/:nis', auth, async (req, res) => {
     }
 });
 
+// Batch student lookup by NIS (one request for file-manager filtering
+// instead of N single lookups) - MUST BE BEFORE /:id
+router.post('/nis-batch', auth, async (req, res) => {
+    try {
+        const list = Array.isArray(req.body?.nis)
+            ? [...new Set(req.body.nis.map((n) => String(n)).filter(Boolean))].slice(0, 200)
+            : [];
+        if (list.length === 0) {
+            return res.json({});
+        }
+        const [rows] = await db.query(
+            `SELECT id, nama, nis, kelas, grha FROM users WHERE nis IN (${list.map(() => '?').join(',')}) AND role = 'siswa'`,
+            list
+        );
+        const map = {};
+        rows.forEach((r) => { map[r.nis] = r; });
+        res.json(map);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // Get student data by name (for auto-fill in input forms) - MUST BE BEFORE /:id
 router.get('/nama/:nama', auth, async (req, res) => {
     try {
