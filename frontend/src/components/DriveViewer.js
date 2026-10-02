@@ -278,8 +278,8 @@ function DriveViewer() {
           {/* Filters */}
           <div className="card" style={{ marginBottom: '20px', padding: '15px' }}>
             <h4>Filter</h4>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div style={{ flex: '2', minWidth: '180px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', alignItems: 'end' }}>
+              <div style={{ gridColumn: 'span 2' }}>
                 <label>Cari Nama File</label>
                 <input
                   type="text"
@@ -287,20 +287,22 @@ function DriveViewer() {
                   onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
                   placeholder="cth: 12345 atau lomba"
                   className="form-control"
+                  style={{ width: '100%' }}
                 />
               </div>
-              <div style={{ flex: '1', minWidth: '130px' }}>
+              <div>
                 <label>Tipe File</label>
                 <select
                   value={filters.fileType}
                   onChange={(e) => handleFilterChange('fileType', e.target.value)}
                   className="form-control"
+                  style={{ width: '100%' }}
                 >
                   <option value="">Semua Tipe</option>
                   {fileTypeOptions.map((ext) => <option key={ext} value={`.${ext}`}>.{ext}</option>)}
                 </select>
               </div>
-              <div style={{ flex: '1', minWidth: '110px' }}>
+              <div>
                 <label>Min (KB)</label>
                 <input
                   type="number"
@@ -309,9 +311,10 @@ function DriveViewer() {
                   onChange={(e) => handleFilterChange('minSize', e.target.value)}
                   placeholder="0"
                   className="form-control"
+                  style={{ width: '100%' }}
                 />
               </div>
-              <div style={{ flex: '1', minWidth: '110px' }}>
+              <div>
                 <label>Maks (KB)</label>
                 <input
                   type="number"
@@ -320,31 +323,36 @@ function DriveViewer() {
                   onChange={(e) => handleFilterChange('maxSize', e.target.value)}
                   placeholder="—"
                   className="form-control"
+                  style={{ width: '100%' }}
                 />
               </div>
-              <div style={{ flex: '1', minWidth: '150px' }}>
+              <div>
                 <label>Kelas</label>
                 <select
                   value={filters.kelas}
                   onChange={(e) => handleFilterChange('kelas', e.target.value)}
                   className="form-control"
+                  style={{ width: '100%' }}
                 >
                   <option value="">Semua Kelas</option>
                   {kelasOptions.map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
               </div>
-              <div style={{ flex: '1', minWidth: '150px' }}>
+              <div>
                 <label>Grha</label>
                 <select
                   value={filters.grha}
                   onChange={(e) => handleFilterChange('grha', e.target.value)}
                   className="form-control"
+                  style={{ width: '100%' }}
                 >
                   <option value="">Semua Grha</option>
                   {grhaOptions.map(grha => <option key={grha} value={grha}>{grha}</option>)}
                 </select>
               </div>
-              <button className="btn btn-secondary" onClick={resetFilters}>Reset</button>
+              <div>
+                <button className="btn btn-secondary" onClick={resetFilters} style={{ width: '100%' }}>Reset</button>
+              </div>
             </div>
             <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
               Filter Kelas/Grha memakai NIS dari awal nama file (cth: 12345_prestasi.jpg). File tanpa pola tersebut disembunyikan saat filter Kelas/Grha aktif.
