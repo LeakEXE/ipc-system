@@ -5,6 +5,10 @@ const path = require('path');
 const { auth, superAdminOnly } = require('../middleware/auth');
 const { UPLOAD_DIR } = require('../utils/paths');
 
+// Single source of truth: every directory under uploads/ the manager may open.
+// (The folder grid lists all directories, so anything missing here 403s on click.)
+const ALLOWED_FOLDERS = ['prestasi', 'pelanggaran', 'organisasi', 'kepanitiaan', 'event', 'perilaku', 'avatars', 'approved', 'approvals', 'logos'];
+
 // Helper function to sanitize and validate file paths
 const sanitizePath = (inputPath) => {
     // Remove any null bytes
@@ -75,7 +79,7 @@ router.get('/files/:folderName', auth, superAdminOnly, async (req, res) => {
         const sanitizedFolderName = sanitizePath(folderName);
         
         // Whitelist of allowed folder names
-        const allowedFolders = ['prestasi', 'pelanggaran', 'organisasi', 'kepanitiaan', 'event', 'perilaku', 'avatars', 'approved'];
+        const allowedFolders = ALLOWED_FOLDERS;
         if (!allowedFolders.includes(sanitizedFolderName)) {
             return res.status(403).json({ message: 'Invalid folder name' });
         }
@@ -124,7 +128,7 @@ router.delete('/file/:folderName/:fileName', auth, superAdminOnly, async (req, r
         const sanitizedFileName = sanitizePath(fileName);
         
         // Whitelist of allowed folder names
-        const allowedFolders = ['prestasi', 'pelanggaran', 'organisasi', 'kepanitiaan', 'event', 'perilaku', 'avatars', 'approved'];
+        const allowedFolders = ALLOWED_FOLDERS;
         if (!allowedFolders.includes(sanitizedFolderName)) {
             return res.status(403).json({ message: 'Invalid folder name' });
         }

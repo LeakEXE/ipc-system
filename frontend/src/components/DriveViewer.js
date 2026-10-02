@@ -12,6 +12,7 @@ function DriveViewer() {
   const [previewImage, setPreviewImage] = useState(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
+  const [folderError, setFolderError] = useState('');
   const [filters, setFilters] = useState({
     fileType: '',
     searchQuery: '',
@@ -51,6 +52,7 @@ function DriveViewer() {
   const fetchFiles = async (folderName) => {
     try {
       setLoading(true);
+      setFolderError('');
       const response = await api.get(`/file-viewer/files/${folderName}`);
       setFiles(response.data);
       setSelectedFolder(folderName);
@@ -59,6 +61,7 @@ function DriveViewer() {
       loadStudentsDataForFiles(response.data);
     } catch (error) {
       console.error('Error fetching files:', error);
+      setFolderError(error.response?.data?.message || `Gagal membuka folder ${folderName}`);
     } finally {
       setLoading(false);
     }
@@ -216,6 +219,9 @@ function DriveViewer() {
       {!selectedFolder ? (
         <div>
           <h3 style={{ marginBottom: '15px' }}>Folders</h3>
+          {folderError && (
+            <div className="alert alert-danger" style={{ marginBottom: '15px' }}>{folderError}</div>
+          )}
           {loading ? (
             <div style={{ padding: '20px', textAlign: 'center' }}>Loading...</div>
           ) : folders.length === 0 ? (
