@@ -67,13 +67,15 @@ function DriveViewer() {
     }
   };
 
-  const deleteFile = async (fileName) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus ${fileName}?`)) {
+  const deleteFile = async (file) => {
+    const subpath = file.subfolder ? `${file.subfolder}/${file.name}` : file.name;
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus ${subpath}?`)) {
       return;
     }
 
     try {
-      await api.delete(`/file-viewer/file/${selectedFolder}/${fileName}`);
+      const encoded = subpath.split('/').map(encodeURIComponent).join('/');
+      await api.delete(`/file-viewer/file/${selectedFolder}/${encoded}`);
       // Refresh file list
       fetchFiles(selectedFolder);
     } catch (error) {
@@ -377,6 +379,7 @@ function DriveViewer() {
                 <thead>
                   <tr style={{ backgroundColor: 'var(--blue)', color: 'white' }}>
                     <th style={{ padding: '12px', textAlign: 'left' }}>File Name</th>
+                    <th style={{ padding: '12px', textAlign: 'left' }}>Lokasi</th>
                     <th style={{ padding: '12px', textAlign: 'left' }}>Size</th>
                     <th style={{ padding: '12px', textAlign: 'left' }}>Created</th>
                     <th style={{ padding: '12px', textAlign: 'center' }}>Actions</th>
@@ -385,7 +388,7 @@ function DriveViewer() {
                 <tbody>
                   {pagedFiles.map((file, index) => (
                     <tr
-                      key={file.name}
+                      key={file.path}
                       style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f9f9f9' }}
                     >
                       <td style={{ padding: '12px' }}>
@@ -409,11 +412,12 @@ function DriveViewer() {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: '500', color: '#333' }}><FileText size={14} /> {file.name}</span>
                         )}
                       </td>
+                      <td style={{ padding: '12px', color: '#666' }}>{file.subfolder || '—'}</td>
                       <td style={{ padding: '12px', color: '#666' }}>{formatFileSize(file.size)}</td>
                       <td style={{ padding: '12px', color: '#666' }}>{formatDate(file.created)}</td>
                       <td style={{ padding: '12px', textAlign: 'center' }}>
                         <button
-                          onClick={() => deleteFile(file.name)}
+                          onClick={() => deleteFile(file)}
                           style={{
                             padding: '6px 12px',
                             backgroundColor: 'var(--danger-color)',

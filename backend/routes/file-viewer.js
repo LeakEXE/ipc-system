@@ -97,19 +97,30 @@ router.get('/files/:folderName', auth, superAdminOnly, async (req, res) => {
         }
 
         const items = fs.readdirSync(folderPath, { withFileTypes: true });
-        const files = items
-            .filter(item => item.isFile())
-            .map(file => {
-                const filePath = path.join(folderPath, file.name);
-                const stats = fs.statSync(filePath);
-                return {
-                    name: file.name,
-                    path: `/uploads/${sanitizedFolderName}/${file.name}`,
-                    size: stats.size,
-                    created: stats.birthtime,
-                    type: 'file'
-                };
-            });
+        // Walk recursively: approved/<jenis>/ files live one level down,
+        // and a flat list keeps the table + filters + paging working.
+        const walk = (dir, rel) => {
+            const out = [];
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const entryRel = rel ? `${rel}/${entry.name}` : entry.name;
+                const entryAbs = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    out.push(...walk(entryAbs, entryRel));
+                } else if (entry.isFile()) {
+                    const stats = fs.statSync(entryAbs);
+                    out.push({
+                        name: entry.name,
+                        path: `/uploads/${sanitizedFolderName}/${entryRel}`,
+                        subfolder: rel || '',
+                        size: stats.size,
+                        created: stats.birthtime,
+                        type: 'file'
+                    });
+                }
+            }
+            return out;
+        };
+        const files = walk(folderPath, '');
 
         res.json(files);
     } catch (error) {
@@ -118,14 +129,15 @@ router.get('/files/:folderName', auth, superAdminOnly, async (req, res) => {
     }
 });
 
-// Delete a file
-router.delete('/file/:folderName/:fileName', auth, superAdminOnly, async (req, res) => {
+// Delete a file (supports nested paths, e.g. approved/prestasi/x.jpg)
+router.delete('/file/:folderName/*', auth, superAdminOnly, async (req, res) => {
     try {
-        const { folderName, fileName } = req.params;
+        const { folderName } = req.params;
+        const nestedPath = req.params[0] || '';
         
         // Sanitize inputs to prevent path traversal
         const sanitizedFolderName = sanitizePath(folderName);
-        const sanitizedFileName = sanitizePath(fileName);
+        const sanitizedFileName = sanitizePath(nestedPath);
         
         // Whitelist of allowed folder names
         const allowedFolders = ALLOWED_FOLDERS;
