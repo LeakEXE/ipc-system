@@ -15,7 +15,10 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 */patches/
 
+# Dev
 TODO
+*.tmp
+
 # Logs
 *.log
 npm-debug.log*

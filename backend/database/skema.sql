@@ -530,6 +530,22 @@ CREATE TABLE student_creation_approvals (
     FOREIGN KEY (requested_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Password Reset Requests Table
+-- Self-service reset request from a logged-in user; superadmin grants by
+-- setting a temporary password (must_change_credentials = TRUE) or rejects.
+DROP TABLE IF EXISTS password_reset_requests CASCADE;
+CREATE TABLE password_reset_requests (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    requested_by INTEGER NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    superadmin_notes TEXT,
+    superadmin_approved_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (requested_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- ==================== NOTIFICATIONS TABLE ====================
 
 -- Notifications Table
@@ -541,7 +557,7 @@ CREATE TABLE notifications (
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     related_id INTEGER,
-    related_type TEXT NOT NULL CHECK (related_type IN ('prestasi', 'event', 'organisasi', 'kepanitiaan', 'siswa', 'student_creation', 'biodata', 'input_access', 'wali_kelas', 'pelanggaran', 'perilaku')),
+    related_type TEXT NOT NULL CHECK (related_type IN ('prestasi', 'event', 'organisasi', 'kepanitiaan', 'siswa', 'student_creation', 'biodata', 'input_access', 'wali_kelas', 'pelanggaran', 'perilaku', 'password_reset')),
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)

@@ -396,6 +396,27 @@ router.get('/student-creation-approvals', auth, superAdminOnly, async (req, res)
     }
 });
 
+// Get pending password reset requests for SuperAdmin - MUST BE BEFORE /:id
+router.get('/password-reset-approvals', auth, superAdminOnly, async (req, res) => {
+    try {
+        const [approvals] = await db.query(
+            `SELECT p.id, p.user_id, p.requested_by, p.status AS superadmin_status,
+                    p.superadmin_notes, p.created_at,
+                    u.nama, COALESCE(u.nis, u.nip) AS nis, u.role,
+                    requester.nama AS requested_by_name
+             FROM password_reset_requests p
+             JOIN users u ON p.user_id = u.id
+             JOIN users requester ON p.requested_by = requester.id
+             WHERE p.status = 'pending'
+             ORDER BY p.created_at DESC`
+        );
+        res.json(approvals);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // Bulk update IPT awal (Superadmin only) - MUST BE BEFORE /:id
 router.put('/bulk/ipt-awal', auth, superAdminOnly, async (req, res) => {
     try {
@@ -1371,6 +1392,84 @@ router.put('/student-creation-approvals/:id', auth, superAdminOnly, async (req, 
             );
             
             res.json({ message: 'Pengajuan pembuatan akun siswa ditolak' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Approve/Reject password reset request (SuperAdmin only)
+// Grant = set a temporary password + force /setup-akun on next session.
+router.put('/password-reset-approvals/:id', auth, superAdminOnly, async (req, res) => {
+    try {
+        const approvalId = parseInt(req.params.id);
+        const { status, notes, tempPassword } = req.body;
+
+        const [approval] = await db.query(
+            'SELECT id, user_id, requested_by, status, created_at FROM password_reset_requests WHERE id = ?',
+            [approvalId]
+        );
+        if (approval.length === 0) {
+            return res.status(404).json({ message: 'Permintaan reset password tidak ditemukan' });
+        }
+        const data = approval[0];
+        if (data.status !== 'pending') {
+            return res.status(400).json({ message: 'Permintaan ini sudah diproses' });
+        }
+
+        if (status === 'approved') {
+            if (!tempPassword || tempPassword.length < 6) {
+                return res.status(400).json({ message: 'Password sementara minimal 6 karakter' });
+            }
+
+            const [target] = await db.query('SELECT id FROM users WHERE id = ?', [data.user_id]);
+            if (target.length === 0) {
+                return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
+            }
+
+            const hashedPassword = await bcrypt.hash(tempPassword, 10);
+            // Flag forces the user through /setup-akun so the temporary
+            // password is replaced right after their next login.
+            await db.query(
+                'UPDATE users SET password = ?, must_change_credentials = TRUE WHERE id = ?',
+                [hashedPassword, data.user_id]
+            );
+
+            await db.query(
+                'UPDATE password_reset_requests SET status = ?, superadmin_notes = ?, superadmin_approved_at = NOW() WHERE id = ?',
+                ['approved', notes || 'Disetujui oleh SuperAdmin', approvalId]
+            );
+
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
+                 VALUES (?, 'approved', 'Reset Password Disetujui', ?, ?, 'password_reset')`,
+                [data.user_id, 'Permintaan reset password Anda disetujui. Silakan login dengan password sementara yang diberikan SuperAdmin, lalu ikuti proses penggantian password.', approvalId]
+            );
+
+            await logActivity(req.user.id, 'APPROVE_PASSWORD_RESET', `SuperAdmin mereset password akun user #${data.user_id}`, req.ip);
+
+            res.json({ message: 'Password berhasil direset. User akan diminta mengganti password saat login berikutnya.' });
+        } else {
+            const rejectNotes = String(notes || '').trim();
+            if (!rejectNotes) {
+                return res.status(400).json({ message: 'Catatan penolakan wajib diisi' });
+            }
+
+            await db.query(
+                'UPDATE password_reset_requests SET status = ?, superadmin_notes = ? WHERE id = ?',
+                ['rejected', rejectNotes, approvalId]
+            );
+
+            await db.query(
+                `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
+                 VALUES (?, 'rejected', 'Permintaan Reset Password Ditolak', ?, ?, 'password_reset')`,
+                [data.user_id, `Permintaan reset password ditolak: ${rejectNotes}`, approvalId]
+            );
+
+            await logActivity(req.user.id, 'REJECT_PASSWORD_RESET', `SuperAdmin menolak permintaan reset password user #${data.user_id}`, req.ip);
+
+            res.json({ message: 'Permintaan reset password ditolak' });
         }
     } catch (error) {
         console.error(error);

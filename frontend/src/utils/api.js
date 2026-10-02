@@ -45,6 +45,19 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    // Superadmin reset this user's password (or first-login flag flipped):
+    // sync the stored flag and force the account-setup screen.
+    if (error.response?.status === 403 && error.response?.data?.mustChangeCredentials) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('user') || '{}');
+        localStorage.setItem('user', JSON.stringify({ ...stored, must_change_credentials: true }));
+      } catch {
+        // ignore storage errors
+      }
+      if (window.location.pathname !== '/setup-akun') {
+        window.location.href = '/setup-akun';
+      }
+    }
     return Promise.reject(error);
   }
 );
