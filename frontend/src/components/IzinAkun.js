@@ -13,8 +13,8 @@ function IzinAkun() {
   const [message, setMessage] = useState('');
   const [filters, setFilters] = useState({
     role: [],
-    kelas: '',
-    grha: ''
+    kelas: [],
+    grha: []
   });
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
@@ -57,22 +57,19 @@ function IzinAkun() {
     { key: 'siswa', label: 'Siswa' }
   ];
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPage(1);
-  };
-
-  // Role filter is multi-select (checkbox group)
-  const toggleRoleFilter = (role) => {
+  // All filters are multi-select (checkbox groups)
+  const toggleArrayFilter = (key, value) => {
     setFilters(prev => ({
       ...prev,
-      role: prev.role.includes(role) ? prev.role.filter((r) => r !== role) : [...prev.role, role]
+      [key]: prev[key].includes(value) ? prev[key].filter((v) => v !== value) : [...prev[key], value]
     }));
     setPage(1);
   };
 
+  const toggleRoleFilter = (role) => toggleArrayFilter('role', role);
+
   const resetFilters = () => {
-    setFilters({ role: [], kelas: '', grha: '' });
+    setFilters({ role: [], kelas: [], grha: [] });
     setSearchQuery('');
     setPage(1);
   };
@@ -97,11 +94,11 @@ function IzinAkun() {
     if (filters.role.length > 0) {
       filtered = filtered.filter(user => filters.role.includes(user.role));
     }
-    if (filters.kelas) {
-      filtered = filtered.filter(user => user.kelas === filters.kelas);
+    if (filters.kelas.length > 0) {
+      filtered = filtered.filter(user => filters.kelas.includes(user.kelas));
     }
-    if (filters.grha) {
-      filtered = filtered.filter(user => user.grha === filters.grha);
+    if (filters.grha.length > 0) {
+      filtered = filtered.filter(user => filters.grha.includes(user.grha));
     }
 
     setFilteredUsers(filtered);
@@ -762,24 +759,36 @@ function IzinAkun() {
                 </div>
               </div>
               <div className="field">
-                <label>Kelas</label>
-                <select
-                  value={filters.kelas}
-                  onChange={(e) => handleFilterChange('kelas', e.target.value)}
-                >
-                  <option value="">Semua Kelas</option>
-                  {kelasOptions.map(k => <option key={k} value={k}>{k}</option>)}
-                </select>
+                <label>Kelas (multi-pilih)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 'var(--radius-sm)', background: '#fff', maxHeight: '132px', overflowY: 'auto' }}>
+                  {kelasOptions.map((k) => (
+                    <label key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: 'var(--gray-700)' }}>
+                      <input
+                        type="checkbox"
+                        className="select-checkbox"
+                        checked={filters.kelas.includes(k)}
+                        onChange={() => toggleArrayFilter('kelas', k)}
+                      />
+                      {k}
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="field">
-                <label>Grha</label>
-                <select
-                  value={filters.grha}
-                  onChange={(e) => handleFilterChange('grha', e.target.value)}
-                >
-                  <option value="">Semua Grha</option>
-                  {grhaOptions.map(grha => <option key={grha} value={grha}>{grha}</option>)}
-                </select>
+                <label>Grha (multi-pilih)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 'var(--radius-sm)', background: '#fff', maxHeight: '132px', overflowY: 'auto' }}>
+                  {grhaOptions.map((g) => (
+                    <label key={g} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: 'var(--gray-700)' }}>
+                      <input
+                        type="checkbox"
+                        className="select-checkbox"
+                        checked={filters.grha.includes(g)}
+                        onChange={() => toggleArrayFilter('grha', g)}
+                      />
+                      {g}
+                    </label>
+                  ))}
+                </div>
               </div>
               <button className="btn btn-outline" onClick={resetFilters}>Reset</button>
             </div>
