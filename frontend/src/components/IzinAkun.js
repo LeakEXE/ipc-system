@@ -12,7 +12,7 @@ function IzinAkun() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [filters, setFilters] = useState({
-    role: '',
+    role: [],
     kelas: '',
     grha: ''
   });
@@ -50,13 +50,29 @@ function IzinAkun() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
 
+  const ROLE_OPTIONS = [
+    { key: 'superadmin', label: 'Superadmin' },
+    { key: 'guru', label: 'Guru' },
+    { key: 'pegawai', label: 'Pegawai' },
+    { key: 'siswa', label: 'Siswa' }
+  ];
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPage(1);
   };
 
+  // Role filter is multi-select (checkbox group)
+  const toggleRoleFilter = (role) => {
+    setFilters(prev => ({
+      ...prev,
+      role: prev.role.includes(role) ? prev.role.filter((r) => r !== role) : [...prev.role, role]
+    }));
+    setPage(1);
+  };
+
   const resetFilters = () => {
-    setFilters({ role: '', kelas: '', grha: '' });
+    setFilters({ role: [], kelas: '', grha: '' });
     setSearchQuery('');
     setPage(1);
   };
@@ -78,8 +94,8 @@ function IzinAkun() {
     }
 
     // Apply filters
-    if (filters.role) {
-      filtered = filtered.filter(user => user.role === filters.role);
+    if (filters.role.length > 0) {
+      filtered = filtered.filter(user => filters.role.includes(user.role));
     }
     if (filters.kelas) {
       filtered = filtered.filter(user => user.kelas === filters.kelas);
@@ -730,16 +746,20 @@ function IzinAkun() {
             <div className="filter-title">Filter</div>
             <div className="filter-row">
               <div className="field">
-                <label>Role</label>
-                <select
-                  value={filters.role}
-                  onChange={(e) => handleFilterChange('role', e.target.value)}
-                >
-                  <option value="">Semua Role</option>
-                  <option value="superadmin">Superadmin</option>
-                  <option value="guru">Guru</option>
-                  <option value="siswa">Siswa</option>
-                </select>
+                <label>Role (multi-pilih)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                  {ROLE_OPTIONS.map(({ key, label }) => (
+                    <label key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: 'var(--gray-700)' }}>
+                      <input
+                        type="checkbox"
+                        className="select-checkbox"
+                        checked={filters.role.includes(key)}
+                        onChange={() => toggleRoleFilter(key)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="field">
                 <label>Kelas</label>
