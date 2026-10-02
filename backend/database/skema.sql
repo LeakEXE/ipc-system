@@ -238,6 +238,7 @@ CREATE TABLE event (
     nis VARCHAR(20) NOT NULL,
     kelas VARCHAR(50),
     grha VARCHAR(50),
+    pembina VARCHAR(255),
     nama_event VARCHAR(255) NOT NULL,
     tingkat VARCHAR(100) NOT NULL,
     foto VARCHAR(255),
