@@ -19,7 +19,8 @@ function DriveViewer() {
     minSize: '',
     maxSize: '',
     kelas: '',
-    grha: ''
+    grha: '',
+    refStatus: ''
   });
   const [studentsData, setStudentsData] = useState({});
 
@@ -118,7 +119,7 @@ function DriveViewer() {
   };
 
   const resetFilters = () => {
-    setFilters({ fileType: '', searchQuery: '', minSize: '', maxSize: '', kelas: '', grha: '' });
+    setFilters({ fileType: '', searchQuery: '', minSize: '', maxSize: '', kelas: '', grha: '', refStatus: '' });
     setPage(1);
   };
 
@@ -161,6 +162,14 @@ function DriveViewer() {
       return false;
     }
     if (filters.maxSize && file.size > parseInt(filters.maxSize) * 1024) {
+      return false;
+    }
+
+    // DB cross-check from the backend: hide files no record references
+    if (filters.refStatus === 'used' && !file.referenced) {
+      return false;
+    }
+    if (filters.refStatus === 'orphan' && file.referenced !== false) {
       return false;
     }
 
@@ -359,6 +368,19 @@ function DriveViewer() {
                 </select>
               </div>
               <div>
+                <label>Status</label>
+                <select
+                  value={filters.refStatus}
+                  onChange={(e) => handleFilterChange('refStatus', e.target.value)}
+                  className="form-control"
+                  style={{ width: '100%' }}
+                >
+                  <option value="">Semua Status</option>
+                  <option value="used">Terpakai</option>
+                  <option value="orphan">Yatim</option>
+                </select>
+              </div>
+              <div>
                 <button className="btn btn-secondary" onClick={resetFilters} style={{ width: '100%' }}>Reset</button>
               </div>
             </div>
@@ -412,7 +434,18 @@ function DriveViewer() {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: '500', color: '#333' }}><FileText size={14} /> {file.name}</span>
                         )}
                       </td>
-                      <td style={{ padding: '12px', color: '#666' }}>{file.subfolder || '—'}</td>
+                      <td style={{ padding: '12px', color: '#666' }}>
+                        {file.subfolder || '—'}
+                        {file.referenced === false && (
+                          <span style={{
+                            display: 'inline-block', marginLeft: '6px', fontSize: '10.5px', fontWeight: '700',
+                            background: '#fef3c7', color: '#a86a05', padding: '2px 8px', borderRadius: '999px',
+                            verticalAlign: 'middle'
+                          }}>
+                            Yatim
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding: '12px', color: '#666' }}>{formatFileSize(file.size)}</td>
                       <td style={{ padding: '12px', color: '#666' }}>{formatDate(file.created)}</td>
                       <td style={{ padding: '12px', textAlign: 'center' }}>

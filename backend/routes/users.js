@@ -10,6 +10,7 @@ const { validateTahunPelajaran, calculateCurrentClass, shouldGraduate, getClassI
 const { logActivity } = require('../utils/logger');
 const { gradePrefixFromKelas, getIptAwalForGrade } = require('../utils/iptConfig');
 const { syncBiodataChange } = require('../utils/biodataSync');
+const { deletePhotoIfOrphan } = require('../utils/fileUtils');
 const { generateUsername } = require('../utils/username');
 
 // Postgres LIKE is case-sensitive, so all user-facing name/NIS searches must
@@ -993,6 +994,13 @@ router.post('/bulk-delete', auth, superAdminOnly, async (req, res) => {
             return res.status(403).json({ message: 'Tidak bisa menghapus akun SuperAdmin' });
         }
 
+        // Remember avatars: user rows vanish below, and orphaned avatar
+        // files are deleted after the commit succeeds.
+        const [avatarRows] = await conn.query(
+            `SELECT foto FROM users WHERE id IN (${parsed.map(() => '?').join(',')}) AND foto IS NOT NULL AND foto <> ''`,
+            parsed
+        );
+
         for (const id of parsed) {
             await deleteUserAndDependencies(conn, id);
         }
@@ -1003,6 +1011,12 @@ router.post('/bulk-delete', auth, superAdminOnly, async (req, res) => {
         );
 
         await conn.commit();
+
+        // User rows are gone: delete avatar files nothing references anymore.
+        for (const r of avatarRows) {
+            if (r.foto) await deletePhotoIfOrphan(db, r.foto, { folderHint: 'avatars' });
+        }
+
         res.json({ message: `Berhasil menghapus ${parsed.length} akun` });
     } catch (error) {
         if (conn) {
@@ -1021,10 +1035,11 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
         const userId = parseInt(req.params.id);
 
         // Prevent deleting superadmin
-        const [user] = await db.query('SELECT role FROM users WHERE id = ?', [userId]);
+        const [user] = await db.query('SELECT role, foto FROM users WHERE id = ?', [userId]);
         if (user.length > 0 && user[0].role === 'superadmin') {
             return res.status(403).json({ message: 'Cannot delete superadmin account' });
         }
+        const avatarFoto = user[0]?.foto || null;
 
         const conn = await db.getConnection();
         try {
@@ -1040,6 +1055,11 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
             throw e;
         } finally {
             conn.release();
+        }
+
+        // User row is gone: delete the avatar file nothing references anymore.
+        if (avatarFoto) {
+            await deletePhotoIfOrphan(db, avatarFoto, { folderHint: 'avatars' });
         }
 
         // Log activity

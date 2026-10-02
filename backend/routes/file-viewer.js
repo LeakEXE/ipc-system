@@ -3,7 +3,9 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { auth, superAdminOnly } = require('../middleware/auth');
+const db = require('../config/database');
 const { UPLOAD_DIR } = require('../utils/paths');
+const { collectFotoReferences, isFotoReferenced } = require('../utils/fileUtils');
 
 // Single source of truth: every directory under uploads/ the manager may open.
 // (The folder grid lists all directories, so anything missing here 403s on click.)
@@ -121,6 +123,13 @@ router.get('/files/:folderName', auth, superAdminOnly, async (req, res) => {
             return out;
         };
         const files = walk(folderPath, '');
+
+        // DB cross-check: flag files no record references anymore (rejected
+        // submissions, deleted rows). Superadmin can filter + delete them here.
+        const refs = await collectFotoReferences(db);
+        for (const f of files) {
+            f.referenced = isFotoReferenced(refs, f.path);
+        }
 
         res.json(files);
     } catch (error) {

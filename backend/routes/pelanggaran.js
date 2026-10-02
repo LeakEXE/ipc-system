@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const { calculatePelanggaranPoints } = require('../constants/points');
 const { resolveStudentIdByNis, applyIptChange } = require('../utils/ipt');
-const { movePhotoToApprovedFolder } = require('../utils/fileUtils');
+const { movePhotoToApprovedFolder, deletePhotoIfOrphan } = require('../utils/fileUtils');
 const { ensureUploadSubdir, resolveUploadPath } = require('../utils/paths');
 
 // Configure multer for file uploads
@@ -146,7 +146,14 @@ router.put('/:id/reject', auth, superAdminOnly, async (req, res) => {
         const { rejection_reason } = req.body;
         const pelanggaranId = req.params.id;
         
+        const [rows] = await db.query('SELECT foto FROM pelanggaran WHERE id = ?', [pelanggaranId]);
+
         await db.query('UPDATE pelanggaran SET status = ?, rejection_reason = ? WHERE id = ?', ['rejected', rejection_reason, pelanggaranId]);
+
+        // Delete the evidence file when no other row references it anymore
+        if (rows[0]?.foto) {
+            await deletePhotoIfOrphan(db, rows[0].foto, { exclude: { table: 'pelanggaran', id: pelanggaranId }, folderHint: 'pelanggaran' });
+        }
 
         await db.query(
             'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
@@ -257,16 +264,14 @@ router.delete('/:id', auth, superAdminOnly, async (req, res) => {
             );
         }
 
-        // Delete photo file if exists
-        if (pelanggaranData.foto) {
-            const photoPath = resolveUploadPath(path.join('uploads', pelanggaranData.foto));
-            if (fs.existsSync(photoPath)) {
-                fs.unlinkSync(photoPath);
-            }
-        }
-
         // Delete from database
         await db.query('DELETE FROM pelanggaran WHERE id = ?', [pelanggaranId]);
+
+        // Delete the evidence file when no other row references it anymore
+        // (rows sharing one file must never strand each other).
+        if (pelanggaranData.foto) {
+            await deletePhotoIfOrphan(db, pelanggaranData.foto, { folderHint: 'pelanggaran' });
+        }
 
         // Log activity
         await db.query(
