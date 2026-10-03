@@ -9,7 +9,6 @@ import { Rate, Trend } from 'k6/metrics';
 //
 // Rate-limit reality (backend/middleware/security.js):
 //   apiLimiter   = 100 req/min per IP  (~1.6 rps from one machine)
-//   speedLimiter = artificial delay after 50 req/min
 //   loginLimiter = 5 FAILED logins / 15 min (successes don't count)
 // So from ONE k6 IP you WILL see 429s above ~10 VUs. That's expected and
 // tracked separately (rate_limited), not counted as failure.
