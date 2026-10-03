@@ -34,8 +34,8 @@ const app = express();
 // Prometheus scrape endpoint for the Grafana stack. Mounted before rate
 // limiting and auth so the scraper is never blocked or challenged.
 // Scrape target: http://<host>:5000/metrics
-const { httpMetricsMiddleware, metricsHandler } = require('./utils/prometheus');
-app.get('/metrics', metricsHandler);
+const { httpMetricsMiddleware, metricsAuth, metricsHandler } = require('./utils/prometheus');
+app.get('/metrics', metricsAuth, metricsHandler);
 app.use(httpMetricsMiddleware);
 
 // Trust proxy: express-rate-limit needs this whenever an upstream proxy sets
