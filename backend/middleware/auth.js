@@ -44,6 +44,12 @@ const CREDENTIAL_SETUP_PATHS = new Set([
     '/api/profile/check-username'
 ]);
 
+// Paths reachable without any session at all (the login page fetches these
+// before the user authenticates — e.g. school branding for the logo).
+const PUBLIC_PATHS = new Set([
+    '/api/school-config/public'
+]);
+
 // Blocks every /api call (except the setup paths above and GET /api/profile)
 // for users that still must change their credentials on first login.
 // Must be mounted globally AFTER cookie parsing. Verifies the JWT inline
@@ -53,7 +59,7 @@ const enforceCredentialsChanged = async (req, res, next) => {
         if (!req.path.startsWith('/api/')) {
             return next();
         }
-        if (CREDENTIAL_SETUP_PATHS.has(req.path)) {
+        if (CREDENTIAL_SETUP_PATHS.has(req.path) || PUBLIC_PATHS.has(req.path)) {
             return next();
         }
         if (req.method === 'GET' && req.path === '/api/profile') {
