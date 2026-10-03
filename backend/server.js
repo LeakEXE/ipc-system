@@ -19,7 +19,6 @@ const { UPLOAD_DIR } = require('./utils/paths');
 const { 
   securityHeaders, 
   apiLimiter, 
-  speedLimiter, 
   sqlInjectionPrevention, 
   xssPrevention, 
   sanitizeInput, 
@@ -55,9 +54,6 @@ app.use(securityHeaders);
 
 // Security Middleware - Rate limiting
 app.use(apiLimiter);
-
-// Security Middleware - Speed limiting
-app.use(speedLimiter);
 
 // Security Middleware - Request logging for security audit
 app.use(securityLogger);
