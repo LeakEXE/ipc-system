@@ -27,20 +27,14 @@ function Approvals() {
     event: [],
     organisasi: [],
     kepanitiaan: [],
-    pelanggaran: [],
-    password_reset: []
+    pelanggaran: []
   });
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [notes, setNotes] = useState('');
-  // Temporary password the superadmin hands to a user on a granted reset
-  const [tempPassword, setTempPassword] = useState('');
   const [message, setMessage] = useState('');
   // Access gating: superadmin always; others need at least one approval scope.
-  // Non-superadmin approvers only see IPT tabs (password-reset stays
-  // superadmin-only, both in UI and on the backend).
   const [hasAccess, setHasAccess] = useState(false);
-  const [isSuperadmin, setIsSuperadmin] = useState(false);
   // Enlarged photo popup (same pattern as DriveViewer: URL string or null)
   const [previewImage, setPreviewImage] = useState(null);
   const [previewError, setPreviewError] = useState(false);
@@ -58,7 +52,6 @@ function Approvals() {
         storedRole = '';
       }
       const superadmin = storedRole === 'superadmin';
-      setIsSuperadmin(superadmin);
 
       let canApprove = superadmin;
       if (!superadmin) {
@@ -75,19 +68,14 @@ function Approvals() {
         return;
       }
 
-      const [approvalsRes, passwordResetRes] = await Promise.all([
-        api.get('/approvals/all'),
-        // Password-reset approvals stay superadmin-only
-        superadmin ? api.get('/users/password-reset-approvals') : Promise.resolve({ data: [] })
-      ]);
+      const approvalsRes = await api.get('/approvals/all');
       setApprovals({
         prestasi: [],
         event: [],
         organisasi: [],
         kepanitiaan: [],
         pelanggaran: [],
-        ...(approvalsRes.data || {}),
-        password_reset: passwordResetRes.data || []
+        ...(approvalsRes.data || {})
       });
     } catch (error) {
       console.error('Error fetching approvals:', error);
@@ -103,25 +91,12 @@ function Approvals() {
 
   const handleApprove = async (type, id) => {
     try {
-      if (type === 'password_reset') {
-        if (!tempPassword || tempPassword.length < 6) {
-          setMessage('Password sementara minimal 6 karakter');
-          return;
-        }
-        await api.put(`/users/password-reset-approvals/${id}`, {
-          status: 'approved',
-          notes: notes || 'Disetujui',
-          tempPassword
-        });
-      } else {
-        await api.put(`/approvals/superadmin/${type}/${id}`, {
-          status: 'approved',
-          notes: notes || 'Disetujui'
-        });
-      }
+      await api.put(`/approvals/superadmin/${type}/${id}`, {
+        status: 'approved',
+        notes: notes || 'Disetujui'
+      });
       
       const typeLabels = {
-        password_reset: 'Reset password',
         prestasi: 'Prestasi',
         event: 'Event',
         organisasi: 'Organisasi',
@@ -131,7 +106,6 @@ function Approvals() {
       setMessage(`${typeLabels[type] || type} berhasil disetujui!`);
       setSelectedItem(null);
       setNotes('');
-      setTempPassword('');
       fetchApprovals();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menyetujui');
@@ -140,20 +114,12 @@ function Approvals() {
 
   const handleReject = async (type, id) => {
     try {
-      if (type === 'password_reset') {
-        await api.put(`/users/password-reset-approvals/${id}`, {
-          status: 'rejected',
-          notes: notes || 'Ditolak'
-        });
-      } else {
-        await api.put(`/approvals/superadmin/${type}/${id}`, {
-          status: 'rejected',
-          notes: notes || 'Ditolak'
-        });
-      }
+      await api.put(`/approvals/superadmin/${type}/${id}`, {
+        status: 'rejected',
+        notes: notes || 'Ditolak'
+      });
       
       const typeLabels = {
-        password_reset: 'Reset password',
         prestasi: 'Prestasi',
         event: 'Event',
         organisasi: 'Organisasi',
@@ -163,7 +129,6 @@ function Approvals() {
       setMessage(`${typeLabels[type] || type} ditolak`);
       setSelectedItem(null);
       setNotes('');
-      setTempPassword('');
       fetchApprovals();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Gagal menolak');
@@ -175,9 +140,6 @@ function Approvals() {
 
   const renderTable = (data, type) => {
     if (data.length === 0) {
-      const emptyLabels = {
-        password_reset: 'reset password'
-      };
       return (
         <div style={{
           padding: "60px 20px",
@@ -185,7 +147,7 @@ function Approvals() {
           color: MUTED
         }}>
           <span style={{ display: 'inline-flex', color: 'var(--muted-light)' }}><Inbox size={34} /></span>
-          <strong style={{ color: TEXT, display: "block", marginBottom: "4px", fontSize: "15px" }}>Belum ada pengajuan {emptyLabels[type] || type}</strong>
+          <strong style={{ color: TEXT, display: "block", marginBottom: "4px", fontSize: "15px" }}>Belum ada pengajuan {type}</strong>
           Pengajuan baru akan muncul di sini untuk ditinjau.
         </div>
       );
@@ -223,7 +185,6 @@ function Approvals() {
       organisasi: ['Diajukan Oleh', 'Nama', 'NIS', 'Organisasi', 'Jabatan', 'Foto', 'Status', 'Aksi'],
       kepanitiaan: ['Diajukan Oleh', 'Nama', 'NIS', 'Kepanitiaan', 'Jabatan', 'Foto', 'Status', 'Aksi'],
       pelanggaran: ['Diajukan Oleh', 'Nama', 'NIS', 'Keterangan', 'Jenis', 'Foto', 'Status', 'Aksi'],
-      password_reset: ['Diajukan Oleh', 'Nama', 'NIS/NIP', 'Role', 'Tanggal', 'Status', 'Aksi'],
     };
 
     const getPhotoUrl = (path, uploadFolder = 'approvals') => {
@@ -263,7 +224,8 @@ function Approvals() {
       return getPhotoUrl(foto);
     };
 
-    const usesApprovalStatus = type !== 'password_reset';
+    // Every remaining table type shows the photo + approval-status columns.
+    const usesApprovalStatus = true;
 
     // Get data columns for mobile cards (exclude diajukan, nama, nis, foto, status, aksi)
     const dataCols = columns[type].filter(c => 
@@ -284,10 +246,7 @@ function Approvals() {
         'Kepanitiaan': 'Kepanitiaan',
         'Keterangan': 'Keterangan',
         'Jenis': 'Jenis',
-        'Karakter': 'Karakter',
-        'NIS/NIP': 'NIS/NIP',
-        'Role': 'Role',
-        'Tanggal': 'Tanggal'
+        'Karakter': 'Karakter'
       };
       return labelMap[col] || col;
     };
@@ -315,11 +274,6 @@ function Approvals() {
       if (type === 'pelanggaran') {
         if (col === 'Keterangan') return item.keterangan;
         if (col === 'Jenis') return item.jenis_pelanggaran;
-      }
-      if (type === 'password_reset') {
-        if (col === 'NIS/NIP') return item.nis;
-        if (col === 'Role') return formatDisplayText(item.role);
-        if (col === 'Tanggal') return item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
       }
       return '';
     };
@@ -712,63 +666,6 @@ function Approvals() {
                     }}>{item.jenis_pelanggaran}</td>
                   </>
                 )}
-                {type === 'password_reset' && (
-                  <>
-                    <td>{formatDisplayText(item.role)}</td>
-                    <td>{item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</td>
-                    <td>
-                      {item.superadmin_status === 'pending' ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '999px',
-                          fontSize: '12.5px',
-                          fontWeight: '700',
-                          whiteSpace: 'nowrap',
-                          background: AMBER_BG,
-                          color: '#a86a05'
-                        }}>
-                          <span style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            background: AMBER,
-                            animation: 'blink 1.4s ease-in-out infinite'
-                          }}></span>
-                          MENUNGGU
-                        </span>
-                      ) : item.superadmin_status === 'approved' ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '999px',
-                          fontSize: '12.5px',
-                          fontWeight: '700',
-                          whiteSpace: 'nowrap',
-                          background: '#e5f7ee',
-                          color: GREEN_DARK
-                        }}><StatusIcon status="approved" /> DISETUJUI</span>
-                      ) : (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '999px',
-                          fontSize: '12.5px',
-                          fontWeight: '700',
-                          whiteSpace: 'nowrap',
-                          background: '#fdeaea',
-                          color: RED_DARK
-                        }}><StatusIcon status="rejected" /> DITOLAK</span>
-                      )}
-                    </td>
-                  </>
-                )}
                 {usesApprovalStatus && (
                   <td style={{
                     padding: "16px 18px",
@@ -863,64 +760,7 @@ function Approvals() {
                   borderBottom: `1px solid ${BORDER}`,
                   verticalAlign: "middle"
                 }}>
-                  {type === 'password_reset' ? (
-                    item.superadmin_status === 'approved' ? (
-                      <span style={{ color: MUTED, fontSize: "12.5px" }}>Selesai diproses</span>
-                    ) : item.superadmin_status === 'rejected' ? (
-                      <span style={{ color: MUTED, fontSize: "12.5px" }}>Selesai diproses</span>
-                    ) : (
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <button 
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '8px 14px',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            color: '#fff',
-                            background: GREEN,
-                            boxShadow: '0 4px 10px -4px rgba(22,168,117,.5)',
-                            transition: 'filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.06)'}
-                          onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
-                          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
-                          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                          onClick={() => setSelectedItem({ ...item, type, id: item.id })} 
-                        >
-                          <StatusIcon status="approved" /> Setuju
-                        </button>
-                        <button 
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '8px 14px',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            color: '#fff',
-                            background: RED,
-                            boxShadow: '0 4px 10px -4px rgba(227,72,72,.5)',
-                            transition: 'filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.06)'}
-                          onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
-                          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
-                          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                          onClick={() => setSelectedItem({ ...item, type, id: item.id, action: 'reject' })} 
-                        >
-                          <StatusIcon status="rejected" /> Tolak
-                        </button>
-                      </div>
-                    )
-                  ) : getApprovalStatus(item) === 'approved' ? (
+                  {getApprovalStatus(item) === 'approved' ? (
                     <span style={{ color: MUTED, fontSize: "12.5px" }}>Selesai diproses</span>
                   ) : getApprovalStatus(item) === 'rejected' ? (
                     <span style={{ color: MUTED, fontSize: "12.5px" }}>Selesai diproses</span>
@@ -1018,19 +858,13 @@ function Approvals() {
 
   // Backend omits types outside the caller's approval scopes, so tabs
   // automatically match what this user may approve. Superadmin sees all.
-  const ALL_TABS = [
+  const tabs = [
     { key: 'prestasi', label: 'Prestasi' },
     { key: 'event', label: 'Event' },
     { key: 'organisasi', label: 'Organisasi' },
     { key: 'kepanitiaan', label: 'Kepanitiaan' },
     { key: 'pelanggaran', label: 'Pelanggaran' },
-  ];
-  // Account-related approvals are superadmin-only (backend enforces the
-  // same gate — other approvers can neither list nor action them).
-  const SUPERADMIN_TABS = [
-    { key: 'password_reset', label: 'Reset Password' },
-  ];
-  const tabs = [...ALL_TABS, ...(isSuperadmin ? SUPERADMIN_TABS : [])]
+  ]
     .filter((t) => approvals[t.key] !== undefined)
     .map((t) => ({ ...t, count: approvals[t.key]?.length || 0 }));
   const effectiveTab = tabs.some((t) => t.key === activeTab) ? activeTab : (tabs[0]?.key || 'prestasi');
@@ -1190,110 +1024,57 @@ function Approvals() {
                 onBlur={(e) => e.currentTarget.style.borderColor = BORDER}
               />
             </div>
-            {selectedItem.type === 'password_reset' && selectedItem.action !== 'reject' && (
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: TEXT,
-                  marginBottom: '8px'
-                }}>Password Sementara:</label>
-                <input
-                  type="text"
-                  value={tempPassword}
-                  onChange={(e) => setTempPassword(e.target.value)}
-                  placeholder="Minimal 6 karakter"
-                  minLength={6}
-                  autoComplete="new-password"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    outline: 'none',
-                    transition: 'border-color 0.15s ease',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = BLUE}
-                  onBlur={(e) => e.currentTarget.style.borderColor = BORDER}
-                />
-                <div style={{ fontSize: '12px', color: MUTED, marginTop: '6px', lineHeight: 1.5 }}>
-                  Berikan password ini ke user secara langsung. User akan dipaksa menggantinya
-                  dengan password baru saat login berikutnya.
-                </div>
-              </div>
-            )}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               {selectedItem.action === 'reject' ? (
-                (() => {
-                  // Reset rejections must carry a reason for the requester
-                  const resetNeedsNotes = selectedItem.type === 'password_reset' && !notes.trim();
-                  return (
-                    <button
-                      disabled={resetNeedsNotes}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '10px 18px',
-                        fontSize: '14px',
-                        fontWeight: '700',
-                        cursor: resetNeedsNotes ? 'not-allowed' : 'pointer',
-                        opacity: resetNeedsNotes ? 0.55 : 1,
-                        color: '#fff',
-                        background: RED,
-                        boxShadow: resetNeedsNotes ? 'none' : '0 4px 10px -4px rgba(227,72,72,.5)',
-                        transition: 'filter 0.15s ease, transform 0.1s ease, opacity 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => { if (!resetNeedsNotes) e.currentTarget.style.filter = 'brightness(1.06)'; }}
-                      onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
-                      onMouseDown={(e) => { if (!resetNeedsNotes) e.currentTarget.style.transform = 'scale(0.96)'; }}
-                      onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                      onClick={() => handleReject(selectedItem.type, selectedItem.id)}
-                    >
-                      <StatusIcon status="rejected" /> Tolak
-                    </button>
-                  );
-                })()
+                <button
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    color: '#fff',
+                    background: RED,
+                    boxShadow: '0 4px 10px -4px rgba(227,72,72,.5)',
+                    transition: 'filter 0.15s ease, transform 0.1s ease'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.06)'}
+                  onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  onClick={() => handleReject(selectedItem.type, selectedItem.id)}
+                >
+                  <StatusIcon status="rejected" /> Tolak
+                </button>
               ) : (
-                (() => {
-                  // Reset grants need a valid temp password before submitting
-                  const resetNeedsPassword = selectedItem.type === 'password_reset'
-                    && (!tempPassword || tempPassword.length < 6);
-                  return (
-                    <button
-                      disabled={resetNeedsPassword}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '10px 18px',
-                        fontSize: '14px',
-                        fontWeight: '700',
-                        cursor: resetNeedsPassword ? 'not-allowed' : 'pointer',
-                        opacity: resetNeedsPassword ? 0.55 : 1,
-                        color: '#fff',
-                        background: GREEN,
-                        boxShadow: resetNeedsPassword ? 'none' : '0 4px 10px -4px rgba(22,168,117,.5)',
-                        transition: 'filter 0.15s ease, transform 0.1s ease, opacity 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => { if (!resetNeedsPassword) e.currentTarget.style.filter = 'brightness(1.06)'; }}
-                      onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
-                      onMouseDown={(e) => { if (!resetNeedsPassword) e.currentTarget.style.transform = 'scale(0.96)'; }}
-                      onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                      onClick={() => handleApprove(selectedItem.type, selectedItem.id)}
-                    >
-                      <StatusIcon status="approved" /> Setuju
-                    </button>
-                  );
-                })()
+                <button
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    color: '#fff',
+                    background: GREEN,
+                    boxShadow: '0 4px 10px -4px rgba(22,168,117,.5)',
+                    transition: 'filter 0.15s ease, transform 0.1s ease'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.06)'}
+                  onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  onClick={() => handleApprove(selectedItem.type, selectedItem.id)}
+                >
+                  <StatusIcon status="approved" /> Setuju
+                </button>
               )}
               <button 
                 style={{
@@ -1314,7 +1095,7 @@ function Approvals() {
                 onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
                 onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
                 onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                onClick={() => { setSelectedItem(null); setNotes(''); setTempPassword(''); }}
+                onClick={() => { setSelectedItem(null); setNotes(''); }}
               >
                 Batal
               </button>

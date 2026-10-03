@@ -47,7 +47,8 @@ const CREDENTIAL_SETUP_PATHS = new Set([
 // Paths reachable without any session at all (the login page fetches these
 // before the user authenticates — e.g. school branding for the logo).
 const PUBLIC_PATHS = new Set([
-    '/api/school-config/public'
+    '/api/school-config/public',
+    '/api/auth/forgot-password'
 ]);
 
 // Blocks every /api call (except the setup paths above and GET /api/profile)

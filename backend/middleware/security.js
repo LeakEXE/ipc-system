@@ -25,6 +25,21 @@ const logoutLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Rate limiting for public forgot-password requests.
+// Looser per-IP than login (no credential guessing here, just request +
+// notification spam) because a whole school can share one NAT IP.
+// Per-account abuse is stopped separately in the handler via pending-dedup
+// + 12h cooldown, so a distributed attack on one victim still fails.
+const forgotLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // limit each IP to 10 forgot-password requests per hour
+  message: {
+    message: 'Terlalu banyak permintaan reset password. Coba lagi nanti.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // General API rate limiting
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
@@ -225,6 +240,7 @@ const securityLogger = (req, res, next) => {
 module.exports = {
   loginLimiter,
   logoutLimiter,
+  forgotLimiter,
   apiLimiter,
   speedLimiter,
   sqlInjectionPrevention,

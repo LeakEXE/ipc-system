@@ -40,8 +40,8 @@ api.interceptors.response.use(
       // Clear local storage on auth error
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // Redirect to login if not already there
-      if (window.location.pathname !== '/login') {
+      // Redirect to login if not already on a public page
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/lupa-password') {
         window.location.href = '/login';
       }
     }

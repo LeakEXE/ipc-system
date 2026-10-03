@@ -40,3 +40,4 @@ build/
 # User
 **/*.pdf
 patches
+*.csv

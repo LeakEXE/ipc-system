@@ -14,8 +14,7 @@ const {
   xssPrevention, 
   sanitizeInput, 
   errorHandler,
-  securityLogger,
-  loginLimiter
+  securityLogger
 } = require('./middleware/security');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -122,8 +121,9 @@ if (fs.existsSync(frontendBuildPath)) {
   console.warn('Please run "npm run build" in the frontend directory first');
 }
 
-// Routes - Auth with login rate limiting
-app.use('/api/auth', loginLimiter, require('./routes/auth'));
+// Routes - per-route limiters live inside ./routes/auth (login/forgot);
+// mounting the limiter here would make them share one budget.
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/prestasi', require('./routes/prestasi'));
 app.use('/api/organisasi', require('./routes/organisasi'));

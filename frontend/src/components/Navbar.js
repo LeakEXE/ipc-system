@@ -5,6 +5,7 @@ import { LogOut } from 'lucide-react';
 
 function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
   const [pendingCount, setPendingCount] = useState(0);
+  const [resetPendingCount, setResetPendingCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [permissions, setPermissions] = useState(null);
   const location = useLocation();
@@ -23,6 +24,18 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
       return () => clearInterval(interval);
     }
   }, [user, permissions]);
+
+  // Pending password-reset requests live on the Reset Password page now.
+  useEffect(() => {
+    if (user?.role === 'superadmin') {
+      fetchResetPendingCount();
+
+      const interval = setInterval(fetchResetPendingCount, 30000);
+      return () => clearInterval(interval);
+    } else {
+      setResetPendingCount(0);
+    }
+  }, [user]);
 
   // Fetch unread notifications count for siswa/guru/pegawai
   useEffect(() => {
@@ -48,6 +61,15 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
       setPendingCount(response.data.total || 0);
     } catch (error) {
       console.error('Error fetching pending count:', error);
+    }
+  };
+
+  const fetchResetPendingCount = async () => {
+    try {
+      const response = await api.get('/users/password-reset-approvals');
+      setResetPendingCount(Array.isArray(response.data) ? response.data.length : 0);
+    } catch (error) {
+      console.error('Error fetching reset pending count:', error);
     }
   };
 
@@ -108,6 +130,7 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
     { path: '/input-perilaku', label: 'Perilaku', show: user?.role === 'superadmin' || ((user?.role === 'guru' || user?.role === 'pegawai') && permissions?.can_input_perilaku) },
     // Kelola Akun for superadmin
     { path: '/kelola-akun', label: 'Kelola Akun', show: user?.role === 'superadmin' },
+    { path: '/reset-password', label: 'Reset Password', show: user?.role === 'superadmin' },
     { path: '/konfigurasi-ipt', label: 'Konfigurasi IPT', show: user?.role === 'superadmin' },
     { path: '/school-config', label: 'Konfigurasi Sekolah', show: user?.role === 'superadmin' },
     { path: '/izin-akun', label: 'Izin Akun', show: user?.role === 'superadmin' },
@@ -160,6 +183,11 @@ function Navbar({ user, onLogout, isMobileMenuOpen, toggleMobileMenu }) {
                 {item.path === '/approvals' && pendingCount > 0 && (
                   <span className="nav-badge">
                     {pendingCount}
+                  </span>
+                )}
+                {item.path === '/reset-password' && resetPendingCount > 0 && (
+                  <span className="nav-badge">
+                    {resetPendingCount}
                   </span>
                 )}
                 {item.path === '/notifications' && unreadCount > 0 && (
