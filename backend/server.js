@@ -1,3 +1,13 @@
+const io = require('@pm2/io');
+io.init({
+  metrics: {
+    eventLoop: true,
+    http: true,
+    runtime: true,
+    network: true
+  }
+});
+
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -14,13 +24,19 @@ const {
   xssPrevention, 
   sanitizeInput, 
   errorHandler,
-  securityLogger,
-  loginLimiter
+  securityLogger
 } = require('./middleware/security');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+
+// Prometheus scrape endpoint for the Grafana stack. Mounted before rate
+// limiting and auth so the scraper is never blocked or challenged.
+// Scrape target: http://<host>:5000/metrics
+const { httpMetricsMiddleware, metricsHandler } = require('./utils/prometheus');
+app.get('/metrics', metricsHandler);
+app.use(httpMetricsMiddleware);
 
 // Trust proxy: express-rate-limit needs this whenever an upstream proxy sets
 // X-Forwarded-For (CRA dev proxy, nginx, ...), otherwise it throws
@@ -122,8 +138,9 @@ if (fs.existsSync(frontendBuildPath)) {
   console.warn('Please run "npm run build" in the frontend directory first');
 }
 
-// Routes - Auth with login rate limiting
-app.use('/api/auth', loginLimiter, require('./routes/auth'));
+// Routes - per-route limiters live inside ./routes/auth (login/forgot);
+// mounting the limiter here would make them share one budget.
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/prestasi', require('./routes/prestasi'));
 app.use('/api/organisasi', require('./routes/organisasi'));

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../utils/api';
 
 // Default support link shown on the login page when school config has none set.
@@ -392,6 +392,15 @@ function Login() {
               }}></span>
             )}
           </button>
+
+          <p style={{
+            textAlign: 'center',
+            fontSize: '.85rem',
+            color: '#5b6478',
+            marginTop: '.4rem'
+          }}>
+            <Link to="/lupa-password" style={{ color: '#28396b', fontWeight: '600', textDecoration: 'none' }}>Lupa password?</Link>
+          </p>
 
           <p style={{
             textAlign: 'center',

@@ -328,6 +328,7 @@ function KelolaAkun() {
       setFormData({
         nama: user.nama,
         nis: user.nis,
+        username: user.username || '',
         jurusan: user.jurusan,
         grha: user.grha,
         tahun_pelajaran: user.tahun_pelajaran
@@ -336,6 +337,7 @@ function KelolaAkun() {
       setFormData({
         nama: user.nama,
         nip: user.nip,
+        username: user.username || '',
         jabatan: user.jabatan || user.detail || '',
         no_hp: user.no_hp
       });
@@ -346,6 +348,12 @@ function KelolaAkun() {
   const handleUpdateUser = async (e) => {
     e.preventDefault();
     try {
+      // Superadmin may also rename the account: applied first so a failed
+      // rename aborts before biodata is touched.
+      const newUsername = (formData.username || '').trim();
+      if (userRole === 'superadmin' && newUsername && newUsername !== (editStudent.username || '')) {
+        await api.put(`/users/${editStudent.id}/username`, { username: newUsername });
+      }
       // Biodata edits apply directly, no approval needed (guru/pegawai may
       // only touch siswa targets — enforced server-side too).
       await api.put(`/users/${editStudent.id}/biodata`, formData);
@@ -1688,6 +1696,13 @@ function KelolaAkun() {
                 <label>Nama</label>
                 <input type="text" value={formData.nama || ''} onChange={(e) => setFormData({...formData, nama: e.target.value})} required />
               </div>
+              {userRole === 'superadmin' && (
+                <div className="form-group">
+                  <label>Username</label>
+                  <input type="text" value={formData.username || ''} onChange={(e) => setFormData({...formData, username: e.target.value})} required />
+                  <small style={{ color: '#666', fontSize: '12px' }}>5-20 karakter: huruf, angka, dan !@#_ (tanpa spasi). Mengubah username akan mengubah login akun tersebut.</small>
+                </div>
+              )}
               
               {editStudent?.role === 'siswa' ? (
                 <>

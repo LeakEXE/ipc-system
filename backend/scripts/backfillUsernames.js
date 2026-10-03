@@ -1,5 +1,6 @@
-// One-off backfill: generate usernames for existing rows that lack one,
-// then flag every account for first-login credential setup.
+// One-off backfill: generate usernames (plain letters of the name, no random
+// suffix) for existing rows that lack one, then flag every account for
+// first-login credential setup.
 // Usage: cd backend && node scripts/backfillUsernames.js
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -9,12 +10,12 @@ const { generateUsername } = require('../utils/username');
 (async () => {
     try {
         const [rows] = await db.query(
-            'SELECT id, nama FROM users WHERE username IS NULL OR username = ? ORDER BY id',
+            'SELECT id, nama, nis, nip FROM users WHERE username IS NULL OR username = ? ORDER BY id',
             ['']
         );
         console.log(`Found ${rows.length} users without username`);
         for (const row of rows) {
-            const username = await generateUsername(row.nama);
+            const username = await generateUsername(row.nama, { nis: row.nis, nip: row.nip });
             await db.query('UPDATE users SET username = ? WHERE id = ?', [username, row.id]);
             console.log(`  id=${row.id} nama=${row.nama} -> ${username}`);
         }

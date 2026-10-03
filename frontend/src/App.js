@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Login from './components/Login';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import FirstLoginSetup from './components/FirstLoginSetup';
 import Dashboard from './components/Dashboard';
 import Navbar from './components/Navbar';
@@ -116,6 +118,7 @@ function App() {
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/lupa-password" element={<ForgotPassword />} />
         <Route path="/setup-akun" element={
           <ProtectedRoute>
             {() => <FirstLoginSetup />}
@@ -174,6 +177,11 @@ function App() {
         <Route path="/kelola-akun" element={
           <ProtectedRoute allowedRoles={['superadmin']}>
             {(user) => <MainLayout user={user}><KelolaAkun /></MainLayout>}
+          </ProtectedRoute>
+        } />
+        <Route path="/reset-password" element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            {(user) => <MainLayout user={user}><ResetPassword /></MainLayout>}
           </ProtectedRoute>
         } />
         <Route path="/izin-akun" element={

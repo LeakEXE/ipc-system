@@ -11,7 +11,7 @@ const { logActivity } = require('../utils/logger');
 const { gradePrefixFromKelas, getIptAwalForGrade } = require('../utils/iptConfig');
 const { syncBiodataChange } = require('../utils/biodataSync');
 const { deletePhotoIfOrphan } = require('../utils/fileUtils');
-const { generateUsername } = require('../utils/username');
+const { generateUsername, validateUsernameFormat, isUsernameAvailable } = require('../utils/username');
 
 // Postgres LIKE is case-sensitive, so all user-facing name/NIS searches must
 // use ILIKE. Multi-word queries are tokenized: every token must appear in the
@@ -685,8 +685,9 @@ router.post('/create-student', auth, superAdminOnly, async (req, res) => {
 
         const hashedPassword = bcrypt.hashSync(password, 10);
 
-        // Auto-generate a unique username (user changes it on first login)
-        const username = await generateUsername(nama);
+        // Auto-generate a username from the name (no random suffix; NIS feeds
+        // the deterministic duplicate suffix, user changes it on first login)
+        const username = await generateUsername(nama, { nis });
 
         const ipt_awal = await getIptAwalForGrade(gradePrefixFromKelas(calculatedClass));
         const [result] = await db.query(
@@ -743,8 +744,9 @@ router.post('/create-teacher', auth, superAdminOnly, async (req, res) => {
         // Set role based on jabatan to ensure proper filtering
         const userRole = teacherJabatan === 'Pegawai' ? 'pegawai' : 'guru';
 
-        // Auto-generate a unique username (user changes it on first login)
-        const username = await generateUsername(nama);
+        // Auto-generate a username from the name (no random suffix; NIP feeds
+        // the deterministic duplicate suffix, user changes it on first login)
+        const username = await generateUsername(nama, { nip });
 
         const [result] = await db.query(
             'INSERT INTO users (nama, nip, username, password, role, detail, alamat, no_hp, wali_kelas, ipt_total, ipt_awal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -1167,6 +1169,32 @@ router.put('/:id/biodata', auth, teacherOrSuperAdmin, async (req, res) => {
     }
 });
 
+// Change another user's username (Superadmin only, e.g. from Kelola Akun).
+// No current-password check: the superadmin acts on someone else's account.
+router.put('/:id/username', auth, superAdminOnly, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id, 10);
+        const { username } = req.body;
+        const formatError = validateUsernameFormat(username);
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
+        }
+        const [target] = await db.query('SELECT id, nama, username FROM users WHERE id = ?', [userId]);
+        if (target.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        if (!(await isUsernameAvailable(username, userId))) {
+            return res.status(400).json({ message: 'Username sudah dipakai' });
+        }
+        await db.query('UPDATE users SET username = ? WHERE id = ?', [username, userId]);
+        await logActivity(req.user.id, 'CHANGE_USERNAME_BY_ADMIN', `Superadmin changed username of user #${userId} (${target[0].nama}) from ${target[0].username} to ${username}`, req.ip);
+        res.json({ message: 'Username berhasil diubah', username });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // Approve/Reject password reset request (SuperAdmin only)
 // Grant = set a temporary password + force /setup-akun on next session.
 router.put('/password-reset-approvals/:id', auth, superAdminOnly, async (req, res) => {
@@ -1239,6 +1267,65 @@ router.put('/password-reset-approvals/:id', auth, superAdminOnly, async (req, re
 
             res.json({ message: 'Permintaan reset password ditolak' });
         }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Direct password reset (SuperAdmin only, no request row needed).
+// Sets a temporary password + forces /setup-akun on next login, same
+// outcome as approving a reset request. Any pending reset requests for
+// the user are auto-resolved so the Approvals queue doesn't go stale.
+router.put('/:id/reset-password', auth, superAdminOnly, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id, 10);
+        if (Number.isNaN(userId)) {
+            return res.status(400).json({ message: 'ID pengguna tidak valid' });
+        }
+        const { tempPassword } = req.body || {};
+        if (typeof tempPassword !== 'string' || tempPassword.length < 6) {
+            return res.status(400).json({ message: 'Password sementara minimal 6 karakter' });
+        }
+        if (tempPassword.length > 72) {
+            return res.status(400).json({ message: 'Password sementara maksimal 72 karakter' });
+        }
+
+        const [target] = await db.query('SELECT id, nama, role FROM users WHERE id = ?', [userId]);
+        if (target.length === 0) {
+            return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
+        }
+        if (target[0].role === 'superadmin') {
+            return res.status(403).json({ message: 'Tidak dapat mereset password akun superadmin' });
+        }
+
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+        await db.query(
+            'UPDATE users SET password = ?, must_change_credentials = TRUE WHERE id = ?',
+            [hashedPassword, userId]
+        );
+
+        // Auto-resolve any pending reset requests for this user.
+        const [pending] = await db.query(
+            "SELECT id FROM password_reset_requests WHERE user_id = ? AND status = 'pending'",
+            [userId]
+        );
+        for (const row of pending) {
+            await db.query(
+                "UPDATE password_reset_requests SET status = 'approved', superadmin_notes = 'Direset langsung oleh SuperAdmin', superadmin_approved_at = NOW() WHERE id = ?",
+                [row.id]
+            );
+        }
+
+        await db.query(
+            `INSERT INTO notifications (user_id, type, title, message, related_id, related_type)
+             VALUES (?, 'approved', 'Password Direset SuperAdmin', ?, NULL, 'password_reset')`,
+            [userId, 'Password Anda direset oleh SuperAdmin. Silakan login dengan password sementara yang diberikan, lalu ikuti proses penggantian password.']
+        );
+
+        await logActivity(req.user.id, 'ADMIN_RESET_PASSWORD', `SuperAdmin mereset langsung password akun user #${userId} (${target[0].nama})`, req.ip);
+
+        res.json({ message: `Password ${target[0].nama} berhasil direset. User akan diminta mengganti password saat login berikutnya.` });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
