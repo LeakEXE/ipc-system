@@ -43,7 +43,7 @@ const forgotLimiter = rateLimit({
 // General API rate limiting
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 300, // limit each IP to 300 requests per minute
+  max: 500, // limit each IP to 500 requests per minute
   message: {
     message: 'Too many requests, please try again later'
   },
