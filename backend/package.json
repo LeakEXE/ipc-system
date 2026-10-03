@@ -12,6 +12,8 @@
     "migrate:usernames": "node scripts/migrateUsernamesToLetters.js"
   },
   "dependencies": {
+    "@pm2/io": "^6.1.0",
+    "@prometheus-io/client": "^0.16.1",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
