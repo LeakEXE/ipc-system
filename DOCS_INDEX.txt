@@ -250,7 +250,7 @@ SECURITY FEATURES
 ✓ Role-based Access Control (RBAC)
 ✓ SQL Injection Prevention
 ✓ XSS Prevention
-✓ Rate Limiting (100 req/min)
+✓ Rate Limiting (500 req/min)
 ✓ Login Rate Limiting (5 attempts/15min)
 ✓ Helmet Security Headers
 ✓ CORS Protection

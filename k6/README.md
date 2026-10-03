@@ -23,7 +23,7 @@ k6 version
    `5xx > 1%` · `p95 dashboard/stats > 2s sustained` · real users complain.
 
 Rate-limit math (single k6 machine = single IP):
-`apiLimiter` 100 req/min ≈ 1.6 rps. 10 VUs with ~3s think-time ≈ 3 rps
+`apiLimiter` 500 req/min ≈ 8.3 rps. 10 VUs with ~3s think-time ≈ 3 rps
 → expect some `429`. The script tracks these as `rate_limited`, not failures.
 If `rate_limited > 30%`, your IP budget is saturated — lower VUs or use staging.
 
