@@ -11,7 +11,6 @@
 | Login rate limiting | `middleware/security.js` (`loginLimiter`) | Maks 5x percobaan / 15 menit per IP; login sukses tidak dihitung |
 | Logout rate limiting | `middleware/security.js` (`logoutLimiter`) | Maks 10x / 15 menit per IP |
 | API rate limiting | `middleware/security.js` (`apiLimiter`) | Maks 100 request / menit per IP |
-| Speed limiting | `middleware/security.js` (`speedLimiter`) | Respons diperlambat setelah 50 request / menit |
 | Security headers | `middleware/security.js` (`securityHeaders`, helmet) | Header HTTP keamanan standar |
 | SQL injection prevention | `middleware/security.js` (`sqlInjectionPrevention`) | Pola SQL berbahaya di request ditolak (403); query DB memakai prepared statements |
 | Password hashing | `routes/auth.js` (bcrypt) | Password tidak pernah disimpan plain-text |

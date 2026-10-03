@@ -42,4 +42,15 @@ async function metricsHandler(req, res) {
     res.end(await register.metrics());
 }
 
-module.exports = { httpMetricsMiddleware, metricsHandler };
+// Bearer-token guard for /metrics. When METRICS_TOKEN is set (production),
+// the scraper must send `Authorization: Bearer <token>` (Prometheus
+// `bearer_token` in scrape_config); anything else gets 403. When unset
+// (local dev), the endpoint stays open.
+function metricsAuth(req, res, next) {
+    const token = process.env.METRICS_TOKEN;
+    if (!token) return next();
+    if (req.headers.authorization === `Bearer ${token}`) return next();
+    res.status(403).end();
+}
+
+module.exports = { httpMetricsMiddleware, metricsAuth, metricsHandler };

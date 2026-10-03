@@ -43,22 +43,12 @@ const forgotLimiter = rateLimit({
 // General API rate limiting
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // limit each IP to 100 requests per minute
+  max: 300, // limit each IP to 300 requests per minute
   message: {
     message: 'Too many requests, please try again later'
   },
   standardHeaders: true,
   legacyHeaders: false
-});
-
-// Speed limiting - slow down responses after certain threshold
-const speedLimiter = slowDown({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  delayAfter: 50, // allow 50 requests at full speed
-  delayMs: (used, req) => {
-    const delayAfter = req.slowDown.limit;
-    return (used - delayAfter) * 500;
-  }
 });
 
 // SQL Injection prevention middleware
@@ -242,7 +232,6 @@ module.exports = {
   logoutLimiter,
   forgotLimiter,
   apiLimiter,
-  speedLimiter,
   sqlInjectionPrevention,
   xssPrevention,
   sanitizeInput,
