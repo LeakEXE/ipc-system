@@ -231,7 +231,6 @@ npm start
   "express-validator": "^7.0.1" // Input validation
   "helmet": "^7.1.0"            // Security headers
   "express-rate-limit": "^7.1.5" // Rate limiting
-  "express-slow-down": "^2.0.1"  // Speed limiting
 }
 ```
 
